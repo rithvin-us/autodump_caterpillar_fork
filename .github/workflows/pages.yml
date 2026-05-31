@@ -1,0 +1,45 @@
+# Auto-deploy this static site to GitHub Pages on every push to main.
+#
+# After adding this file to your repo, do this ONCE:
+#   1. Settings → Pages → Source = "GitHub Actions"
+#   2. git push
+#   3. Wait 30-60 seconds, then visit https://<USER>.github.io/<REPO>/
+name: Deploy AutoDump to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Upload the repo root (where index.html lives).
+          # If you move the site into a subfolder, change this to e.g. "./site"
+          path: "."
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
