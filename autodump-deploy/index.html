@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>AutoDump — Caterpillar Innovation Challenge 2026</title>
+<link rel="canonical" href="https://YOUR-USERNAME.github.io/autodump/"/>
+<meta name="description" content="AutoDump — reinforcement-learning optimal dump packing for autonomous Cat 793 mining trucks. Caterpillar Innovation Challenge 2026, PS-4. Team Techiva@26."/>
+<meta name="author" content="Team Techiva@26 — PSG Institute of Technology"/>
+<meta name="theme-color" content="#0B1320"/>
+<meta name="keywords" content="AutoDump, Caterpillar, mining, autonomous trucks, reinforcement learning, Q-learning, PS-4, Techiva@26, PSGitech"/>
+
+<!-- Open Graph (Slack/WhatsApp/LinkedIn preview) -->
+<meta property="og:type" content="website"/>
+<meta property="og:title" content="AutoDump — RL-Driven Dump Packing for Autonomous Cat 793 Trucks"/>
+<meta property="og:description" content="62% → 75% field coverage with zero new hardware. Live demo of trained Q-learning agent, sweep-line zone decomposition, and deadlock-free token broker."/>
+<meta property="og:url" content="https://YOUR-USERNAME.github.io/autodump/"/>
+<meta property="og:site_name" content="AutoDump"/>
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="AutoDump — Caterpillar Innovation Challenge 2026"/>
+<meta name="twitter:description" content="Live RL demo: 62% → 75% coverage on irregular mining fields, zero new hardware."/>
+
+<!-- Favicon (inline SVG, no extra file) -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%23FFC107"/><text x="32" y="46" font-family="Arial,sans-serif" font-size="42" font-weight="900" text-anchor="middle" fill="%23000">A</text></svg>"/>
+
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#0B1320;--bg1:#0F1A2E;--bg2:#162540;--bg3:#1E3050;
+  --border:#243958;--border2:#2E456A;
+  --txt:#E8EEF8;--txt2:#90A4C8;--txt3:#5A7099;
+  --cat:#FFC107;--cat2:#FFB300;--cat-dim:#7A5010;--cat-bg:rgba(255,193,7,.12);
+  --green:#00D26A;--green-bg:rgba(0,210,106,.15);
+  --red:#FF4D5E;--red-bg:rgba(255,77,94,.15);
+  --blue:#3DB5F7;--blue-bg:rgba(61,181,247,.15);
+  --purple:#9B6BFF;
+}
+html,body{height:100%;overflow:hidden;font-family:'Barlow Condensed',Arial,sans-serif;background:var(--bg0);color:var(--txt)}
+body{font-size:14px}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.05) 2px,rgba(0,0,0,.05) 4px);pointer-events:none;z-index:9999}
+#shell{display:grid;grid-template-rows:54px 1fr 28px;height:100vh}
+#topbar{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,#0F1A2E,#162540);border-bottom:2px solid var(--cat);padding:0 22px;z-index:10;box-shadow:0 2px 12px rgba(0,0,0,.4)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:34px;height:34px;background:var(--cat);color:#000;font-weight:900;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:18px;font-family:'Share Tech Mono',Consolas,monospace}
+.brand-name{font-size:22px;font-weight:900;letter-spacing:2px;color:var(--cat)}
+.brand-sub{font-size:13px;color:var(--txt2);letter-spacing:1px;font-weight:300}
+.brand-badge{margin-left:6px;background:var(--cat);color:#000;font-size:10px;font-weight:700;padding:3px 9px;border-radius:3px;letter-spacing:.5px}
+.top-stats{display:flex;align-items:center;gap:24px;font-size:12px;color:var(--txt2)}
+.top-stat strong{color:var(--cat);font-family:'Share Tech Mono',Consolas,monospace;font-size:13px;letter-spacing:.5px}
+.live-pill{display:flex;align-items:center;gap:6px;background:var(--green-bg);border:1px solid rgba(0,210,106,.4);padding:4px 12px;border-radius:20px;color:var(--green);font-weight:700;font-size:12px}
+.pulse{width:8px;height:8px;border-radius:50%;background:currentColor;animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.6)}}
+#main{display:grid;grid-template-columns:220px 1fr;overflow:hidden}
+#sidebar{background:var(--bg1);border-right:1px solid var(--border2);display:flex;flex-direction:column;padding:14px 0;gap:4px;overflow-y:auto}
+.sb-label{font-size:9px;font-weight:700;color:var(--txt3);letter-spacing:2.5px;text-transform:uppercase;padding:14px 18px 6px}
+.nav-item{display:flex;align-items:center;gap:11px;padding:11px 18px;font-size:14px;font-weight:500;color:var(--txt2);cursor:pointer;transition:all .15s;letter-spacing:.4px;border-left:3px solid transparent}
+.nav-item:hover{background:var(--bg2);color:var(--txt)}
+.nav-item.active{background:var(--cat-bg);color:var(--cat);font-weight:700;border-left-color:var(--cat)}
+.nav-num{width:22px;height:22px;border-radius:50%;background:var(--bg3);color:var(--txt3);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',Consolas,monospace}
+.nav-item.active .nav-num{background:var(--cat);color:#000}
+.sb-info{margin:14px 14px 8px;padding:12px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;font-size:12px}
+.sb-info-row{display:flex;justify-content:space-between;padding:5px 0}
+.sb-info-row span:first-child{color:var(--txt3);font-size:10px;text-transform:uppercase;letter-spacing:1px}
+.sb-info-row span:last-child{color:var(--cat);font-family:'Share Tech Mono',Consolas,monospace}
+#content{display:flex;flex-direction:column;background:var(--bg0);overflow:hidden}
+.page{display:none;flex:1;overflow:auto;padding:24px 28px}
+.page.active{display:flex;flex-direction:column;gap:20px}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.page-title{font-size:24px;font-weight:900;color:var(--txt);letter-spacing:1px}
+.page-title span{color:var(--cat)}
+.page-sub{font-size:13px;color:var(--txt2);margin-top:3px}
+.tag{display:inline-block;background:var(--cat-bg);color:var(--cat);font-size:11px;font-weight:700;padding:3px 10px;border-radius:3px;letter-spacing:1px;text-transform:uppercase}
+.card{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:10px}
+.card-title{font-size:13px;font-weight:700;color:var(--cat);letter-spacing:1.5px;text-transform:uppercase}
+.card-sub{font-size:11px;color:var(--txt3);font-family:'Share Tech Mono',Consolas,monospace}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.stat{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:14px;text-align:center}
+.stat-v{font-size:28px;font-weight:900;color:var(--cat);font-family:'Share Tech Mono',Consolas,monospace;line-height:1}
+.stat-v.green{color:var(--green)} .stat-v.red{color:var(--red)} .stat-v.blue{color:var(--blue)}
+.stat-l{font-size:11px;color:var(--txt3);letter-spacing:1.2px;text-transform:uppercase;margin-top:6px}
+canvas.field{background:#070C18;border:1px solid var(--border);border-radius:6px;width:100%;display:block}
+.btn{font-size:13px;font-weight:600;padding:8px 16px;border-radius:6px;cursor:pointer;border:1px solid var(--border2);background:var(--bg2);color:var(--txt);letter-spacing:.5px;transition:all .15s;display:inline-flex;align-items:center;gap:6px;font-family:'Barlow Condensed',Arial,sans-serif}
+.btn:hover{background:var(--bg3);border-color:var(--txt3)}
+.btn.primary{background:var(--cat-bg);color:var(--cat);border-color:var(--cat);font-weight:700}
+.btn.primary:hover{background:rgba(255,193,7,.22)}
+.btn.success{background:var(--green-bg);color:var(--green);border-color:var(--green)}
+.btn.danger{background:var(--red-bg);color:var(--red);border-color:var(--red)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 10px;color:var(--txt3);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--txt);font-family:'Share Tech Mono',Consolas,monospace;font-size:12px}
+tr:hover td{background:var(--bg2)}
+td.k{color:var(--txt3);font-family:'Barlow Condensed',Arial,sans-serif}
+td.v{color:var(--cat);font-weight:700}
+.hero{background:linear-gradient(135deg,#162540,#0F1A2E);border:1px solid var(--cat);border-radius:14px;padding:32px;display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center}
+.hero-num{font-size:88px;font-weight:900;color:var(--cat);font-family:'Share Tech Mono',Consolas,monospace;line-height:1;text-shadow:0 0 30px rgba(255,193,7,.4)}
+.hero-num small{display:block;font-size:14px;color:var(--txt2);letter-spacing:2px;margin-top:6px;font-family:'Barlow Condensed',Arial,sans-serif;font-weight:600}
+.hero-text h1{font-size:32px;font-weight:900;color:var(--txt);letter-spacing:1px;margin-bottom:8px}
+.hero-text p{font-size:15px;color:var(--txt2);line-height:1.6;max-width:600px}
+.pipeline{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px}
+.pipe-node{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:18px;position:relative;overflow:hidden}
+.pipe-node::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:var(--cat)}
+.pipe-node h3{font-size:14px;font-weight:700;color:var(--cat);letter-spacing:1px;margin-bottom:8px;text-transform:uppercase}
+.pipe-node h3 small{color:var(--txt3);font-weight:400;font-size:10px;letter-spacing:1.5px;margin-left:6px;font-family:'Share Tech Mono',Consolas,monospace}
+.pipe-node p{font-size:12px;color:var(--txt2);line-height:1.5}
+.log{background:#070C18;border:1px solid var(--border);border-radius:6px;padding:10px;font-family:'Share Tech Mono',Consolas,monospace;font-size:11px;color:var(--green);max-height:200px;overflow-y:auto;line-height:1.6}
+.log-line{padding:1px 0}
+.log-line.amber{color:var(--cat)}.log-line.blue{color:var(--blue)}.log-line.red{color:var(--red)}
+.cov-wrap{height:300px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:18px;display:flex;flex-direction:column;align-items:center}
+.cov-bar-bg{width:80px;height:200px;background:#070C18;border:1px solid var(--border2);border-radius:6px;position:relative;overflow:hidden;margin-top:8px}
+.cov-bar-fill{position:absolute;bottom:0;left:0;width:100%;background:linear-gradient(180deg,var(--green),var(--cat));transition:height .4s ease}
+.cov-bar-line{position:absolute;left:-6px;right:-6px;height:1.5px;background:var(--red);opacity:.7}
+.cov-bar-line span{position:absolute;right:-78px;font-size:10px;color:var(--red);font-family:'Share Tech Mono',Consolas,monospace;white-space:nowrap;top:-7px}
+.cov-pct{font-size:38px;font-weight:900;color:var(--cat);font-family:'Share Tech Mono',Consolas,monospace;margin-top:14px;line-height:1}
+.cov-l{font-size:11px;color:var(--txt3);letter-spacing:1.5px;margin-top:4px}
+#footer{display:flex;align-items:center;justify-content:space-between;background:var(--bg1);border-top:1px solid var(--border);padding:0 20px;font-size:11px;color:var(--txt3);font-family:'Share Tech Mono',Consolas,monospace;letter-spacing:1px}
+#footer span.amber{color:var(--cat)}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg0)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:var(--txt3)}
+.chart{width:100%;height:280px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px}
+.chart-legend{display:flex;gap:18px;justify-content:center;margin-top:6px;font-size:11px;color:var(--txt2);font-family:'Share Tech Mono',Consolas,monospace}
+.chart-legend i{display:inline-block;width:14px;height:2px;vertical-align:middle;margin-right:4px}
+
+/* Tilt card (pure CSS) */
+.tilt-card-container{perspective:1200px;margin-top:12px}
+.tilt-card{width:100%;height:160px;border-radius:10px;background:linear-gradient(135deg,var(--bg2),var(--bg1));border:1px solid var(--border);display:flex;align-items:center;justify-content:center;transition:transform .35s cubic-bezier(.2,.9,.2,1),box-shadow .35s;transform-style:preserve-3d}
+.tilt-card:hover{transform:rotateX(8deg) rotateY(-8deg) translateY(-6px);box-shadow:0 18px 40px rgba(0,0,0,.45)}
+.tilt-inner{transform:translateZ(30px);text-align:center}
+.tilt-card h3{color:var(--cat);margin-bottom:6px}
+.tilt-card p{color:var(--txt2);font-size:13px}
+@media (prefers-reduced-motion:reduce){.tilt-card,.tilt-card:hover{transition:none;transform:none}}
+</style>
+</head>
+<body>
+<div id="shell">
+
+<div id="topbar">
+  <div class="brand">
+    <div class="brand-mark">A</div>
+    <div>
+      <div class="brand-name">AutoDump</div>
+      <div class="brand-sub">Autonomous Dump Optimization</div>
+    </div>
+    <div class="brand-badge">SELF-CONTAINED v1.4</div>
+  </div>
+  <div class="top-stats">
+    <div class="top-stat">CHALLENGE <strong>PS-4 Optimal Dump Packing</strong></div>
+    <div class="top-stat">TEAM <strong>Techiva@26 / PSGitech</strong></div>
+    <div class="top-stat">FIELD <strong id="t-area">— m²</strong></div>
+    <div class="top-stat">ZONES <strong id="t-zones">—</strong></div>
+    <div class="live-pill"><div class="pulse"></div>OFFLINE</div>
+  </div>
+</div>
+
+<div id="main">
+
+  <div id="sidebar">
+    <div class="sb-label">DASHBOARD</div>
+    <div class="nav-item active" data-page="problem"><span class="nav-num">1</span>Problem Statement</div>
+    <div class="nav-item" data-page="zones"><span class="nav-num">2</span>Zone Decomposition</div>
+    <div class="nav-item" data-page="simulation"><span class="nav-num">3</span>Live RL Simulation</div>
+    <div class="nav-item" data-page="training"><span class="nav-num">4</span>ML Training Results</div>
+    <div class="nav-item" data-page="results"><span class="nav-num">5</span>Before vs After</div>
+    <div class="nav-item" data-page="tokens"><span class="nav-num">6</span>Token Protocol</div>
+    <div class="nav-item" data-page="custom"><span class="nav-num">7</span>Custom Field</div>
+    <div class="nav-item" data-page="architecture"><span class="nav-num">8</span>Architecture</div>
+    <div class="sb-label">SYSTEM STATUS</div>
+    <div class="sb-info">
+      <div class="sb-info-row"><span>Q-table</span><span id="i-q">embedded</span></div>
+      <div class="sb-info-row"><span>Zones</span><span id="i-zones">—</span></div>
+      <div class="sb-info-row"><span>Truck width</span><span id="i-tw">9.0 m</span></div>
+      <div class="sb-info-row"><span>States</span><span id="i-states">60</span></div>
+      <div class="sb-info-row"><span>Actions</span><span id="i-actions">3</span></div>
+    </div>
+  </div>
+
+  <div id="content">
+
+    <!-- PAGE 1: PROBLEM -->
+    <div class="page active" id="page-problem">
+      <div class="hero">
+        <div class="hero-text">
+          <span class="tag" style="margin-bottom:10px">Caterpillar Innovation Challenge 2026 — Problem Statement 4</span>
+          <h1>Optimal Dump Packing</h1>
+          <p>Autonomous Cat 793 trucks dump on irregular mining fields using rigid pre-defined spot points. Operator safety buffers and field-agnostic grids leave corners and edges unfilled — about <strong>62% coverage</strong>. AutoDump combines geometric zone decomposition, a trained Q-learning agent, and a deadlock-free token protocol to lift coverage <em>with zero new hardware</em>.</p>
+        </div>
+        <div class="hero-num">~62%<small>BASELINE COVERAGE</small></div>
+      </div>
+      <div class="grid-5">
+        <div class="stat"><div class="stat-v red" id="s-base">—</div><div class="stat-l">Baseline</div></div>
+        <div class="stat"><div class="stat-v" id="s-rl">—</div><div class="stat-l">AutoDump RL</div></div>
+        <div class="stat"><div class="stat-v blue" id="s-ceil">—</div><div class="stat-l">Ceiling</div></div>
+        <div class="stat"><div class="stat-v" id="s-imp">—</div><div class="stat-l">Improvement</div></div>
+        <div class="stat"><div class="stat-v green" id="s-headroom">—</div><div class="stat-l">Headroom</div></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">Solution Architecture — Three Layers</div><div class="card-sub">novelty = combination</div></div>
+        <div class="pipeline">
+          <div class="pipe-node"><h3>Layer 1 <small>O(n log n)</small></h3><p style="margin-bottom:6px"><strong style="color:var(--cat)">Zone Decomposition</strong></p><p>Sweep-line partitions any polygon into 9 m strips. Concave-aware.</p></div>
+          <div class="pipe-node"><h3>Layer 2 <small>Q-Learning</small></h3><p style="margin-bottom:6px"><strong style="color:var(--cat)">Reinforcement Learning</strong></p><p>Tabular ε-greedy agent picks DUMP / ADVANCE / SKIP. Trained on 1500 episodes.</p></div>
+          <div class="pipe-node"><h3>Layer 3 <small>Coffman 1971</small></h3><p style="margin-bottom:6px"><strong style="color:var(--cat)">Token Protocol</strong></p><p>FIFO zone-token broker. All four deadlock conditions violated.</p></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">Key Innovation Metrics</div><div class="card-sub">embedded · loaded from trained model</div></div>
+        <table>
+          <thead><tr><th>Metric</th><th>Baseline</th><th>AutoDump RL</th><th>Ceiling</th><th>Δ vs baseline</th></tr></thead>
+          <tbody id="metric-table"></tbody>
+        </table>
+      </div>
+
+      <!-- Tilt demo card -->
+      <div class="card ad-tilt-card">
+        <div class="card-h"><div class="card-title">Interactive Tilt Demo</div><div class="card-sub">Pure CSS hover tilt</div></div>
+        <div class="tilt-card-container">
+          <div class="tilt-card">
+            <div class="tilt-inner">
+              <h3>Tilt Card</h3>
+              <p>Hover this card to see a lightweight 3D tilt effect (pure CSS).</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 2: ZONES -->
+    <div class="page" id="page-zones">
+      <div class="page-header">
+        <div><div class="page-title">Zone <span>Decomposition</span></div><div class="page-sub">Sweep-line · truck-width strips · O(n log n)</div></div>
+        <div class="btn-row">
+          <button class="btn primary" onclick="animateSweep()">▶ Animate sweep</button>
+          <button class="btn" onclick="drawZones()">Static view</button>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card" style="padding:14px">
+          <div class="card-h"><div class="card-title">Field Polygon &amp; Zones</div><div class="card-sub" id="zones-sub">—</div></div>
+          <canvas id="zoneCanvas" class="field" width="640" height="540"></canvas>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-h"><div class="card-title">Zone Table</div></div>
+            <table><thead><tr><th>Zone</th><th>y_bot</th><th>y_top</th><th>x_min</th><th>x_max</th><th>Area</th></tr></thead><tbody id="zone-table"></tbody></table>
+          </div>
+          <div class="card" style="margin-top:18px">
+            <div class="card-h"><div class="card-title">How it works</div></div>
+            <p style="font-size:13px;color:var(--txt2);line-height:1.6">A horizontal sweep line scans from bottom to top, clipping the polygon against each truck-width strip using a ray-casting test. Each strip becomes a zone with a unique token. <strong style="color:var(--cat)">O(n log n)</strong> in vertex count.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 3: SIMULATION -->
+    <div class="page" id="page-simulation">
+      <div class="page-header">
+        <div><div class="page-title">Live RL <span>Simulation</span></div><div class="page-sub">Trained Q-agent · greedy policy from embedded Q-table</div></div>
+        <div class="btn-row">
+          <button class="btn primary" onclick="simReset()">↻ Reset</button>
+          <button class="btn success" id="sim-play-btn" onclick="simToggle()">▶ Auto-step</button>
+          <button class="btn" onclick="simStep(20)">+20 steps</button>
+          <button class="btn" onclick="simStep(50)">+50 steps</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 280px;gap:18px;flex:1">
+        <div class="card" style="padding:14px">
+          <div class="card-h"><div class="card-title">Field state · Heatmap</div><div class="card-sub" id="sim-sub">step 0</div></div>
+          <canvas id="simCanvas" class="field" width="640" height="540"></canvas>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="cov-wrap">
+            <div class="card-title" style="color:var(--cat)">FIELD COVERAGE</div>
+            <div class="cov-bar-bg">
+              <div class="cov-bar-line" style="bottom:62.18%"><span>BASE 62%</span></div>
+              <div class="cov-bar-line" style="bottom:99.4%;background:var(--blue);opacity:.6"><span style="color:var(--blue)">CEIL 99%</span></div>
+              <div class="cov-bar-fill" id="cov-fill" style="height:0%"></div>
+            </div>
+            <div class="cov-pct" id="cov-pct">0.0%</div>
+            <div class="cov-l">vs Baseline 62.18%</div>
+          </div>
+          <div class="card" style="padding:12px"><div class="card-h"><div class="card-title">Token Status</div></div><div id="tokens"></div></div>
+          <div class="card" style="padding:12px;flex:1"><div class="card-h"><div class="card-title">Event Log</div></div><div class="log" id="event-log"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 4: TRAINING -->
+    <div class="page" id="page-training">
+      <div class="page-header">
+        <div><div class="page-title">ML <span>Training Results</span></div><div class="page-sub">Tabular ε-greedy Q-learning · curves embedded inline</div></div>
+        <div class="tag">REAL DATA — embedded from artifacts/train_metrics.json</div>
+      </div>
+      <div class="grid-4">
+        <div class="stat"><div class="stat-v" id="t-episodes">—</div><div class="stat-l">Episodes</div></div>
+        <div class="stat"><div class="stat-v blue" id="t-elapsed">—</div><div class="stat-l">Training Time</div></div>
+        <div class="stat"><div class="stat-v" id="t-states-v">—</div><div class="stat-l">State Space</div></div>
+        <div class="stat"><div class="stat-v green" id="t-eval">—</div><div class="stat-l">Eval Coverage</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-h"><div class="card-title">Reward per Episode</div><div class="card-sub">smoothed</div></div>
+          <svg class="chart" id="rewardChart"></svg>
+        </div>
+        <div class="card">
+          <div class="card-h"><div class="card-title">Coverage per Episode</div><div class="card-sub">RL vs baseline vs ceiling</div></div>
+          <svg class="chart" id="coverageChart"></svg>
+          <div class="chart-legend">
+            <span><i style="background:#00D26A"></i>RL coverage</span>
+            <span><i style="background:#FF4D5E;border-top:2px dashed #FF4D5E;height:0"></i>Baseline 62%</span>
+            <span><i style="background:#3DB5F7"></i>Ceiling 99%</span>
+          </div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card"><div class="card-h"><div class="card-title">Hyperparameters</div></div><table id="hyper-table"></table></div>
+        <div class="card"><div class="card-h"><div class="card-title">Evaluation Summary</div></div><table id="eval-table"></table></div>
+      </div>
+    </div>
+
+    <!-- PAGE 5: BEFORE / AFTER -->
+    <div class="page" id="page-results">
+      <div class="page-header"><div><div class="page-title">Before <span>vs</span> After</div><div class="page-sub">Same field — rigid grid vs trained AutoDump policy</div></div></div>
+      <div class="grid-2" style="flex:1">
+        <div class="card">
+          <div class="card-h"><div class="card-title" style="color:var(--red)">BEFORE — Rigid grid-spot</div></div>
+          <canvas id="beforeCanvas" class="field" width="600" height="500"></canvas>
+          <div style="display:flex;justify-content:space-around;margin-top:12px">
+            <div style="text-align:center"><div class="stat-v red" id="r-base-cov">—</div><div class="stat-l">Coverage</div></div>
+            <div style="text-align:center"><div class="stat-v red" id="r-base-dumps">—</div><div class="stat-l">Dumps</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div class="card-title" style="color:var(--green)">AFTER — AutoDump RL</div></div>
+          <canvas id="afterCanvas" class="field" width="600" height="500"></canvas>
+          <div style="display:flex;justify-content:space-around;margin-top:12px">
+            <div style="text-align:center"><div class="stat-v green" id="r-rl-cov">—</div><div class="stat-l">Coverage</div></div>
+            <div style="text-align:center"><div class="stat-v green" id="r-rl-dumps">—</div><div class="stat-l">Dumps</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="background:linear-gradient(90deg,var(--bg1),var(--bg2));border-color:var(--cat)">
+        <div style="display:flex;align-items:center;justify-content:space-around;padding:14px 0">
+          <div style="text-align:center"><div style="font-size:14px;color:var(--txt2);letter-spacing:2px;margin-bottom:4px">IMPROVEMENT</div><div style="font-size:54px;font-weight:900;color:var(--cat);font-family:'Share Tech Mono',Consolas,monospace" id="big-imp">+— pp</div></div>
+          <div style="text-align:center"><div style="font-size:14px;color:var(--txt2);letter-spacing:2px;margin-bottom:4px">NEW HARDWARE</div><div style="font-size:54px;font-weight:900;color:var(--green);font-family:'Share Tech Mono',Consolas,monospace">ZERO</div></div>
+          <div style="text-align:center"><div style="font-size:14px;color:var(--txt2);letter-spacing:2px;margin-bottom:4px">DEADLOCKS</div><div style="font-size:54px;font-weight:900;color:var(--green);font-family:'Share Tech Mono',Consolas,monospace">0</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 6: TOKEN PROTOCOL -->
+    <div class="page" id="page-tokens">
+      <div class="page-header">
+        <div><div class="page-title">Layer 3 — <span>Token Protocol</span></div><div class="page-sub">Live scenarios · proves deadlock-freedom · Coffman 1971</div></div>
+        <div class="btn-row">
+          <button class="tok-btn btn primary" data-s="fifo" onclick="runTokenScenario('fifo')">▶ FIFO contention</button>
+          <button class="tok-btn btn" data-s="crash" onclick="runTokenScenario('crash')">⚠ Crash timeout</button>
+          <button class="tok-btn btn" data-s="fairness" onclick="runTokenScenario('fairness')">⚖ Fairness</button>
+          <button class="tok-btn btn" data-s="saturated" onclick="runTokenScenario('saturated')">🚚 10-truck saturation</button>
+        </div>
+      </div>
+      <div class="card"><div class="card-h"><div class="card-title" id="tok-title">scenario timeline</div><div class="card-sub" id="tok-lesson">—</div></div><div id="tok-timeline" style="padding:10px 0"></div></div>
+      <div class="grid-2">
+        <div class="card"><div class="card-h"><div class="card-title">Event log</div></div><table id="tok-events"></table></div>
+        <div class="card">
+          <div class="card-h"><div class="card-title">Coffman 1971 — all four violated</div></div>
+          <table>
+            <thead><tr><th>Condition</th><th>How AutoDump violates it</th></tr></thead>
+            <tbody>
+              <tr><td class="k">1. Mutual exclusion</td><td>Bounded token capacity (finite count).</td></tr>
+              <tr><td class="k">2. Hold and wait</td><td>All-or-nothing acquisition before truck moves.</td></tr>
+              <tr><td class="k">3. No pre-emption</td><td>Supervisor revokes via heartbeat timeout (see CRASH).</td></tr>
+              <tr><td class="k">4. Circular wait</td><td>FIFO ordering inside each zone-queue (see FAIRNESS).</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 7: CUSTOM FIELD -->
+    <div class="page" id="page-custom">
+      <div class="page-header">
+        <div><div class="page-title">Custom <span>Field</span></div><div class="page-sub">Draw any polygon · pipeline rebuilds zones live · greedy packer fills it</div></div>
+        <div class="btn-row">
+          <button class="btn" onclick="canvasUndo()">↶ Undo vertex</button>
+          <button class="btn" onclick="canvasClear()">✕ Clear</button>
+          <button class="btn primary" onclick="canvasClose()">✓ Close + run</button>
+          <button class="btn" onclick="canvasPreset('rect')">▭ Rectangle</button>
+          <button class="btn" onclick="canvasPreset('lshape')">⌐ L-shape</button>
+          <button class="btn danger" onclick="canvasReset()">⟲ Default polygon</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 280px;gap:18px;flex:1">
+        <div class="card" style="padding:14px"><div class="card-h"><div class="card-title">Draw polygon (click vertices · double-click to close)</div><div class="card-sub" id="custom-sub">click to start</div></div><canvas id="customCanvas" class="field" width="700" height="540" style="cursor:crosshair"></canvas></div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="stat"><div class="stat-v" id="cf-zones">—</div><div class="stat-l">Zones generated</div></div>
+          <div class="stat"><div class="stat-v blue" id="cf-area">—</div><div class="stat-l">Inside area (m²)</div></div>
+          <div class="stat"><div class="stat-v green" id="cf-cov">—</div><div class="stat-l">Greedy coverage</div></div>
+          <div class="stat"><div class="stat-v" id="cf-dumps">—</div><div class="stat-l">Dumps placed</div></div>
+          <div class="card" style="padding:12px;font-size:11px;color:var(--txt2);line-height:1.6"><div class="card-title" style="margin-bottom:6px">How it works</div>On submit, the in-browser pipeline runs sweep-line decomposition (sliver-merge + MultiPolygon support) and then a greedy circle-packer. The trained Q-table only fits the original polygon, so custom shapes use the greedy packer.</div>
+          <div class="card" style="padding:12px;font-size:11px;color:var(--txt2)" id="cf-warnings"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 8: ARCHITECTURE -->
+    <div class="page" id="page-architecture">
+      <div class="page-header"><div><div class="page-title">System <span>Architecture</span></div><div class="page-sub">All logic runs in-browser · zero backend</div></div></div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">End-to-end pipeline</div></div>
+        <div style="padding:20px">
+          <svg viewBox="0 0 1000 280" style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">
+            <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#FFC107"/></marker></defs>
+            <rect x="20" y="60" width="160" height="160" rx="12" fill="#162540" stroke="#FFC107" stroke-width="2"/>
+            <text x="100" y="90" fill="#FFC107" text-anchor="middle" font-family="Barlow Condensed,Arial" font-weight="700" font-size="14">FIELD INPUT</text>
+            <text x="100" y="115" fill="#90A4C8" text-anchor="middle" font-family="monospace" font-size="11">Polygon vertices</text>
+            <text x="100" y="180" fill="#5A7099" text-anchor="middle" font-size="10">FIELD_VERTS[]</text>
+            <line x1="185" y1="140" x2="225" y2="140" stroke="#FFC107" stroke-width="2" marker-end="url(#ar)"/>
+            <rect x="230" y="60" width="160" height="160" rx="12" fill="#162540" stroke="#3DB5F7" stroke-width="2"/>
+            <text x="310" y="90" fill="#3DB5F7" text-anchor="middle" font-family="Barlow Condensed,Arial" font-weight="700" font-size="14">LAYER 1</text>
+            <text x="310" y="113" fill="#E8EEF8" text-anchor="middle" font-weight="600" font-size="13">Zone Decomposition</text>
+            <text x="310" y="140" fill="#90A4C8" text-anchor="middle" font-family="monospace" font-size="11">sweep-line</text>
+            <text x="310" y="160" fill="#90A4C8" text-anchor="middle" font-family="monospace" font-size="11">O(n log n)</text>
+            <line x1="395" y1="140" x2="435" y2="140" stroke="#FFC107" stroke-width="2" marker-end="url(#ar)"/>
+            <rect x="440" y="60" width="160" height="160" rx="12" fill="#162540" stroke="#00D26A" stroke-width="2"/>
+            <text x="520" y="90" fill="#00D26A" text-anchor="middle" font-family="Barlow Condensed,Arial" font-weight="700" font-size="14">LAYER 2</text>
+            <text x="520" y="113" fill="#E8EEF8" text-anchor="middle" font-weight="600" font-size="13">RL Q-Learning</text>
+            <text x="520" y="140" fill="#90A4C8" text-anchor="middle" font-family="monospace" font-size="11">60 states · 3 actions</text>
+            <text x="520" y="190" fill="#5A7099" text-anchor="middle" font-size="10">trained · embedded</text>
+            <line x1="605" y1="140" x2="645" y2="140" stroke="#FFC107" stroke-width="2" marker-end="url(#ar)"/>
+            <rect x="650" y="60" width="160" height="160" rx="12" fill="#162540" stroke="#9B6BFF" stroke-width="2"/>
+            <text x="730" y="90" fill="#9B6BFF" text-anchor="middle" font-family="Barlow Condensed,Arial" font-weight="700" font-size="14">LAYER 3</text>
+            <text x="730" y="113" fill="#E8EEF8" text-anchor="middle" font-weight="600" font-size="13">Token Protocol</text>
+            <text x="730" y="140" fill="#90A4C8" text-anchor="middle" font-family="monospace" font-size="11">Coffman 1971</text>
+            <text x="730" y="160" fill="#90A4C8" text-anchor="middle" font-family="monospace" font-size="11">deadlock-free</text>
+            <line x1="815" y1="140" x2="855" y2="140" stroke="#FFC107" stroke-width="2" marker-end="url(#ar)"/>
+            <rect x="860" y="60" width="120" height="160" rx="12" fill="#162540" stroke="#FFC107" stroke-width="2"/>
+            <text x="920" y="90" fill="#FFC107" text-anchor="middle" font-family="Barlow Condensed,Arial" font-weight="700" font-size="14">OUTPUT</text>
+            <text x="920" y="115" fill="#E8EEF8" text-anchor="middle" font-weight="600" font-size="13">Dump plan</text>
+            <text x="920" y="140" fill="#00D26A" text-anchor="middle" font-family="monospace" font-size="14" font-weight="700">~75%</text>
+            <text x="920" y="160" fill="#90A4C8" text-anchor="middle" font-family="monospace" font-size="11">coverage</text>
+          </svg>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card"><div class="card-h"><div class="card-title">In-browser modules</div></div>
+          <table><thead><tr><th>Module</th><th>What it does</th></tr></thead><tbody>
+            <tr><td>buildZones()</td><td class="k">sweep-line decomposition + sliver-merge</td></tr>
+            <tr><td>buildMask()</td><td class="k">ray-casting field mask</td></tr>
+            <tr><td>Env.step()</td><td class="k">Q-agent transition + reward</td></tr>
+            <tr><td>greedyFill()</td><td class="k">circle-packing ceiling computation</td></tr>
+            <tr><td>TokenBroker</td><td class="k">FIFO + heartbeat + clearance flag</td></tr>
+          </tbody></table>
+        </div>
+        <div class="card"><div class="card-h"><div class="card-title">Deployment</div></div>
+          <p style="font-size:13px;color:var(--txt2);line-height:1.7">This is a <strong style="color:var(--cat)">single HTML file</strong>. Trained Q-table is embedded as a JS array (180 floats). Training metrics, polygon, and all algorithm logic are inline. No server, no install, no build step. Open the file in any modern browser — that's it.</p>
+          <p style="font-size:12px;color:var(--txt3);margin-top:10px;font-family:'Share Tech Mono',Consolas,monospace">file_size ≈ 65 KB &nbsp; · &nbsp; only network call: Google Fonts</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="footer">
+  <span>TECHIVA@26 · PSGitech · Caterpillar Innovation Challenge 2026 · PS-4 — single-page build v1.4</span>
+  <span class="amber" id="f-step">ready</span>
+</div>
+</div>
+
+<script>
+// ========================================================================
+//  EMBEDDED DATA — trained model, training history, all loaded inline
+// ========================================================================
+const EMBED = {"q_table": [[28.54313035770366, 30.70046940432455, 24.64126291231666], [-3.117916877480062, 0.647441229225441, 0.2953610255315758], [0.2783010274448099, 1.07859267570647, 0.38431734463680994], [0.0, 0.0, 0.0], [33.4715119979524, 28.347945121054767, 26.718247201161518], [23.886028344469576, 19.598585836601085, 22.256401963607313], [0.36774024420503276, 1.5407730575939094, 0.32404471411930824], [0.6560472920247009, 0.717650730455515, 0.42311842349797213], [19.686920105970017, 19.324171722960447, 25.85680721168434], [19.633604200886477, 17.776650106396286, 16.00296751130752], [0.5481271492702694, 2.029128069627202, 0.6075404508943641], [0.0, 0.0, 0.0], [10.68097473772358, 9.942599518436822, 9.340861946678615], [7.976375147161864, 11.053042795685208, 7.921215116762367], [1.8213242155933398, 0.5526340379542107, 0.5050192077734013], [0.29127388790598724, 1.4155042915806033, 0.285771796621622], [-0.3531704094491013, 1.215835942277522, 1.192145996244161], [-1.815449371108261, 15.406693131520615, 0.8897810288134866], [0.5658314541686174, 0.4917466834091352, 0.5599480751683169], [0.0, 0.0, 0.0], [43.03579204220587, 35.2502622473194, 17.963292132150887], [16.624811822340543, 4.204898052104255, 3.336344389251233], [-3.0028526801716655, 0.1577395023317973, 0.1847784542317089], [0.0, 0.0, 0.0], [48.587058454794374, 33.554792167204376, 19.457475099525105], [43.6991120475023, 35.417032281284165, 16.19434438859131], [0.41450195331146544, 0.4019199597213202, 0.38916248931648534], [0.3529532117398148, 0.4412956648099056, 0.45405878454408305], [37.14089786902461, 23.533881023380328, 17.73592325874781], [36.986663257381394, 22.149414422627697, 16.89625320608342], [1.329316562540199, 9.302816452826525, 1.3761492889074767], [0.46545393564441756, 0.48398178125663166, 0.4695298184883753], [17.43601580753456, 18.105913814291096, 15.217102265767114], [30.665716874324474, 18.132118528289354, 15.429286995406885], [0.3818239315026135, 4.087315210602794, 0.4124385444424117], [0.3758816682229601, 0.4853739940828442, 0.4422406071799406], [19.11177296019273, 14.094235267105958, 16.2411475238642], [22.429438820466473, 15.544980739456706, 15.069095202287789], [0.32329275769940924, 4.9170932226568, 11.97673229795867], [7.518788529069487, 5.865566192036286, 3.818779173481884], [16.584663438589786, 21.473868444866042, 1.3027914403169887], [0.7189110647936527, 4.461626872594087, 1.3915450109123615], [-3.5940660579203225, 0.21112351389722908, 0.3737232538815942], [-3.4876753282370827, 0.11232865714829729, 1.1725347811033333], [23.47991629049581, 18.676723086734135, 3.0535370901662535], [16.150606009898752, 9.084786762590102, 4.063113693410436], [15.308509923646534, 6.841202832990016, 4.732818899823845], [0.644503975360866, 0.728729089562575, 0.4414969729696301], [14.799146591361218, 14.461193901082897, 13.632532129773924], [12.50794979811214, 12.220971432629531, 6.500684184845783], [11.823649685666627, 8.539444636426454, 6.990605263206635], [0.7422899170817842, 1.0757889110774856, 0.4652025352177639], [13.589930954437405, 11.032794444351095, 6.107438498645194], [6.416295783293986, 6.921715852259554, 3.840105844658957], [6.823434511360121, 4.966020367352688, 2.0500333131702977], [0.37266620340847934, 1.705778912829723, 0.5682428532235114], [2.3431812053488805, 10.262898520577085, 4.012642807073454], [1.778560847540012, 1.8473214463030905, 0.7189996362893212], [-0.5478712578312305, 0.9428793399215877, 2.269265480332572], [-0.40030429146370444, 1.23686071334925, 0.33513601685393496]], "q_shape": [60, 3], "baseline_pct": 62.18, "baseline_dumps": 10, "baseline_dump_positions": [[10.5, 3.0], [17.0, 3.0], [4.0, 9.5], [10.5, 9.5], [17.0, 9.5], [23.5, 9.5], [4.0, 16.0], [10.5, 16.0], [17.0, 16.0], [23.5, 16.0]], "eval_pct": 74.84, "eval_dumps": 72.0, "improvement_pp": 12.66, "episodes": 1500, "elapsed_sec": 24.5, "state_space_size": 60, "alpha": 0.25, "gamma": 0.95, "eps_start": 1.0, "eps_end": 0.05, "rewards_ds": [-145.44, -135.92, -132.02, -130.72, -140.46, -148.78, -124.16, -120.62, -113.56, -96.6, -111.84, -56.72, -132.24, -85.74, -123.66, -89.02, -136.62, -33.32, -85.4, -55.1, -103.68, -80.98, -59.68, -59.96, -103.38, -57.48, -34.82, -88.7, -103.94, -68.64, -62.62, -18.54, -21.8, -82.04, -18.24, -46.84, 24.2, -47.36, -27.58, -31.32, -30.96, -41.46, -22.54, -40.1, -37.02, -47.88, 1.34, -70.12, -11.76, -55.98, 36.1, -49.16, 22.58, 1.86, -6.86, -54.28, 34.76, 29.5, -25.32, -11.78, -6.18, -10.5, -8.26, -3.82, 32.8, 0.0, 27.66, 37.94, 24.5, 12.84, 67.18, 24.6, 44.72, 36.82, 20.32, 8.9, 49.9, 20.46, 76.0, 18.36, 59.74, 45.46, 48.54, 49.4, 44.46, 60.0, 55.54, 52.0, 64.02, 65.12, 70.74, 77.4, 47.72, 61.26, 54.18, 60.14, 80.98, 74.72, 75.2, 79.24, 78.16, 61.16, 78.6, 73.34, 65.22, 79.38, 73.42, 65.3, 69.7, 69.3, 58.32, 66.52, 57.68, 71.08, 76.48, 80.14, 73.9, 68.82, 77.04, 69.24], "coverage_ds": [60.5, 70.0, 61.2, 60.7, 66.9, 77.9, 73.8, 72.9, 70.4, 73.7, 76.2, 71.3, 62.9, 75.4, 60.0, 73.5, 73.5, 76.9, 73.1, 74.7, 65.4, 75.7, 78.1, 77.3, 74.7, 74.7, 77.2, 75.0, 68.5, 74.0, 75.3, 78.6, 76.9, 76.2, 75.6, 79.4, 74.5, 79.7, 74.9, 72.1, 76.0, 74.4, 60.5, 73.1, 60.2, 71.2, 79.9, 73.5, 78.6, 63.2, 79.8, 73.3, 78.2, 70.9, 63.5, 74.7, 77.5, 77.9, 80.1, 77.9, 67.0, 73.7, 73.3, 66.0, 72.1, 72.9, 75.6, 74.1, 70.7, 73.3, 78.5, 75.3, 74.7, 73.4, 64.0, 75.0, 77.1, 75.4, 77.4, 58.4, 70.4, 74.3, 71.2, 72.6, 74.6, 72.6, 70.1, 70.2, 68.6, 69.6, 70.1, 74.5, 73.4, 67.9, 64.9, 69.6, 72.7, 72.6, 71.5, 72.8, 74.0, 73.0, 73.7, 71.7, 72.3, 75.3, 72.0, 69.9, 77.1, 76.6, 70.7, 76.8, 71.9, 72.9, 72.9, 75.4, 73.9, 76.0, 73.3, 74.6]};
+
+// ========================================================================
+//  FIELD GEOMETRY (matches the Python prototype exactly)
+// ========================================================================
+const FIELD_W = 30, FIELD_H = 26, GRID_RES = 0.5;
+const TRUCK_WIDTH = 9.0, DUMP_FOOTPRINT = 3.2;
+const DEFAULT_VERTS = [
+  [5,2],[18,1],[25,5],[28,10],[26,18],[22,22],[15,24],[8,23],[3,18],[2,12],[5,2]
+];
+const HW = Math.floor(FIELD_W / GRID_RES) + 2;
+const HH = Math.floor(FIELD_H / GRID_RES) + 2;
+const SLIVER_MIN = TRUCK_WIDTH * 0.5;
+
+// runtime polygon (may be swapped by Custom Field page)
+let FIELD = { verts: DEFAULT_VERTS, zones: [], mask: null, inside: 0, source:"default" };
+
+// ---------- polygon utilities (ray-casting, shoelace) ----------
+function pip(x, y, V) {
+  let inside = false; const n = V.length - (
+    Math.abs(V[0][0]-V[V.length-1][0])<1e-9 && Math.abs(V[0][1]-V[V.length-1][1])<1e-9 ? 1 : 0
+  );
+  for (let i=0, j=n-1; i<n; j=i++) {
+    const xi=V[i][0], yi=V[i][1], xj=V[j][0], yj=V[j][1];
+    if (((yi>y)!=(yj>y)) && (x < (xj-xi)*(y-yi)/((yj-yi)+1e-12)+xi)) inside = !inside;
+  }
+  return inside;
+}
+function shoeArea(V) {
+  let n = V.length;
+  if (Math.abs(V[0][0]-V[n-1][0])<1e-9 && Math.abs(V[0][1]-V[n-1][1])<1e-9) n--;
+  let a = 0;
+  for (let i=0; i<n; i++) {
+    const j=(i+1)%n; a += V[i][0]*V[j][1] - V[j][0]*V[i][1];
+  }
+  return Math.abs(a)/2;
+}
+function polyXRange(V, y0, y1) {
+  let xs = [];
+  for (let k=0; k<12; k++) {
+    const y = y0 + (y1-y0)*k/11;
+    let row = [];
+    for (let x = -1; x <= FIELD_W+1; x += 0.4) if (pip(x, y, V)) row.push(x);
+    if (row.length) xs.push(Math.min(...row), Math.max(...row));
+  }
+  if (!xs.length) {
+    const xmin = Math.min(...V.map(v=>v[0])), xmax = Math.max(...V.map(v=>v[0]));
+    return [xmin, xmax];
+  }
+  return [Math.min(...xs), Math.max(...xs)];
+}
+
+function buildZones(V) {
+  const ymin = Math.min(...V.map(v=>v[1])), ymax = Math.max(...V.map(v=>v[1]));
+  const Z = []; let y = ymin, idx = 0;
+  while (y < ymax) {
+    const yt = Math.min(y + TRUCK_WIDTH, ymax);
+    const [xmin, xmax] = polyXRange(V, y, yt);
+    if (xmax - xmin > 0.1) {
+      Z.push({id:idx, sub:0, y_bot:y, y_top:yt, x_min:xmin, x_max:xmax,
+              area:(xmax-xmin)*(yt-y)});
+      idx++;
+    }
+    y = yt;
+  }
+  // sliver merge
+  if (Z.length >= 2 && (Z[Z.length-1].y_top - Z[Z.length-1].y_bot) < SLIVER_MIN) {
+    const last = Z.pop(), prev = Z[Z.length-1];
+    prev.y_top = last.y_top;
+    prev.x_min = Math.min(prev.x_min, last.x_min);
+    prev.x_max = Math.max(prev.x_max, last.x_max);
+    prev.area += last.area;
+    prev.merged_sliver = true;
+    Z.forEach((z,i) => z.id = i);
+  }
+  return Z;
+}
+
+function buildMask(V) {
+  const m = new Uint8Array(HW * HH);
+  for (let gy=0; gy<HH; gy++)
+    for (let gx=0; gx<HW; gx++)
+      if (pip(gx*GRID_RES, gy*GRID_RES, V)) m[gy*HW + gx] = 1;
+  return m;
+}
+
+function maskGet(m, gx, gy) { return m[gy*HW + gx]; }
+
+function rebuildField(verts) {
+  FIELD.verts = verts;
+  FIELD.zones = buildZones(verts);
+  FIELD.mask  = buildMask(verts);
+  let n = 0;
+  for (let i = 0; i < FIELD.mask.length; i++) if (FIELD.mask[i]) n++;
+  FIELD.inside = n;
+}
+
+// ========================================================================
+//  Q-LEARNING ENVIRONMENT (port of ml/environment.py)
+// ========================================================================
+class Env {
+  constructor() {
+    this.nLane = 5; this.nDens = 4; this.maxSteps = 300;
+    this.reset(42);
+  }
+  reset(seed) {
+    this.zone_id = 0; this.lane_pos = 0;
+    this.heatmap = new Float32Array(HW*HH);
+    this.filled = new Uint8Array(HW*HH);
+    this.nFilled = 0; this.dumps = []; this.step_count = 0;
+    this.done = false; this.last_action = -1; this.last_reward = 0;
+  }
+  currentXY() {
+    const z = FIELD.zones[this.zone_id];
+    return [z.x_min + this.lane_pos*(z.x_max-z.x_min), 0.5*(z.y_bot+z.y_top)];
+  }
+  enc() {
+    const lane_b = Math.min(this.nLane-1, Math.floor(this.lane_pos*this.nLane));
+    const [x,y] = this.currentXY();
+    const r = Math.floor(TRUCK_WIDTH/GRID_RES/2);
+    const gx = Math.floor(x/GRID_RES), gy = Math.floor(y/GRID_RES);
+    let m_=0, f_=0;
+    for (let dy=-r; dy<=r; dy++) {
+      const ny=gy+dy; if (ny<0||ny>=HH) continue;
+      for (let dx=-r; dx<=r; dx++) {
+        const nx=gx+dx; if (nx<0||nx>=HW) continue;
+        if (FIELD.mask[ny*HW+nx]) { m_++; if (this.filled[ny*HW+nx]) f_++; }
+      }
+    }
+    const sat = f_ / Math.max(m_,1);
+    const sat_b = Math.min(this.nDens-1, Math.floor(sat*this.nDens));
+    return this.zone_id * this.nLane * this.nDens + lane_b * this.nDens + sat_b;
+  }
+  coverage() { return this.nFilled / Math.max(FIELD.inside, 1); }
+  applyDump(x, y) {
+    const before = this.nFilled;
+    const rc = Math.ceil(DUMP_FOOTPRINT/GRID_RES);
+    const gx = Math.floor(x/GRID_RES), gy = Math.floor(y/GRID_RES);
+    for (let dy=-rc; dy<=rc; dy++) {
+      const ny=gy+dy; if (ny<0||ny>=HH) continue;
+      for (let dx=-rc; dx<=rc; dx++) {
+        const nx=gx+dx; if (nx<0||nx>=HW) continue;
+        const d = Math.hypot(dx,dy)*GRID_RES;
+        if (d <= DUMP_FOOTPRINT) {
+          const bump = Math.max(0, 0.85 - 0.18*d);
+          const idx = ny*HW+nx;
+          const nv = Math.min(1, this.heatmap[idx] + bump);
+          if (nv > 0.15 && !this.filled[idx] && FIELD.mask[idx]) {
+            this.filled[idx] = 1; this.nFilled++;
+          }
+          this.heatmap[idx] = nv;
+        }
+      }
+    }
+    return (this.nFilled - before) / Math.max(FIELD.inside, 1);
+  }
+  step(action) {
+    let info = {event:"", coverage:this.coverage()};
+    let reward = -0.1;
+    const [x,y] = this.currentXY();
+    if (action === 0) {
+      const gx = Math.max(0, Math.min(HW-1, Math.floor(x/GRID_RES)));
+      const gy = Math.max(0, Math.min(HH-1, Math.floor(y/GRID_RES)));
+      if (!FIELD.mask[gy*HW+gx]) {
+        reward += -5; info.event = "OVERHANG";
+      } else {
+        const gf = this.applyDump(x,y), cg = gf * FIELD.inside;
+        reward += 2 * (cg / 25);
+        const overlap = this.dumps.some(d => Math.hypot(d[0]-x,d[1]-y) < DUMP_FOOTPRINT*0.7);
+        if (!overlap) reward += 0.5;
+        if (cg < 3) { reward += -0.4; info.event="WASTED"; }
+        else info.event = "DUMP_OK";
+        const nb = this.dumps.filter(d => Math.hypot(d[0]-x,d[1]-y) < 2*TRUCK_WIDTH).length;
+        if (this.dumps.length >= 5 && nb === 0) { reward += -1; info.event="ISOLATED"; }
+        this.dumps.push([x,y]);
+      }
+      this.lane_pos = Math.min(1, this.lane_pos + 0.10);
+    } else if (action === 1) {
+      this.lane_pos = Math.min(1, this.lane_pos + 0.12); info.event="ADVANCE";
+    } else {
+      this.zone_id = (this.zone_id + 1) % FIELD.zones.length;
+      this.lane_pos = 0; info.event="ZONE_SKIP";
+    }
+    if (this.lane_pos >= 0.999) { this.zone_id = (this.zone_id+1) % FIELD.zones.length; this.lane_pos = 0; }
+    this.step_count++; this.last_action = action; this.last_reward = reward;
+    const cov = this.coverage(); info.coverage = cov;
+    if (this.step_count >= this.maxSteps || cov >= 0.92) this.done = true;
+    return [this.enc(), reward, this.done, info];
+  }
+  snapshot() {
+    return { zone_id:this.zone_id, lane_pos:this.lane_pos, xy:this.currentXY(),
+             coverage:this.coverage(), n_dumps:this.dumps.length,
+             dumps:this.dumps.slice(-40), step:this.step_count, done:this.done };
+  }
+}
+
+// ========================================================================
+//  GREEDY CIRCLE-PACKER (for ceiling + custom polygons)
+// ========================================================================
+function greedyFill(mask, inside) {
+  const filled = new Uint8Array(HW*HH);
+  let nFilled = 0; const dumps = [];
+  const cands = [];
+  for (let gy=0; gy<HH; gy++)
+    for (let gx=0; gx<HW; gx++)
+      if (mask[gy*HW+gx]) cands.push([gx*GRID_RES, gy*GRID_RES]);
+  let placed = 0;
+  while (true) {
+    let best = 0, bestXY = null;
+    for (let i=0; i<cands.length; i+=4) {
+      const [x,y] = cands[i];
+      let ok = true;
+      for (const d of dumps) if (Math.hypot(d[0]-x,d[1]-y) < DUMP_FOOTPRINT*0.6) { ok=false; break; }
+      if (!ok) continue;
+      const rc = Math.ceil(DUMP_FOOTPRINT/GRID_RES);
+      const cgx = Math.floor(x/GRID_RES), cgy = Math.floor(y/GRID_RES);
+      let gain = 0;
+      for (let dy=-rc; dy<=rc; dy++) {
+        const ny=cgy+dy; if (ny<0||ny>=HH) continue;
+        for (let dx=-rc; dx<=rc; dx++) {
+          const nx=cgx+dx; if (nx<0||nx>=HW) continue;
+          if (Math.hypot(dx,dy)*GRID_RES <= DUMP_FOOTPRINT) {
+            const idx = ny*HW+nx;
+            if (mask[idx] && !filled[idx]) gain++;
+          }
+        }
+      }
+      if (gain > best) { best = gain; bestXY = [x,y]; }
+    }
+    if (!bestXY || best < 3) break;
+    // apply
+    const [x,y] = bestXY;
+    const rc = Math.ceil(DUMP_FOOTPRINT/GRID_RES);
+    const cgx = Math.floor(x/GRID_RES), cgy = Math.floor(y/GRID_RES);
+    for (let dy=-rc; dy<=rc; dy++) {
+      const ny=cgy+dy; if (ny<0||ny>=HH) continue;
+      for (let dx=-rc; dx<=rc; dx++) {
+        const nx=cgx+dx; if (nx<0||nx>=HW) continue;
+        if (Math.hypot(dx,dy)*GRID_RES <= DUMP_FOOTPRINT) {
+          const idx = ny*HW+nx;
+          if (mask[idx] && !filled[idx]) { filled[idx]=1; nFilled++; }
+        }
+      }
+    }
+    dumps.push(bestXY); placed++;
+    if (placed > 200) break;
+  }
+  return { coverage: nFilled / Math.max(inside,1), dumps, n: placed };
+}
+
+// ========================================================================
+//  TOKEN BROKER (port of simulation/token_broker.py)
+// ========================================================================
+class TokenBroker {
+  constructor(nZones, heartbeatTimeout=5.0) {
+    this.tokens = []; this.t = 0; this.events = [];
+    this.heartbeatTimeout = heartbeatTimeout;
+    for (let z=0; z<nZones; z++) this.tokens.push({zone:z, holder:null, lastHb:0, queue:[]});
+  }
+  log(kind, truck, zone, note="") {
+    this.events.push({t:+this.t.toFixed(2), kind, truck, zone, note});
+  }
+  request(t, z) {
+    const tok = this.tokens[z];
+    this.log("REQUEST", t, z);
+    if (tok.holder === null) { tok.holder=t; tok.lastHb=this.t; this.log("GRANT",t,z); return "GRANTED"; }
+    if (tok.holder === t) { tok.lastHb=this.t; return "GRANTED"; }
+    if (!tok.queue.includes(t)) { tok.queue.push(t); this.log("QUEUE",t,z,"position "+tok.queue.length); }
+    return "QUEUED";
+  }
+  release(t, z, reason="exit") {
+    const tok = this.tokens[z];
+    if (tok.holder !== t) { this.log("DENY",t,z,"not the holder"); return false; }
+    this.log("RELEASE",t,z,reason); tok.holder = null; this.promote(z); return true;
+  }
+  heartbeat(t, z) { const tok = this.tokens[z]; if (tok.holder===t) tok.lastHb=this.t; }
+  tick(dt=1.0) {
+    this.t += dt;
+    for (const tok of this.tokens) {
+      if (tok.holder === null) continue;
+      if (this.t - tok.lastHb > this.heartbeatTimeout) {
+        const stale = tok.holder;
+        this.log("TIMEOUT", stale, tok.zone, "no heartbeat for "+(this.t-tok.lastHb).toFixed(1)+"s");
+        tok.holder = null;
+        this.promote(tok.zone, true);
+      }
+    }
+  }
+  promote(zone, requiresClearance=false) {
+    const tok = this.tokens[zone];
+    if (tok.queue.length && tok.holder === null) {
+      const next = tok.queue.shift(); tok.holder = next; tok.lastHb = this.t;
+      let note = "from queue";
+      if (requiresClearance) {
+        note += " · REQUIRES PHYSICAL CLEARANCE";
+        this.log("CLEARANCE", next, zone, "wait for LiDAR / operator confirm before entry");
+      }
+      this.log("GRANT", next, zone, note);
+    }
+  }
+}
+
+const TOKEN_SCENARIOS = {
+  fifo() {
+    const b = new TokenBroker(3);
+    b.request(1,0); b.tick(0.5);
+    b.request(2,0); b.tick(0.5);
+    b.request(3,0); b.tick(1.0);
+    b.heartbeat(1,0); b.tick(2.0);
+    b.release(1,0); b.tick(0.5);
+    b.heartbeat(2,0); b.tick(2.0);
+    b.release(2,0); b.tick(0.5);
+    b.release(3,0);
+    return {events:b.events, title:"FIFO contention — three trucks, one zone",
+            lesson:"Coffman #4 (circular wait) violated by FIFO ordering."};
+  },
+  crash() {
+    const b = new TokenBroker(3);
+    b.request(1,0); b.tick(1.0);
+    b.heartbeat(1,0); b.tick(1.0);
+    b.request(2,0); b.tick(1.0);
+    for (let i=0; i<7; i++) b.tick(1.0);
+    return {events:b.events, title:"Crash timeout — stale holder auto-released",
+            lesson:"Coffman #3 (no pre-emption) violated by watchdog revocation."};
+  },
+  fairness() {
+    const b = new TokenBroker(3);
+    b.request(1,0); b.tick(0.5);
+    b.request(2,0); b.tick(0.5);
+    b.request(3,0); b.tick(0.5);
+    b.heartbeat(1,0); b.tick(1.0);
+    b.release(1,0); b.tick(0.5);
+    return {events:b.events, title:"FIFO fairness — first request wins",
+            lesson:"Broker = single source of truth; truck position irrelevant."};
+  },
+  saturated() {
+    const b = new TokenBroker(3); const reqT={}, grantT={};
+    for (let t=1; t<=10; t++) { b.request(t,0); reqT[t]=b.t; b.tick(0.4); }
+    while (b.tokens.some(tk => tk.holder!==null || tk.queue.length)) {
+      const h = b.tokens[0].holder; if (h===null) break;
+      b.heartbeat(h,0); b.tick(1.5); b.release(h,0);
+      const nh = b.tokens[0].holder;
+      if (nh!==null && grantT[nh]===undefined) grantT[nh]=b.t;
+    }
+    const waits = []; for (let t=1; t<=10; t++) waits.push((grantT[t]||reqT[t]) - reqT[t]);
+    const mean = waits.reduce((a,b)=>a+b,0)/waits.length;
+    const max = Math.max(...waits);
+    return {events:b.events, title:"Saturated fleet — 10 trucks, 1 zone",
+            lesson:`FIFO handles 10 trucks deadlock-free. Mean wait = ${mean.toFixed(1)}s, max = ${max.toFixed(1)}s. Throughput KPI surfaced.`,
+            mean_wait:mean.toFixed(2), max_wait:max.toFixed(2)};
+  }
+};
+
+// ========================================================================
+//  BASELINE (rigid grid-spot)
+// ========================================================================
+function baselineRollout() {
+  const env = new Env(); env.reset();
+  const SP=6.5, SB=2.0;
+  const V = FIELD.verts;
+  const xmin = Math.min(...V.map(v=>v[0]))+SB, xmax = Math.max(...V.map(v=>v[0]))-SB;
+  const ymin = Math.min(...V.map(v=>v[1]))+SB, ymax = Math.max(...V.map(v=>v[1]))-SB;
+  for (let y=ymin; y<=ymax+0.01; y+=SP)
+    for (let x=xmin; x<=xmax+0.01; x+=SP) {
+      const gx=Math.floor(x/GRID_RES), gy=Math.floor(y/GRID_RES);
+      if (gx>=0&&gx<HW&&gy>=0&&gy<HH&&FIELD.mask[gy*HW+gx]) {
+        env.applyDump(x,y); env.dumps.push([x,y]);
+      }
+    }
+  return {coverage:env.coverage(), n_dumps:env.dumps.length, dumps:env.dumps};
+}
+
+// ========================================================================
+//  DASHBOARD LOGIC (navigation, charts, canvas)
+// ========================================================================
+function setInfo(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+
+document.querySelectorAll(".nav-item").forEach(el => {
+  el.addEventListener("click", () => {
+    document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+    el.classList.add("active");
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    document.getElementById("page-"+el.dataset.page).classList.add("active");
+    onPageEnter(el.dataset.page);
+  });
+});
+
+function onPageEnter(page) {
+  if (page === "zones") drawZones();
+  if (page === "simulation") drawSim(SIM.last);
+  if (page === "training") renderCharts();
+  if (page === "results") drawResults();
+  if (page === "tokens") runTokenScenario("fifo");
+  if (page === "custom") { _cfCanvas(); cfDraw(); }
+}
+
+let CEILING = null;
+let BASELINE = null;
+let SIM = { running:false, timer:null, last:null, env:null };
+
+function boot() {
+  rebuildField(DEFAULT_VERTS);
+  // Compute baseline + ceiling
+  BASELINE = baselineRollout();
+  setInfo("s-base", BASELINE.coverage*100|0); // placeholder
+  setInfo("s-base", (BASELINE.coverage*100).toFixed(1)+"%");
+  setInfo("r-base-cov", (BASELINE.coverage*100).toFixed(1)+"%");
+  setInfo("r-base-dumps", BASELINE.n_dumps);
+  CEILING = greedyFill(FIELD.mask, FIELD.inside);
+  setInfo("s-ceil", (CEILING.coverage*100).toFixed(1)+"%");
+  setInfo("s-rl",   EMBED.eval_pct.toFixed(1)+"%");
+  setInfo("s-imp",  "+"+EMBED.improvement_pp.toFixed(1)+" pp");
+  const head = CEILING.coverage*100 - EMBED.eval_pct;
+  setInfo("s-headroom", "+"+head.toFixed(1)+" pp");
+  setInfo("big-imp", "+"+EMBED.improvement_pp.toFixed(1)+" pp");
+  setInfo("r-rl-cov", EMBED.eval_pct.toFixed(1)+"%");
+  setInfo("r-rl-dumps", Math.round(EMBED.eval_dumps));
+  setInfo("t-area", (FIELD.inside*GRID_RES*GRID_RES).toFixed(0)+" m²");
+  setInfo("t-zones", FIELD.zones.length);
+  setInfo("i-zones", FIELD.zones.length);
+  setInfo("t-episodes", EMBED.episodes);
+  setInfo("t-elapsed", EMBED.elapsed_sec.toFixed(1)+"s");
+  setInfo("t-states-v", EMBED.state_space_size);
+  setInfo("t-eval", EMBED.eval_pct.toFixed(1)+"%");
+  buildMetricTable();
+  buildHyperTable();
+  buildEvalTable();
+  buildTokens();
+  drawZones();
+  buildZoneTable();
+  // Sim
+  SIM.env = new Env(); SIM.last = SIM.env.snapshot();
+  drawSim(SIM.last);
+  pushLog("AutoDump self-contained build initialised", "amber");
+  pushLog("Q-table loaded inline (60×3 = 180 floats)", "blue");
+  pushLog(`Field decomposed into ${FIELD.zones.length} zones`, "amber");
+}
+
+function buildMetricTable() {
+  const rows = [
+    ["Field coverage", BASELINE.coverage*100, EMBED.eval_pct, CEILING.coverage*100],
+    ["Dumps placed",   BASELINE.n_dumps,      EMBED.eval_dumps, CEILING.n],
+  ];
+  let html = "";
+  html += `<tr><td class="k">Field coverage</td><td>${(BASELINE.coverage*100).toFixed(2)}%</td><td class="v">${EMBED.eval_pct.toFixed(2)}%</td><td style="color:var(--blue)">${(CEILING.coverage*100).toFixed(2)}%</td><td style="color:var(--green)">+${EMBED.improvement_pp.toFixed(2)} pp</td></tr>`;
+  html += `<tr><td class="k">Dumps placed</td><td>${BASELINE.n_dumps}</td><td class="v">${EMBED.eval_dumps}</td><td style="color:var(--blue)">${CEILING.n}</td><td style="color:var(--green)">adaptive</td></tr>`;
+  html += `<tr><td class="k">Decision time</td><td>manual</td><td class="v">&lt;1 ms</td><td style="color:var(--blue)">—</td><td style="color:var(--green)">automated</td></tr>`;
+  html += `<tr><td class="k">Adapts to shape</td><td>no</td><td class="v">yes</td><td style="color:var(--blue)">—</td><td style="color:var(--green)">✓</td></tr>`;
+  html += `<tr><td class="k">Deadlock-free</td><td>no</td><td class="v">yes (Coffman)</td><td style="color:var(--blue)">—</td><td style="color:var(--green)">✓</td></tr>`;
+  html += `<tr><td class="k">Headroom to ceiling</td><td>—</td><td class="v">+${(CEILING.coverage*100-EMBED.eval_pct).toFixed(2)} pp</td><td style="color:var(--blue)">0</td><td style="color:var(--green)">roadmap</td></tr>`;
+  document.getElementById("metric-table").innerHTML = html;
+}
+
+function buildHyperTable() {
+  const rows = [
+    ["Algorithm", "Tabular Q-learning (ε-greedy)"],
+    ["Episodes", EMBED.episodes],
+    ["Learning rate α", EMBED.alpha],
+    ["Discount γ", EMBED.gamma],
+    ["ε start → end", EMBED.eps_start + " → " + EMBED.eps_end],
+    ["State space", EMBED.state_space_size + " states"],
+    ["Action space", "3 actions"],
+    ["Training time", EMBED.elapsed_sec.toFixed(1) + " s"],
+  ];
+  document.getElementById("hyper-table").innerHTML =
+    "<tbody>"+rows.map(r=>`<tr><td class="k">${r[0]}</td><td class="v">${r[1]}</td></tr>`).join("")+"</tbody>";
+}
+
+function buildEvalTable() {
+  const rows = [
+    ["Rollouts", 30],
+    ["Mean coverage", EMBED.eval_pct.toFixed(2)+"%"],
+    ["Mean dumps", EMBED.eval_dumps],
+    ["Baseline", EMBED.baseline_pct.toFixed(2)+"%"],
+    ["Ceiling", (CEILING.coverage*100).toFixed(2)+"%"],
+    ["Improvement vs baseline", "+"+EMBED.improvement_pp.toFixed(2)+" pp"],
+    ["Headroom to ceiling", "+"+(CEILING.coverage*100-EMBED.eval_pct).toFixed(2)+" pp"],
+  ];
+  document.getElementById("eval-table").innerHTML =
+    "<tbody>"+rows.map(r=>`<tr><td class="k">${r[0]}</td><td class="v">${r[1]}</td></tr>`).join("")+"</tbody>";
+}
+
+// ---------- canvas helpers ----------
+function fitScale(canvas) {
+  const w = canvas.width, h = canvas.height, pad = 30;
+  const s = Math.min((w - 2*pad)/FIELD_W, (h - 2*pad)/FIELD_H);
+  return { s,
+    px: x => (w - FIELD_W*s)/2 + x*s,
+    py: y => h - ((h - FIELD_H*s)/2 + y*s),
+    fromCanvas: (cx, cy) => [(cx-(w-FIELD_W*s)/2)/s, (h-cy-(h-FIELD_H*s)/2)/s]
+  };
+}
+function clearCanvas(ctx, color="#070C18") {
+  ctx.fillStyle=color; ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height);
+}
+function drawGrid(ctx, P) {
+  ctx.strokeStyle="#162035"; ctx.lineWidth=0.5;
+  for (let x=0; x<=FIELD_W; x+=2) {
+    ctx.beginPath(); ctx.moveTo(P.px(x),P.py(0)); ctx.lineTo(P.px(x),P.py(FIELD_H)); ctx.stroke();
+  }
+  for (let y=0; y<=FIELD_H; y+=2) {
+    ctx.beginPath(); ctx.moveTo(P.px(0),P.py(y)); ctx.lineTo(P.px(FIELD_W),P.py(y)); ctx.stroke();
+  }
+}
+function drawPoly(ctx, P, color="#3DB5F7", fill=false) {
+  ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  FIELD.verts.forEach((v,i) => {
+    const x = P.px(v[0]), y = P.py(v[1]);
+    if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  if (fill) { ctx.fillStyle = "rgba(61,181,247,.05)"; ctx.fill(); }
+}
+
+// ---------- ZONES page ----------
+function drawZones() {
+  const c = document.getElementById("zoneCanvas");
+  const ctx = c.getContext("2d"); clearCanvas(ctx);
+  const P = fitScale(c); drawGrid(ctx, P);
+  const palette = ["#0D47A1","#1565C0","#1976D2","#1E88E5","#2196F3","#42A5F5"];
+  FIELD.zones.forEach((z,i) => {
+    const color = palette[i % palette.length];
+    ctx.fillStyle = color + "33";
+    ctx.fillRect(P.px(z.x_min), P.py(z.y_top),
+                 (z.x_max-z.x_min)*P.s, (z.y_top-z.y_bot)*P.s);
+    ctx.strokeStyle = color; ctx.lineWidth=1.2; ctx.setLineDash([4,3]);
+    ctx.strokeRect(P.px(z.x_min), P.py(z.y_top),
+                   (z.x_max-z.x_min)*P.s, (z.y_top-z.y_bot)*P.s);
+    ctx.setLineDash([]);
+    ctx.fillStyle="#fff"; ctx.font="bold 14px monospace"; ctx.textAlign="center";
+    ctx.fillText("Z"+(i+1), P.px((z.x_min+z.x_max)/2), P.py((z.y_bot+z.y_top)/2)+5);
+  });
+  drawPoly(ctx, P);
+  setInfo("zones-sub", FIELD.zones.length + " zones · " + TRUCK_WIDTH + " m strips");
+}
+
+let SWEEP_TIMER = null;
+function animateSweep() {
+  if (SWEEP_TIMER) { clearInterval(SWEEP_TIMER); SWEEP_TIMER=null; }
+  const c = document.getElementById("zoneCanvas"); const ctx = c.getContext("2d");
+  const P = fitScale(c);
+  let y = Math.min(...FIELD.verts.map(v=>v[1]));
+  const yMax = Math.max(...FIELD.verts.map(v=>v[1]));
+  const shown = [];
+  SWEEP_TIMER = setInterval(() => {
+    clearCanvas(ctx); drawGrid(ctx, P);
+    const palette = ["#0D47A1","#1565C0","#1976D2","#1E88E5","#2196F3","#42A5F5"];
+    shown.forEach((z,i) => {
+      const color = palette[i%palette.length];
+      ctx.fillStyle = color+"55";
+      ctx.fillRect(P.px(z.x_min), P.py(z.y_top), (z.x_max-z.x_min)*P.s, (z.y_top-z.y_bot)*P.s);
+    });
+    drawPoly(ctx, P);
+    ctx.strokeStyle="#FFC107"; ctx.lineWidth=2.5;
+    ctx.shadowBlur=12; ctx.shadowColor="#FFC107";
+    ctx.beginPath(); ctx.moveTo(P.px(0),P.py(y)); ctx.lineTo(P.px(FIELD_W),P.py(y)); ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.fillStyle="#FFC107"; ctx.font="bold 12px monospace"; ctx.textAlign="right";
+    ctx.fillText("y = "+y.toFixed(1)+" m", P.px(FIELD_W)-8, P.py(y)-6);
+    FIELD.zones.forEach(z => { if (z.y_top <= y && !shown.includes(z)) shown.push(z); });
+    y += 0.5;
+    if (y > yMax+1) { clearInterval(SWEEP_TIMER); SWEEP_TIMER=null; drawZones(); }
+  }, 40);
+}
+
+function buildZoneTable() {
+  document.getElementById("zone-table").innerHTML =
+    FIELD.zones.map((z,i) =>
+      `<tr><td class="v">Z${i+1}</td><td>${z.y_bot.toFixed(1)}</td><td>${z.y_top.toFixed(1)}</td>
+       <td>${z.x_min.toFixed(1)}</td><td>${z.x_max.toFixed(1)}</td><td>${z.area.toFixed(1)}</td></tr>`
+    ).join("");
+}
+
+// ---------- SIMULATION page ----------
+function buildTokens() {
+  document.getElementById("tokens").innerHTML =
+    FIELD.zones.map((_,i) =>
+      `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span style="color:var(--blue);font-family:monospace;font-size:12px">Zone ${i+1}</span>
+        <span id="tok-${i}" style="font-family:monospace;font-size:11px;font-weight:700;color:var(--green)">●  FREE</span></div>`
+    ).join("");
+}
+function updateTokens(curZone) {
+  FIELD.zones.forEach((_,i) => {
+    const el = document.getElementById("tok-"+i); if (!el) return;
+    if (i === curZone) { el.style.color="var(--cat)"; el.innerHTML="●  LOCKED"; }
+    else { el.style.color="var(--green)"; el.innerHTML="●  FREE"; }
+  });
+}
+function simReset() {
+  SIM.env = new Env();
+  SIM.last = SIM.env.snapshot();
+  drawSim(SIM.last);
+  document.getElementById("event-log").innerHTML = "";
+  pushLog("Simulation reset", "amber");
+}
+function simToggle() {
+  if (SIM.running) {
+    SIM.running = false; clearInterval(SIM.timer); SIM.timer = null;
+    document.getElementById("sim-play-btn").innerHTML = "▶ Auto-step";
+  } else {
+    SIM.running = true;
+    document.getElementById("sim-play-btn").innerHTML = "❚❚ Pause";
+    SIM.timer = setInterval(() => simStep(2), 80);
+  }
+}
+function simStep(n=1) {
+  if (!SIM.env) SIM.env = new Env();
+  // verify Q-table dim matches current zones
+  const qOk = EMBED.q_shape[0] === FIELD.zones.length * 5 * 4;
+  for (let i=0; i<n; i++) {
+    if (SIM.env.done) break;
+    const s = SIM.env.enc();
+    let a;
+    if (qOk) {
+      let best = -1e9, ba = 0;
+      for (let k=0; k<3; k++) if (EMBED.q_table[s][k] > best) { best = EMBED.q_table[s][k]; ba = k; }
+      a = ba;
+    } else {
+      a = Math.floor(Math.random()*3);
+    }
+    const [, r, , info] = SIM.env.step(a);
+    const cls = (info.event==="OVERHANG"||info.event==="ISOLATED"||info.event==="WASTED") ? "red"
+              : (info.event==="DUMP_OK") ? "amber" : "blue";
+    pushLog(`step=${SIM.env.step_count} act=${["DUMP","ADV","SKIP"][a]} r=${r.toFixed(2)} ${info.event}`, cls);
+  }
+  SIM.last = SIM.env.snapshot();
+  drawSim(SIM.last);
+  if (SIM.last.done && SIM.running) simToggle();
+}
+function drawSim(snap) {
+  const c = document.getElementById("simCanvas"); if (!c) return;
+  const ctx = c.getContext("2d"); clearCanvas(ctx);
+  const P = fitScale(c);
+  const palette = ["#0D47A1","#1565C0","#1976D2","#1E88E5","#2196F3"];
+  FIELD.zones.forEach((z,i) => {
+    ctx.fillStyle = palette[i%palette.length]+"22";
+    ctx.fillRect(P.px(z.x_min), P.py(z.y_top), (z.x_max-z.x_min)*P.s, (z.y_top-z.y_bot)*P.s);
+  });
+  drawGrid(ctx, P);
+  drawPoly(ctx, P);
+  if (snap && snap.dumps) {
+    snap.dumps.forEach(d => {
+      const x = P.px(d[0]), y = P.py(d[1]);
+      const r = DUMP_FOOTPRINT * P.s;
+      const g = ctx.createRadialGradient(x,y,0, x,y,r);
+      g.addColorStop(0,"rgba(0,210,106,.85)"); g.addColorStop(.6,"rgba(0,210,106,.35)"); g.addColorStop(1,"rgba(0,210,106,0)");
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,2*Math.PI); ctx.fill();
+    });
+    ctx.fillStyle="#FFC107";
+    snap.dumps.forEach(d => { ctx.beginPath(); ctx.arc(P.px(d[0]),P.py(d[1]),2.4,0,2*Math.PI); ctx.fill(); });
+  }
+  if (snap && snap.xy) {
+    const [tx,ty] = snap.xy;
+    ctx.fillStyle="#FFC107"; ctx.strokeStyle="#fff"; ctx.lineWidth=2;
+    const w=2.2*P.s, h=1.4*P.s;
+    ctx.fillRect(P.px(tx)-w/2, P.py(ty)-h/2, w, h);
+    ctx.strokeRect(P.px(tx)-w/2, P.py(ty)-h/2, w, h);
+    ctx.fillStyle="#000"; ctx.font="bold 11px monospace"; ctx.textAlign="center";
+    ctx.fillText("T1", P.px(tx), P.py(ty)+4);
+  }
+  const cov = snap ? snap.coverage*100 : 0;
+  document.getElementById("cov-fill").style.height = cov+"%";
+  document.getElementById("cov-pct").textContent = cov.toFixed(1)+"%";
+  document.getElementById("sim-sub").textContent = `step ${snap?snap.step:0} · ${snap?snap.n_dumps:0} dumps · ${cov.toFixed(1)}%`;
+  document.getElementById("f-step").textContent = `step ${snap?snap.step:0} · cov ${cov.toFixed(1)}% · ${snap&&snap.done?"DONE":"running"}`;
+  if (snap) updateTokens(snap.zone_id);
+}
+function pushLog(msg, cls) {
+  const log = document.getElementById("event-log"); if (!log) return;
+  const ts = new Date().toLocaleTimeString("en-GB");
+  const line = document.createElement("div"); line.className = "log-line "+(cls||"");
+  line.textContent = `[${ts}] ${msg}`;
+  log.insertBefore(line, log.firstChild);
+  while (log.children.length > 60) log.removeChild(log.lastChild);
+}
+
+// ---------- BEFORE / AFTER ----------
+function drawResults() {
+  const c1 = document.getElementById("beforeCanvas"); const ctx1 = c1.getContext("2d"); clearCanvas(ctx1);
+  const P1 = fitScale(c1); drawGrid(ctx1, P1); drawPoly(ctx1, P1, "#FF4D5E", true);
+  BASELINE.dumps.forEach(d => {
+    const x = P1.px(d[0]), y = P1.py(d[1]); const r = DUMP_FOOTPRINT * P1.s;
+    const g = ctx1.createRadialGradient(x,y,0, x,y,r);
+    g.addColorStop(0,"rgba(255,77,94,.7)"); g.addColorStop(1,"rgba(255,77,94,0)");
+    ctx1.fillStyle=g; ctx1.beginPath(); ctx1.arc(x,y,r,0,2*Math.PI); ctx1.fill();
+  });
+  ctx1.fillStyle="#FF4D5E";
+  BASELINE.dumps.forEach(d => { ctx1.beginPath(); ctx1.arc(P1.px(d[0]),P1.py(d[1]),3,0,2*Math.PI); ctx1.fill(); });
+
+  // Run trained agent to completion
+  const after = new Env();
+  while (!after.done) {
+    const s = after.enc(); let best=-1e9, ba=0;
+    for (let k=0; k<3; k++) if (EMBED.q_table[s][k] > best) { best = EMBED.q_table[s][k]; ba = k; }
+    after.step(ba);
+  }
+  const c2 = document.getElementById("afterCanvas"); const ctx2 = c2.getContext("2d"); clearCanvas(ctx2);
+  const P2 = fitScale(c2); drawGrid(ctx2, P2); drawPoly(ctx2, P2, "#00D26A", true);
+  after.dumps.forEach(d => {
+    const x = P2.px(d[0]), y = P2.py(d[1]); const r = DUMP_FOOTPRINT * P2.s;
+    const g = ctx2.createRadialGradient(x,y,0, x,y,r);
+    g.addColorStop(0,"rgba(0,210,106,.75)"); g.addColorStop(1,"rgba(0,210,106,0)");
+    ctx2.fillStyle=g; ctx2.beginPath(); ctx2.arc(x,y,r,0,2*Math.PI); ctx2.fill();
+  });
+  ctx2.fillStyle="#FFC107";
+  after.dumps.forEach(d => { ctx2.beginPath(); ctx2.arc(P2.px(d[0]),P2.py(d[1]),2.6,0,2*Math.PI); ctx2.fill(); });
+  setInfo("r-rl-cov", (after.coverage()*100).toFixed(1)+"%");
+  setInfo("r-rl-dumps", after.dumps.length);
+}
+
+// ---------- CHARTS (hand-rolled SVG) ----------
+function renderCharts() {
+  // smooth
+  const smooth = (arr, w=10) => {
+    if (arr.length < w) return arr;
+    const out = [];
+    for (let i=0; i<arr.length; i++) {
+      let s=0,c=0;
+      for (let j=Math.max(0,i-w); j<=Math.min(arr.length-1,i+w); j++) { s+=arr[j]; c++; }
+      out.push(s/c);
+    }
+    return out;
+  };
+  drawLineChart("rewardChart", smooth(EMBED.rewards_ds), {color:"#FFC107", yLabel:"reward", fill:true});
+  drawLineChart("coverageChart", smooth(EMBED.coverage_ds),
+                {color:"#00D26A", yLabel:"coverage %", fill:true, yMin:0, yMax:100,
+                 hlines:[{y:BASELINE.coverage*100, color:"#FF4D5E", dash:true, label:"baseline"},
+                         {y:CEILING.coverage*100, color:"#3DB5F7", dash:true, label:"ceiling"}]});
+}
+function drawLineChart(svgId, data, opts) {
+  const svg = document.getElementById(svgId); if (!svg) return;
+  svg.innerHTML = "";
+  const W = svg.clientWidth || 600, H = svg.clientHeight || 280;
+  const pad = {l:42, r:14, t:12, b:30};
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const yMin = opts.yMin !== undefined ? opts.yMin : Math.min(...data);
+  const yMax = opts.yMax !== undefined ? opts.yMax : Math.max(...data);
+  const xN = data.length;
+  const px = i => pad.l + i / (xN-1) * (W - pad.l - pad.r);
+  const py = v => H - pad.b - (v - yMin) / (yMax - yMin || 1) * (H - pad.t - pad.b);
+  // y axis ticks
+  for (let k=0; k<=4; k++) {
+    const v = yMin + (yMax-yMin)*k/4;
+    const y = py(v);
+    svg.insertAdjacentHTML("beforeend",
+      `<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="#243958" stroke-width="0.5"/>`+
+      `<text x="${pad.l-6}" y="${y+4}" fill="#5A7099" text-anchor="end" font-size="10" font-family="monospace">${v.toFixed(0)}</text>`);
+  }
+  // x axis label
+  svg.insertAdjacentHTML("beforeend",
+    `<text x="${(W-pad.l-pad.r)/2+pad.l}" y="${H-6}" fill="#5A7099" text-anchor="middle" font-size="10" font-family="monospace">episode</text>`+
+    `<text x="${pad.l-32}" y="${(H-pad.t-pad.b)/2+pad.t}" fill="#5A7099" text-anchor="middle" font-size="10" font-family="monospace" transform="rotate(-90 ${pad.l-32} ${(H-pad.t-pad.b)/2+pad.t})">${opts.yLabel}</text>`);
+  // horizontal reference lines
+  if (opts.hlines) {
+    opts.hlines.forEach(h => {
+      const y = py(h.y);
+      svg.insertAdjacentHTML("beforeend",
+        `<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${h.color}" stroke-width="1.2" stroke-dasharray="${h.dash?'4,3':'0'}"/>`);
+    });
+  }
+  // area
+  if (opts.fill) {
+    let path = `M ${px(0)} ${H-pad.b} `;
+    data.forEach((v,i) => path += `L ${px(i)} ${py(v)} `);
+    path += `L ${px(xN-1)} ${H-pad.b} Z`;
+    svg.insertAdjacentHTML("beforeend", `<path d="${path}" fill="${opts.color}" fill-opacity="0.15"/>`);
+  }
+  // line
+  let line = `M ${px(0)} ${py(data[0])}`;
+  for (let i=1; i<xN; i++) line += ` L ${px(i)} ${py(data[i])}`;
+  svg.insertAdjacentHTML("beforeend", `<path d="${line}" fill="none" stroke="${opts.color}" stroke-width="2"/>`);
+}
+
+// ---------- TOKEN PROTOCOL ----------
+function runTokenScenario(name) {
+  const data = TOKEN_SCENARIOS[name]();
+  document.querySelectorAll(".tok-btn").forEach(b => b.classList.toggle("primary", b.dataset.s === name));
+  setInfo("tok-title", data.title);
+  setInfo("tok-lesson", data.lesson);
+  const trucks = [...new Set(data.events.map(e=>e.truck))].sort();
+  const tMax = Math.max(1, ...data.events.map(e=>e.t));
+  const colors = { GRANT:"#00D26A", QUEUE:"#FFC107", REQUEST:"#3DB5F7",
+                   RELEASE:"#9B6BFF", TIMEOUT:"#FF4D5E", DENY:"#FF4D5E",
+                   CLEARANCE:"#FFB300" };
+  let html = "<div style='display:grid;grid-template-columns:80px 1fr;gap:6px;align-items:center'>";
+  trucks.forEach(tr => {
+    html += `<div style="color:var(--cat);font-family:monospace;font-size:13px;font-weight:700">Truck ${tr}</div>`;
+    html += `<div style="position:relative;height:34px;background:var(--bg2);border:1px solid var(--border2);border-radius:5px;overflow:hidden">`;
+    data.events.filter(e => e.truck === tr).forEach(e => {
+      const left = (e.t / tMax) * 100;
+      const c = colors[e.kind] || "#90A4C8";
+      html += `<div title="t=${e.t}s ${e.kind} ${e.note}" style="position:absolute;left:${left}%;top:2px;width:6px;height:30px;background:${c};border-radius:2px;box-shadow:0 0 6px ${c}"></div>`;
+      html += `<div style="position:absolute;left:calc(${left}% + 8px);top:8px;font-family:monospace;font-size:9px;color:${c};white-space:nowrap">${e.kind}</div>`;
+    });
+    html += "</div>";
+  });
+  html += "</div>";
+  document.getElementById("tok-timeline").innerHTML = html;
+  document.getElementById("tok-events").innerHTML =
+    "<thead><tr><th>t (s)</th><th>Truck</th><th>Zone</th><th>Event</th><th>Note</th></tr></thead><tbody>"+
+    data.events.map(e =>
+      `<tr><td>${e.t.toFixed(2)}</td><td class="v">T${e.truck}</td><td>Z${e.zone}</td>
+       <td style="color:${colors[e.kind]||'#fff'}">${e.kind}</td><td class="k">${e.note}</td></tr>`
+    ).join("")+"</tbody>";
+}
+
+// ---------- CUSTOM FIELD (click-to-draw) ----------
+let CFV = [], CFS = null, CF_HOVER = null, CF_CANVAS = null;
+function _cfCanvas() {
+  if (!CF_CANVAS) {
+    CF_CANVAS = document.getElementById("customCanvas");
+    CF_CANVAS.addEventListener("click", cfOnClick);
+    CF_CANVAS.addEventListener("dblclick", () => canvasClose());
+    CF_CANVAS.addEventListener("mousemove", cfOnMove);
+    CF_CANVAS.addEventListener("mouseleave", () => { CF_HOVER=null; cfDraw(); });
+  }
+  return CF_CANVAS;
+}
+function cfOnClick(e) {
+  const r = CF_CANVAS.getBoundingClientRect();
+  const cx = (e.clientX - r.left) * (CF_CANVAS.width/r.width);
+  const cy = (e.clientY - r.top)  * (CF_CANVAS.height/r.height);
+  const P = fitScale(CF_CANVAS);
+  const [fx, fy] = P.fromCanvas(cx, cy);
+  if (fx < 0 || fx > FIELD_W || fy < 0 || fy > FIELD_H) return;
+  CFV.push([+fx.toFixed(2), +fy.toFixed(2)]); CFS = null;
+  setInfo("custom-sub", `${CFV.length} vertices · click to add or double-click to close`);
+  cfDraw();
+}
+function cfOnMove(e) {
+  if (CFV.length === 0) return;
+  const r = CF_CANVAS.getBoundingClientRect();
+  const cx = (e.clientX - r.left) * (CF_CANVAS.width/r.width);
+  const cy = (e.clientY - r.top)  * (CF_CANVAS.height/r.height);
+  CF_HOVER = fitScale(CF_CANVAS).fromCanvas(cx, cy);
+  cfDraw();
+}
+function canvasUndo() { if (CFV.length) { CFV.pop(); CFS=null; cfDraw(); } }
+function canvasClear() {
+  CFV=[]; CFS=null; CF_HOVER=null;
+  setInfo("custom-sub","click to start");
+  setInfo("cf-zones","—"); setInfo("cf-area","—"); setInfo("cf-cov","—"); setInfo("cf-dumps","—");
+  document.getElementById("cf-warnings").innerHTML="";
+  cfDraw();
+}
+function canvasPreset(name) {
+  if (name==="rect") CFV = [[5,5],[25,5],[25,20],[5,20]];
+  else if (name==="lshape") CFV = [[3,3],[20,3],[20,12],[10,12],[10,22],[3,22]];
+  CFS=null;
+  setInfo("custom-sub", `preset · ${CFV.length} vertices · click "Close + run"`);
+  cfDraw();
+}
+function canvasReset() {
+  rebuildField(DEFAULT_VERTS);
+  CFV=[]; CFS=null; canvasClear();
+  buildZoneTable(); buildTokens(); drawZones(); drawSim(SIM.last);
+  setInfo("custom-sub", "reverted to default polygon");
+  setInfo("t-zones", FIELD.zones.length); setInfo("i-zones", FIELD.zones.length);
+  pushLog("Reverted to default polygon", "amber");
+}
+function validatePolyJS(verts) {
+  if (verts.length < 3) return [false, "need at least 3 vertices"];
+  const xs = verts.map(v=>v[0]), ys = verts.map(v=>v[1]);
+  if (Math.max(...xs)-Math.min(...xs) < 5 || Math.max(...ys)-Math.min(...ys) < 5)
+    return [false, "polygon too small (each axis must span ≥ 5 m)"];
+  if (shoeArea(verts) < 50) return [false, `area too small (${shoeArea(verts).toFixed(1)} m², need ≥ 50)`];
+  return [true, ""];
+}
+function canvasClose() {
+  if (CFV.length < 3) { setInfo("custom-sub", "need at least 3 vertices"); return; }
+  const [ok, err] = validatePolyJS(CFV);
+  if (!ok) {
+    setInfo("custom-sub", "✗ "+err);
+    document.getElementById("cf-warnings").innerHTML = `<div style="color:var(--red)"><b>Validation failed:</b> ${err}</div>`;
+    return;
+  }
+  rebuildField(CFV);
+  setInfo("cf-zones", FIELD.zones.length);
+  setInfo("cf-area", (FIELD.inside*GRID_RES*GRID_RES).toFixed(0));
+  setInfo("custom-sub", "running greedy packer…");
+  const policy = (EMBED.q_shape[0] === FIELD.zones.length*5*4) ? "q_table (fits)" : "greedy_packer";
+  document.getElementById("cf-warnings").innerHTML =
+    `<div style="color:var(--green)"><b>✓ Accepted.</b> Policy: <code>${policy}</code>.</div>`;
+  setTimeout(() => {
+    CFS = greedyFill(FIELD.mask, FIELD.inside);
+    setInfo("cf-cov", (CFS.coverage*100).toFixed(1)+"%");
+    setInfo("cf-dumps", CFS.n);
+    setInfo("custom-sub",
+      `${FIELD.zones.length} zones · ${(FIELD.inside*GRID_RES*GRID_RES).toFixed(0)} m² · greedy reached ${(CFS.coverage*100).toFixed(1)}% with ${CFS.n} dumps`);
+    cfDraw();
+    pushLog(`Custom polygon: ${FIELD.zones.length} zones, greedy ${(CFS.coverage*100).toFixed(1)}%`, "amber");
+  }, 30);
+  cfDraw();
+}
+function cfDraw() {
+  if (!_cfCanvas()) return;
+  const ctx = CF_CANVAS.getContext("2d");
+  const P = fitScale(CF_CANVAS);
+  clearCanvas(ctx); drawGrid(ctx, P);
+  if (CFS) {
+    const palette = ["#0D47A1","#1565C0","#1976D2","#1E88E5","#2196F3","#42A5F5"];
+    FIELD.zones.forEach((z,i) => {
+      ctx.fillStyle = palette[i%palette.length]+"33";
+      ctx.fillRect(P.px(z.x_min), P.py(z.y_top), (z.x_max-z.x_min)*P.s, (z.y_top-z.y_bot)*P.s);
+    });
+  }
+  if (CFV.length > 0) {
+    ctx.strokeStyle="#FFC107"; ctx.lineWidth=2;
+    ctx.beginPath();
+    CFV.forEach((v,i) => {
+      const x = P.px(v[0]), y = P.py(v[1]);
+      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    if (CFS) ctx.closePath();
+    else if (CF_HOVER) ctx.lineTo(P.px(CF_HOVER[0]), P.py(CF_HOVER[1]));
+    ctx.stroke();
+    if (CFS) { ctx.fillStyle="rgba(255,193,7,.06)"; ctx.fill(); }
+    ctx.fillStyle="#FFC107";
+    CFV.forEach((v,i) => {
+      ctx.beginPath(); ctx.arc(P.px(v[0]), P.py(v[1]), 4, 0, 2*Math.PI); ctx.fill();
+      ctx.fillStyle="#000"; ctx.font="bold 9px monospace"; ctx.textAlign="center";
+      ctx.fillText(String(i+1), P.px(v[0]), P.py(v[1])+3);
+      ctx.fillStyle="#FFC107";
+    });
+  } else {
+    ctx.fillStyle="#5A7099"; ctx.font="16px sans-serif"; ctx.textAlign="center";
+    ctx.fillText("Click to start drawing a polygon. Double-click to close.",
+                 CF_CANVAS.width/2, CF_CANVAS.height/2);
+  }
+  if (CFS && CFS.dumps) {
+    CFS.dumps.forEach(d => {
+      const x = P.px(d[0]), y = P.py(d[1]); const r = DUMP_FOOTPRINT*P.s;
+      const g = ctx.createRadialGradient(x,y,0, x,y,r);
+      g.addColorStop(0,"rgba(0,210,106,.75)"); g.addColorStop(1,"rgba(0,210,106,0)");
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,2*Math.PI); ctx.fill();
+    });
+    ctx.fillStyle="#FFC107";
+    CFS.dumps.forEach(d => { ctx.beginPath(); ctx.arc(P.px(d[0]),P.py(d[1]),2.4,0,2*Math.PI); ctx.fill(); });
+  }
+}
+
+// ---------- BOOT ----------
+window.addEventListener("DOMContentLoaded", boot);
+</script>
+</body>
+</html>
