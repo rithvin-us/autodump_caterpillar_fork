@@ -20,6 +20,9 @@ the polygon math, the token broker, and the greedy circle-packer are all embedde
 JavaScript. The only network call is to `fonts.googleapis.com` for the typeface (with system
 font fallbacks if that fails).
 
+Older standalone builds are kept in the `older versions/` folder for reference. The root
+`index.html` is the live site entry point.
+
 ## What's inside
 
 | Page | What it shows |

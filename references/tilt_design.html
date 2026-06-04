@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tilt Design Extraction</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #050c1a;
+      --surface: #0a1628;
+      --card: #0f1e35;
+      --border: #1a3050;
+      --accent: #f5a623;
+      --accent2: #00d4ff;
+      --accent3: #ff4757;
+      --green: #2ed573;
+      --text: #e8f0ff;
+      --muted: #6b8aaa;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    section {
+      position: relative;
+      z-index: 1;
+      padding: 6rem 4rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 3px;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 0.8rem;
+    }
+
+    .section-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(2.5rem, 5vw, 4.5rem);
+      line-height: 1;
+      margin-bottom: 3rem;
+    }
+
+    .section-title span {
+      color: var(--accent2);
+    }
+
+    /* ── TILT ── */
+    .tilt-demo {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-top: 1rem;
+    }
+
+    .tilt-visual {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .tilt-formula-panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .formula-box {
+      background: rgba(0, 212, 255, 0.06);
+      border: 1px solid rgba(0, 212, 255, 0.2);
+      border-radius: 10px;
+      padding: 1.2rem 1.5rem;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--accent2);
+      text-align: center;
+    }
+
+    .formula-box .formula-label {
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .formula-box .formula-main {
+      font-size: 1.1rem;
+      color: var(--accent);
+      margin: 0.4rem 0;
+    }
+
+    .fill-ratio-bar {
+      width: 100%;
+      height: 12px;
+      background: var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-top: 0.5rem;
+    }
+
+    .fill-ratio-bar-inner {
+      height: 100%;
+      border-radius: 6px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width 1s ease;
+    }
+
+    .tilt-label {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.2rem;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+
+    .tilt-desc {
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .slider-group {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 1rem;
+      width: 100%;
+    }
+
+    .slider-group label {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    input[type=range] {
+      flex: 1;
+      accent-color: var(--accent);
+    }
+
+    .slider-val {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--accent2);
+      min-width: 40px;
+      text-align: right;
+    }
+
+    .compare-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+    }
+
+    .compare-row:last-child {
+      border-bottom: none;
+    }
+
+    @media (max-width: 900px) {
+      .tilt-demo {
+        grid-template-columns: 1fr;
+      }
+      section {
+        padding: 4rem 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <section id="tilt">
+    <div class="section-label">// 03 — FILL DETECTION & SENSING</div>
+    <div class="section-title">TILT ANGLE <span>DETECTION</span></div>
+    <div class="tilt-demo">
+      <div class="tilt-visual">
+        <div class="tilt-label">INTERACTIVE PILE SIMULATOR</div>
+        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem;">Drag the slider to simulate pile lean. The truck corrects dump position automatically.</p>
+        <canvas id="tiltCanvas" width="500" height="320" style="width:100%;border-radius:8px;background:#070f1c;border:1px solid var(--border);"></canvas>
+        <div class="slider-group">
+          <label>PILE TILT (°)</label>
+          <input type="range" id="tiltSlider" min="-40" max="40" value="-25">
+          <span class="slider-val" id="tiltVal">-25°</span>
+        </div>
+        <div class="slider-group">
+          <label>FILL LEVEL (%)</label>
+          <input type="range" id="fillSlider" min="10" max="100" value="65">
+          <span class="slider-val" id="fillVal">65%</span>
+        </div>
+      </div>
+      <div class="tilt-formula-panel">
+        <div>
+          <h3 style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--accent2);margin-bottom:0.5rem;">HOW IT WORKS</h3>
+          <p class="tilt-desc">The camera on each truck captures the dump pile from the side. CLAHE (Contrast Limited Adaptive Histogram Equalization) enhances the image, and a gradient-based pseudo-depth map estimates the pile's 3D profile in real time.</p>
+        </div>
+        <div class="formula-box">
+          <div class="formula-label">TILT ANGLE FORMULA</div>
+          <div class="formula-main">θ = arctan( (D_bottom − D_top) / H )</div>
+          <div style="font-size:0.65rem;color:var(--muted);margin-top:0.4rem;">D_bottom = depth at pile base &nbsp;·&nbsp; D_top = depth at pile peak &nbsp;·&nbsp; H = pile height in pixels</div>
+        </div>
+        <div>
+          <div class="tilt-label" style="font-size:1rem;margin-bottom:0.5rem;">WHAT THE ANGLE TELLS US</div>
+          <div class="compare-row">
+            <span style="font-size:0.82rem;color:var(--muted)">θ &lt; −10°&nbsp; (tilt LEFT)</span>
+            <span style="color:var(--accent);font-size:0.8rem;">→ Dump RIGHT-of-center</span>
+          </div>
+          <div class="compare-row">
+            <span style="font-size:0.82rem;color:var(--muted)">θ &gt; +10°&nbsp; (tilt RIGHT)</span>
+            <span style="color:var(--accent);font-size:0.8rem;">→ Dump LEFT-of-center</span>
+          </div>
+          <div class="compare-row">
+            <span style="font-size:0.82rem;color:var(--muted)">|θ| &lt; 10°&nbsp; (balanced)</span>
+            <span style="color:var(--green);font-size:0.8rem;">→ Dump centered ✓</span>
+          </div>
+        </div>
+        <div class="formula-box">
+          <div class="formula-label">FILL RATIO</div>
+          <div class="formula-main">Fill Ratio = D_corrected / D_max_capacity</div>
+          <div style="font-size:0.65rem;color:var(--muted);margin-top:0.4rem;">D_corrected accounts for tilt offset. When Fill Ratio → 1.0, spot marked FULL.</div>
+        </div>
+        <div>
+          <div class="tilt-label" style="font-size:0.85rem;margin-bottom:0.5rem;color:var(--muted);">CURRENT FILL RATIO</div>
+          <div id="fillRatioDisplay" style="font-family:'Bebas Neue',sans-serif;font-size:2.5rem;color:var(--accent);">0.65</div>
+          <div class="fill-ratio-bar">
+            <div class="fill-ratio-bar-inner" id="fillRatioBar" style="width:65%"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--muted);margin-top:0.3rem;">
+            <span>EMPTY</span><span id="spotStatus" style="color:var(--green)">AVAILABLE</span><span>FULL</span>
+          </div>
+        </div>
+        <div style="background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.2);border-radius:10px;padding:1rem;">
+          <div style="font-family:'Space Mono',monospace;font-size:0.7rem;color:var(--accent);margin-bottom:0.5rem;">HARDWARE ON TRUCK</div>
+          <p style="font-size:0.82rem;color:var(--muted);line-height:1.6;">Raspberry Pi · Camera Module · GPS Module. Camera feed is processed on-board and depth values transmitted via MQTT to the central system for density map update.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const tiltCanvas = document.getElementById('tiltCanvas');
+    const tiltCtx = tiltCanvas.getContext('2d');
+
+    function drawTiltScene(tiltDeg, fillPct) {
+      const W = tiltCanvas.width, H = tiltCanvas.height;
+      tiltCtx.clearRect(0, 0, W, H);
+      tiltCtx.fillStyle = '#070f1c';
+      tiltCtx.fillRect(0, 0, W, H);
+
+      tiltCtx.strokeStyle = 'rgba(0,212,255,0.06)';
+      tiltCtx.lineWidth = 1;
+      for (let x = 0; x < W; x += 40) { tiltCtx.beginPath(); tiltCtx.moveTo(x, 0); tiltCtx.lineTo(x, H); tiltCtx.stroke(); }
+      for (let y = 0; y < H; y += 40) { tiltCtx.beginPath(); tiltCtx.moveTo(0, y); tiltCtx.lineTo(W, y); tiltCtx.stroke(); }
+
+      const groundY = H - 60, spotCX = W / 2, spotR = 80;
+      tiltCtx.fillStyle = '#1a2a40';
+      tiltCtx.fillRect(0, groundY, W, H - groundY);
+      tiltCtx.strokeStyle = '#2a4060';
+      tiltCtx.lineWidth = 2;
+      tiltCtx.beginPath(); tiltCtx.moveTo(0, groundY); tiltCtx.lineTo(W, groundY); tiltCtx.stroke();
+
+      tiltCtx.strokeStyle = 'rgba(0,212,255,0.4)';
+      tiltCtx.lineWidth = 2;
+      tiltCtx.setLineDash([6, 4]);
+      tiltCtx.beginPath();
+      tiltCtx.arc(spotCX, groundY, spotR, Math.PI, 0);
+      tiltCtx.stroke();
+      tiltCtx.setLineDash([]);
+      tiltCtx.fillStyle = 'rgba(0,212,255,0.5)';
+      tiltCtx.font = '11px Space Mono, monospace';
+      tiltCtx.textAlign = 'center';
+      tiltCtx.fillText('DUMP SPOT BOUNDARY', spotCX, groundY + 22);
+
+      const tiltRad = tiltDeg * Math.PI / 180;
+      const pileH = fillPct / 100 * (groundY - 40);
+      const pileBaseL = spotCX - spotR + 8, pileBaseR = spotCX + spotR - 8;
+      const peakOffset = -tiltDeg * 1.5;
+      const peakX = spotCX + peakOffset, peakY = groundY - pileH;
+
+      const grad = tiltCtx.createLinearGradient(pileBaseL, groundY, peakX, peakY);
+      grad.addColorStop(0, '#5a7a9a');
+      grad.addColorStop(0.5, '#8aaa7a');
+      grad.addColorStop(1, '#c0aa70');
+      tiltCtx.fillStyle = grad;
+      tiltCtx.beginPath();
+      tiltCtx.moveTo(pileBaseL, groundY);
+      tiltCtx.quadraticCurveTo(pileBaseL + 20, peakY + 20, peakX, peakY);
+      tiltCtx.quadraticCurveTo(pileBaseR - 20, peakY + 20, pileBaseR, groundY);
+      tiltCtx.closePath();
+      tiltCtx.fill();
+
+      tiltCtx.strokeStyle = 'rgba(255,71,87,0.8)';
+      tiltCtx.lineWidth = 1.5;
+      tiltCtx.setLineDash([4, 3]);
+      tiltCtx.beginPath(); tiltCtx.moveTo(peakX - 60, peakY); tiltCtx.lineTo(peakX + 60, peakY); tiltCtx.stroke();
+      tiltCtx.strokeStyle = 'rgba(245,166,35,0.8)';
+      tiltCtx.beginPath(); tiltCtx.moveTo(pileBaseL, groundY - 10); tiltCtx.lineTo(pileBaseR, groundY - 10); tiltCtx.stroke();
+      tiltCtx.setLineDash([]);
+
+      tiltCtx.fillStyle = '#ff4757';
+      tiltCtx.font = '10px Space Mono, monospace';
+      tiltCtx.textAlign = 'left';
+      tiltCtx.fillText('D_top', peakX + 64, peakY + 4);
+      tiltCtx.fillStyle = '#f5a623';
+      tiltCtx.textAlign = 'right';
+      tiltCtx.fillText('D_bottom', pileBaseL - 4, groundY - 7);
+
+      if (Math.abs(tiltDeg) > 3) {
+        tiltCtx.strokeStyle = 'rgba(0,212,255,0.9)';
+        tiltCtx.lineWidth = 2;
+        tiltCtx.beginPath();
+        tiltCtx.arc(peakX, groundY, 50, -Math.PI / 2 - tiltRad, -Math.PI / 2, tiltDeg < 0);
+        tiltCtx.stroke();
+        tiltCtx.fillStyle = '#00d4ff';
+        tiltCtx.font = 'bold 12px Space Mono, monospace';
+        tiltCtx.textAlign = 'center';
+        tiltCtx.fillText(`θ=${tiltDeg}°`, peakX + (tiltDeg < 0 ? -55 : 55), groundY - 55);
+      }
+
+      const correctedX = spotCX - peakOffset * 0.6;
+      const direction = tiltDeg < -10 ? 'DUMP RIGHT →' : tiltDeg > 10 ? '← DUMP LEFT' : '↓ DUMP CENTER';
+      const dColor = tiltDeg < -10 ? '#f5a623' : tiltDeg > 10 ? '#f5a623' : '#2ed573';
+      tiltCtx.fillStyle = dColor;
+      tiltCtx.font = 'bold 11px Space Mono, monospace';
+      tiltCtx.textAlign = 'center';
+      tiltCtx.fillText(direction, correctedX, 38);
+      tiltCtx.font = '10px DM Sans, sans-serif';
+      tiltCtx.fillText('TRUCK CORRECTION', correctedX, 54);
+
+      const ty = 66;
+      tiltCtx.fillStyle = dColor;
+      tiltCtx.fillRect(correctedX - 20, ty, 40, 16);
+      tiltCtx.beginPath(); tiltCtx.arc(correctedX - 12, ty + 18, 6, 0, Math.PI * 2); tiltCtx.fill();
+      tiltCtx.beginPath(); tiltCtx.arc(correctedX + 12, ty + 18, 6, 0, Math.PI * 2); tiltCtx.fill();
+    }
+
+    function updateTilt() {
+      const t = parseInt(document.getElementById('tiltSlider').value);
+      const f = parseInt(document.getElementById('fillSlider').value);
+      document.getElementById('tiltVal').textContent = t + '°';
+      document.getElementById('fillVal').textContent = f + '%';
+      const ratio = (f / 100).toFixed(2);
+      document.getElementById('fillRatioDisplay').textContent = ratio;
+      document.getElementById('fillRatioBar').style.width = f + '%';
+      const st = document.getElementById('spotStatus');
+      if (f >= 90) { st.textContent = 'FULL — REASSIGNING'; st.style.color = '#ff4757'; }
+      else if (f >= 60) { st.textContent = 'FILLING'; st.style.color = '#f5a623'; }
+      else { st.textContent = 'AVAILABLE'; st.style.color = '#2ed573'; }
+      drawTiltScene(t, f);
+    }
+    
+    document.getElementById('tiltSlider').addEventListener('input', updateTilt);
+    document.getElementById('fillSlider').addEventListener('input', updateTilt);
+    window.addEventListener('load', updateTilt);
+  </script>
+</body>
+</html>

@@ -13,7 +13,7 @@
 <meta property="og:title" content="AutoDump Operations — Caterpillar Innovation Challenge 2026"/>
 <meta property="og:description" content="Plan-and-execute tool for autonomous mining-truck dump packing. Site setup → fleet config → live operations → exportable waypoints."/>
 <meta name="twitter:card" content="summary_large_image"/>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23FFC107'/%3E%3Ctext x='32' y='46' font-family='Arial,sans-serif' font-size='42' font-weight='900' text-anchor='middle' fill='%23000'%3EA%3C/text%3E%3C/svg%3E"/>
+<link rel="icon" type="image/svg+xml" href      ="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23FFC107'/%3E%3Ctext x='32' y='46' font-family='Arial,sans-serif' font-size='42' font-weight='900' text-anchor='middle' fill='%23000'%3EA%3C/text%3E%3C/svg%3E"/>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -169,6 +169,31 @@ code{font-family:'Share Tech Mono',Consolas,monospace;color:var(--cat);font-size
 .field-row input, .field-row select{flex:1}
 
 .action-bar{display:flex;justify-content:flex-end;gap:8px;padding-top:12px;border-top:1px solid var(--border);margin-top:12px}
+
+/* TILT DEMO */
+.tilt-demo{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:16px;align-items:stretch}
+.tilt-visual,.tilt-sidebar{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.tilt-visual{justify-content:flex-start}
+.tilt-sidebar{justify-content:space-between}
+.tilt-label{font-size:18px;font-weight:900;letter-spacing:1px;color:var(--txt);font-family:'Barlow Condensed',Arial,sans-serif}
+.tilt-sub{font-size:13px;color:var(--txt2);line-height:1.6}
+.tilt-stage{width:100%;border-radius:10px;background:#070C18;border:1px solid var(--border);overflow:hidden}
+.slider-group{display:flex;align-items:center;gap:12px}
+.slider-group label{font-size:11px;color:var(--txt3);width:126px;text-transform:uppercase;letter-spacing:1px;font-weight:700}
+.slider-group input[type=range]{flex:1;accent-color:var(--cat)}
+.slider-val{font-size:13px;color:var(--cat);font-family:'Share Tech Mono',Consolas,monospace;min-width:48px;text-align:right}
+.fill-ratio-wrap{display:flex;flex-direction:column;gap:6px}
+.fill-ratio-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.fill-ratio-title{font-size:11px;color:var(--txt3);text-transform:uppercase;letter-spacing:1px;font-weight:700}
+.fill-ratio-value{font-size:34px;line-height:1;font-weight:700;color:var(--cat);font-family:'Share Tech Mono',Consolas,monospace}
+.fill-ratio-bar{width:100%;height:12px;background:#0A1628;border:1px solid var(--border2);border-radius:999px;overflow:hidden}
+.fill-ratio-bar-inner{height:100%;width:0%;background:linear-gradient(90deg,var(--cat),var(--green));transition:width .35s ease}
+.tilt-status{font-size:11px;font-family:'Share Tech Mono',Consolas,monospace;letter-spacing:1px}
+.tilt-note{font-size:12px;color:var(--txt2);line-height:1.6}
+
+@media (max-width: 980px){
+  .tilt-demo{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -552,6 +577,47 @@ document.getElementById("content").innerHTML = `
         <text x="845" y="150" fill="#90A4C8" text-anchor="middle" font-family="monospace" font-size="11">62% → 75% coverage</text>
         <text x="845" y="170" fill="#5A7099" text-anchor="middle" font-size="10">ZERO new hardware</text>
       </svg>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Interactive pile simulator</div><div class="card-sub">live dump correction</div></div>
+    <div class="tilt-demo">
+      <div class="tilt-visual">
+        <div class="tilt-label">INTERACTIVE PILE SIMULATOR</div>
+        <div class="tilt-sub">Drag the sliders to simulate pile lean. The truck corrects dump position automatically.</div>
+        <div class="tilt-stage">
+          <canvas id="tiltCanvas" class="field" width="500" height="320"></canvas>
+        </div>
+      </div>
+      <div class="tilt-sidebar">
+        <div>
+          <div class="tilt-label" style="font-size:1.1rem">LIVE CONTROL</div>
+          <div class="tilt-note">This deployment page keeps the correction logic visible without turning the page into a slide deck.</div>
+        </div>
+        <div class="slider-group">
+          <label for="tiltSlider">Pile tilt (°)</label>
+          <input type="range" id="tiltSlider" min="-40" max="40" value="-25">
+          <span class="slider-val" id="tiltVal">-25°</span>
+        </div>
+        <div class="slider-group">
+          <label for="fillSlider">Fill level (%)</label>
+          <input type="range" id="fillSlider" min="10" max="100" value="65">
+          <span class="slider-val" id="fillVal">65%</span>
+        </div>
+        <div class="fill-ratio-wrap">
+          <div class="fill-ratio-head">
+            <span class="fill-ratio-title">Current fill ratio</span>
+            <span class="tilt-status" id="spotStatus" style="color:var(--green)">AVAILABLE</span>
+          </div>
+          <div class="fill-ratio-value" id="fillRatioDisplay">0.65</div>
+          <div class="fill-ratio-bar"><div class="fill-ratio-bar-inner" id="fillRatioBar" style="width:65%"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--txt3);font-family:'Share Tech Mono',Consolas,monospace;letter-spacing:1px;">
+            <span>EMPTY</span><span>FULL</span>
+          </div>
+        </div>
+        <div class="alert ok">Geometry only. No formulas, just the live correction behavior.</div>
+      </div>
     </div>
   </div>
 
@@ -1854,6 +1920,164 @@ function renderAbout() {
   ];
   document.getElementById("about-ml").innerHTML = ml.map(r =>
     `<tr><td class="k">${r[0]}</td><td class="v">${r[1]}</td></tr>`).join("");
+  initTiltDemo();
+}
+
+let tiltDemoBound = false;
+function drawTiltDemo(tiltDeg, fillPct) {
+  const canvas = document.getElementById("tiltCanvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#070f1c';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = 'rgba(0,212,255,0.06)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  const groundY = H - 60;
+  const spotCX = W / 2;
+  const spotR = 80;
+
+  ctx.fillStyle = '#1a2a40';
+  ctx.fillRect(0, groundY, W, H - groundY);
+  ctx.strokeStyle = '#2a4060';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, groundY);
+  ctx.lineTo(W, groundY);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(0,212,255,0.4)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.arc(spotCX, groundY, spotR, Math.PI, 0);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(0,212,255,0.5)';
+  ctx.font = '11px Space Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('DUMP SPOT BOUNDARY', spotCX, groundY + 22);
+
+  const tiltRad = tiltDeg * Math.PI / 180;
+  const pileH = fillPct / 100 * (groundY - 40);
+  const pileBaseL = spotCX - spotR + 8;
+  const pileBaseR = spotCX + spotR - 8;
+  const peakOffset = -tiltDeg * 1.5;
+  const peakX = spotCX + peakOffset;
+  const peakY = groundY - pileH;
+
+  const grad = ctx.createLinearGradient(pileBaseL, groundY, peakX, peakY);
+  grad.addColorStop(0, '#5a7a9a');
+  grad.addColorStop(0.5, '#8aaa7a');
+  grad.addColorStop(1, '#c0aa70');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(pileBaseL, groundY);
+  ctx.quadraticCurveTo(pileBaseL + 20, peakY + 20, peakX, peakY);
+  ctx.quadraticCurveTo(pileBaseR - 20, peakY + 20, pileBaseR, groundY);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255,71,87,0.8)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(peakX - 60, peakY);
+  ctx.lineTo(peakX + 60, peakY);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(245,166,35,0.8)';
+  ctx.beginPath();
+  ctx.moveTo(pileBaseL, groundY - 10);
+  ctx.lineTo(pileBaseR, groundY - 10);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = '#ff4757';
+  ctx.font = '10px Space Mono, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('D_top', peakX + 64, peakY + 4);
+  ctx.fillStyle = '#f5a623';
+  ctx.textAlign = 'right';
+  ctx.fillText('D_bottom', pileBaseL - 4, groundY - 7);
+
+  if (Math.abs(tiltDeg) > 3) {
+    ctx.strokeStyle = 'rgba(0,212,255,0.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(peakX, groundY, 50, -Math.PI / 2 - tiltRad, -Math.PI / 2, tiltDeg < 0);
+    ctx.stroke();
+    ctx.fillStyle = '#00d4ff';
+    ctx.font = 'bold 12px Space Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`θ=${tiltDeg}°`, peakX + (tiltDeg < 0 ? -55 : 55), groundY - 55);
+  }
+
+  const correctedX = spotCX - peakOffset * 0.6;
+  const direction = tiltDeg < -10 ? 'DUMP RIGHT →' : tiltDeg > 10 ? '← DUMP LEFT' : '↓ DUMP CENTER';
+  const directionColor = tiltDeg < -10 || tiltDeg > 10 ? '#f5a623' : '#2ed573';
+  ctx.fillStyle = directionColor;
+  ctx.font = 'bold 11px Space Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(direction, correctedX, 38);
+  ctx.font = '10px DM Sans, sans-serif';
+  ctx.fillText('TRUCK CORRECTION', correctedX, 54);
+
+  const truckY = 66;
+  ctx.fillStyle = directionColor;
+  ctx.fillRect(correctedX - 20, truckY, 40, 16);
+  ctx.beginPath();
+  ctx.arc(correctedX - 12, truckY + 18, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(correctedX + 12, truckY + 18, 6, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function updateTiltDemo() {
+  const tiltSlider = document.getElementById("tiltSlider");
+  const fillSlider = document.getElementById("fillSlider");
+  if (!tiltSlider || !fillSlider) return;
+
+  const tilt = parseInt(tiltSlider.value, 10);
+  const fill = parseInt(fillSlider.value, 10);
+
+  document.getElementById("tiltVal").textContent = `${tilt}°`;
+  document.getElementById("fillVal").textContent = `${fill}%`;
+  document.getElementById("fillRatioDisplay").textContent = (fill / 100).toFixed(2);
+  document.getElementById("fillRatioBar").style.width = `${fill}%`;
+
+  const status = document.getElementById("spotStatus");
+  if (fill >= 90) {
+    status.textContent = "FULL — REASSIGNING";
+    status.style.color = "#ff4757";
+  } else if (fill >= 60) {
+    status.textContent = "FILLING";
+    status.style.color = "#f5a623";
+  } else {
+    status.textContent = "AVAILABLE";
+    status.style.color = "#2ed573";
+  }
+
+  drawTiltDemo(tilt, fill);
+}
+
+function initTiltDemo() {
+  const tiltSlider = document.getElementById("tiltSlider");
+  const fillSlider = document.getElementById("fillSlider");
+  if (!tiltSlider || !fillSlider) return;
+  if (!tiltDemoBound) {
+    tiltSlider.addEventListener("input", updateTiltDemo);
+    fillSlider.addEventListener("input", updateTiltDemo);
+    tiltDemoBound = true;
+  }
+  updateTiltDemo();
 }
 
 // ============================================================================
