@@ -287,9 +287,6 @@ document.getElementById("content").innerHTML = `
           <div class="mode-btn active" data-mode="poly" onclick="setMode('poly')">
             <span class="mb-i">⬢</span><span class="mb-l">Polygon</span>
           </div>
-          <div class="mode-btn" data-mode="pathway" onclick="setMode('pathway')">
-            <span class="mb-i" style="color:#9B6BFF">━</span><span class="mb-l">Pathway / Road</span>
-          </div>
           <div class="mode-btn" data-mode="entry" onclick="setMode('entry')">
             <span class="mb-i" style="color:#00D26A">▶</span><span class="mb-l">Entry gate</span>
           </div>
@@ -319,16 +316,11 @@ document.getElementById("content").innerHTML = `
       <div class="card">
         <div class="card-h"><div class="card-title">Physical parameters</div></div>
         <div class="field-row">
-          <label>Canvas width</label>
-          <input class="cell" type="number" id="p-real-width" value="500" step="10" min="20" max="20000" onchange="siteUpdateStats(); drawSite();"/>
-          <span style="color:var(--txt3);font-family:'Share Tech Mono',monospace;font-size:11px">m real</span>
-        </div>
-        <div class="field-row">
           <label>Safety buffer</label>
           <input class="cell" type="number" id="p-buffer" value="2.0" step="0.1" min="0" max="10"/>
           <span style="color:var(--txt3);font-family:'Share Tech Mono',monospace;font-size:11px">m</span>
         </div>
-        <div style="font-size:10px;color:var(--txt3);margin-top:4px;line-height:1.4">Canvas width = how many metres the full canvas represents in real life. All areas, distances and truck-width strips scale from this.</div>
+        <div style="font-size:10px;color:var(--txt3);margin-top:4px;line-height:1.4">Distance kept clear from the polygon edge. Truck width &amp; dump radius come from the fleet config in step 2.</div>
       </div>
 
       <div class="card">
@@ -336,12 +328,8 @@ document.getElementById("content").innerHTML = `
         <div class="kpi-grid">
           <div class="kpi"><div class="kpi-v" id="s-verts">0</div><div class="kpi-l">vertices</div></div>
           <div class="kpi"><div class="kpi-v blue" id="s-area">—</div><div class="kpi-l">area (m²)</div></div>
-          <div class="kpi"><div class="kpi-v" id="s-area-ha">—</div><div class="kpi-l">hectares</div></div>
-          <div class="kpi"><div class="kpi-v" id="s-area-ac">—</div><div class="kpi-l">acres</div></div>
           <div class="kpi"><div class="kpi-v green" id="s-entries">0</div><div class="kpi-l">entries</div></div>
           <div class="kpi"><div class="kpi-v red" id="s-exits">0</div><div class="kpi-l">exits</div></div>
-          <div class="kpi"><div class="kpi-v" style="color:#9B6BFF" id="s-roads">0</div><div class="kpi-l">roads</div></div>
-          <div class="kpi"><div class="kpi-v" style="color:#9B6BFF" id="s-regions">1</div><div class="kpi-l">regions</div></div>
         </div>
         <div id="site-validation" style="margin-top:10px"></div>
       </div>
@@ -693,10 +681,7 @@ const STATE = {
     entries: [],        // entry gates [{x,y,name}]
     exits: [],          // exit gates
     nogo: [],           // no-go polygons [[[x,y],...]]
-    pathways: [],       // line segments [[ [x1,y1], [x2,y2] ], ...] — roads splitting field
-    pathwayTemp: null,  // first click of current pathway (waiting for second click)
     buffer: 2.0,
-    realWidthM: 500,    // metres of real-world width represented by the canvas
     closed: false,
   },
   fleet: {
@@ -789,89 +774,6 @@ function maskInsideCount(m) {
 // ============================================================================
 //  ZONE DECOMPOSITION (sweep-line, sliver-merge, multi-truck-width-aware)
 // ============================================================================
-// ============================================================================
-//  REAL-WORLD SCALE HELPERS
-// ============================================================================
-function getScale() {
-  // Returns: how many real metres are represented by 1 canvas logical unit.
-  // The canvas is FIELD_W (=30) logical units wide. realWidthM is the real
-  // mining-site width in metres the user has typed on the Site Setup page.
-  const w = (STATE && STATE.site && STATE.site.realWidthM) || 500;
-  return w / FIELD_W;
-}
-function logicalToMetres(d)   { return d * getScale(); }
-function metresToLogical(m)   { return m / getScale(); }
-function areaLogicalToM2(a)   { return a * Math.pow(getScale(), 2); }
-
-// ============================================================================
-//  POLYGON SPLITTING BY PATHWAYS (Sutherland-Hodgman, any angle)
-// ============================================================================
-// Given a polygon and a list of pathway line segments, return one or more
-// sub-polygons formed by cutting the polygon along each pathway's infinite
-// line. Each pathway acts as an arbitrarily-angled half-plane cutter.
-function splitPolygonByPathways(mainPoly, pathways) {
-  if (!Array.isArray(mainPoly) || mainPoly.length < 3) return [];
-  if (!pathways || pathways.length === 0) {
-    return [{ verts: mainPoly.slice(), id: 0, label: "Region A",
-              areaM2: areaLogicalToM2(polyArea(mainPoly)) }];
-  }
-  let regions = [mainPoly.slice()];
-  for (const [p1, p2] of pathways) {
-    const next = [];
-    for (const r of regions) {
-      const pieces = splitPolyByLine(r, p1, p2);
-      for (const pc of pieces) if (pc.length >= 3) next.push(pc);
-    }
-    regions = next;
-  }
-  return regions.map((verts, i) => ({
-    verts, id: i,
-    label: "Region " + String.fromCharCode(65 + (i % 26)) + (i < 26 ? "" : Math.floor(i/26)),
-    areaM2: areaLogicalToM2(polyArea(verts))
-  }));
-}
-
-function splitPolyByLine(poly, p1, p2) {
-  // Returns 1 or 2 sub-polygons depending on whether the line crosses `poly`.
-  const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
-  const sideOf = p => (p[0] - p1[0]) * dy - (p[1] - p1[1]) * dx;
-  const sides = poly.map(sideOf);
-  const hasPos = sides.some(s => s > 1e-6);
-  const hasNeg = sides.some(s => s < -1e-6);
-  if (!hasPos || !hasNeg) return [poly.slice()]; // line doesn't cross polygon
-  const pos = clipPolyHalfplane(poly, p1, p2, +1);
-  const neg = clipPolyHalfplane(poly, p1, p2, -1);
-  return [pos, neg];
-}
-
-function clipPolyHalfplane(poly, p1, p2, keepSign) {
-  // Sutherland-Hodgman: keep vertices on side `keepSign * sideOf >= 0`.
-  const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
-  const sideOf = p => (p[0] - p1[0]) * dy - (p[1] - p1[1]) * dx;
-  const out = [];
-  for (let i = 0; i < poly.length; i++) {
-    const curr = poly[i];
-    const prev = poly[(i - 1 + poly.length) % poly.length];
-    const sC = sideOf(curr);
-    const sP = sideOf(prev);
-    const inC = sC * keepSign >= 0;
-    const inP = sP * keepSign >= 0;
-    if (inC) {
-      if (!inP) {
-        const t = sP / (sP - sC);
-        out.push([prev[0] + t * (curr[0] - prev[0]),
-                  prev[1] + t * (curr[1] - prev[1])]);
-      }
-      out.push(curr.slice());
-    } else if (inP) {
-      const t = sP / (sP - sC);
-      out.push([prev[0] + t * (curr[0] - prev[0]),
-                prev[1] + t * (curr[1] - prev[1])]);
-    }
-  }
-  return out;
-}
-
 function buildZones(V, truckWidth) {
   if (!V || V.length < 3) return [];
   const ymin = Math.min(...V.map(v=>v[1]));
@@ -1039,7 +941,6 @@ function setMode(m) {
   document.querySelectorAll(".mode-btn").forEach(b => b.classList.toggle("active", b.dataset.mode === m));
   const hints = {
     poly: ["Polygon mode:", "click to add vertices, double-click to close."],
-    pathway: ["Pathway mode:", "first click = road start, second click = road end. Pathways split the field into sub-regions during planning."],
     entry: ["Entry-gate mode:", "click on the polygon boundary to add an entry gate."],
     exit: ["Exit-gate mode:", "click on the polygon boundary to add an exit gate."],
     nogo: ["No-go zone mode:", "click inside the polygon to place no-go markers."]
@@ -1108,15 +1009,10 @@ function siteUndo() {
   } else if (STATE.currentMode === "entry") STATE.site.entries.pop();
   else if (STATE.currentMode === "exit") STATE.site.exits.pop();
   else if (STATE.currentMode === "nogo") STATE.site.nogo.pop();
-  else if (STATE.currentMode === "pathway") {
-    if (STATE.site.pathwayTemp) STATE.site.pathwayTemp = null;
-    else STATE.site.pathways.pop();
-  }
   siteUpdateStats(); drawSite();
 }
 function siteClear() {
-  STATE.site = { verts:[], entries:[], exits:[], nogo:[], pathways:[], pathwayTemp:null,
-                  buffer:STATE.site.buffer, realWidthM:STATE.site.realWidthM || 500, closed:false };
+  STATE.site = { verts:[], entries:[], exits:[], nogo:[], buffer:STATE.site.buffer, closed:false };
   setText("site-canvas-sub", "click to start drawing the polygon");
   siteUpdateStats(); drawSite();
 }
@@ -1149,42 +1045,23 @@ function loadPreset(name) {
 }
 function siteUpdateStats() {
   const v = STATE.site.verts;
-  const wEl = document.getElementById("p-real-width");
-  if (wEl) STATE.site.realWidthM = parseFloat(wEl.value) || 500;
   setText("s-verts", v.length);
-  if (STATE.site.closed) {
-    const aLogical = polyArea(v);
-    const aM2 = aLogical * Math.pow(getScale(), 2);
-    setText("s-area",    aM2.toFixed(0));
-    setText("s-area-ha", (aM2/10000).toFixed(2));
-    setText("s-area-ac", (aM2/4047).toFixed(2));
-  } else {
-    setText("s-area", "—"); setText("s-area-ha", "—"); setText("s-area-ac", "—");
-  }
+  setText("s-area", STATE.site.closed ? polyArea(v).toFixed(1) : "—");
   setText("s-entries", STATE.site.entries.length);
   setText("s-exits", STATE.site.exits.length);
-  setText("s-roads", STATE.site.pathways.length);
-  if (STATE.site.closed) {
-    try {
-      const regs = splitPolygonByPathways(v, STATE.site.pathways);
-      setText("s-regions", regs.length);
-    } catch (e) { setText("s-regions", "?"); }
-  } else setText("s-regions", "—");
-
+  // validation
   const errs = [];
   const warns = [];
   if (v.length < 3) errs.push("Polygon needs at least 3 vertices.");
   if (STATE.site.closed) {
-    const aM2 = polyArea(v) * Math.pow(getScale(), 2);
-    if (aM2 < 50) errs.push(`Area ${aM2.toFixed(0)} m² too small (min 50). Increase canvas width or draw a larger polygon.`);
+    const a = polyArea(v);
+    if (a < 50) errs.push(`Area ${a.toFixed(1)} m² too small (min 50).`);
     const xs = v.map(p=>p[0]), ys = v.map(p=>p[1]);
     if (Math.max(...xs)-Math.min(...xs) < 5) errs.push("Bounding box too narrow.");
     if (STATE.site.entries.length === 0) warns.push("No entry gate placed — trucks enter at default location.");
     if (STATE.site.exits.length === 0) warns.push("No exit gate placed — trucks loop back to entry.");
-    if (STATE.site.pathwayTemp) warns.push("Pathway start placed but end not yet clicked.");
   }
   const el = document.getElementById("site-validation");
-  if (!el) return;
   if (!STATE.site.closed) el.innerHTML = `<div class="alert warn">Close the polygon (double-click) to validate.</div>`;
   else if (errs.length) el.innerHTML = `<div class="alert err">${errs.join("<br>")}</div>`;
   else if (warns.length) el.innerHTML = `<div class="alert warn">${warns.join("<br>")}</div><div class="alert ok" style="margin-top:6px">Site valid — ready for fleet config.</div>`;
@@ -1243,34 +1120,6 @@ function drawSite() {
     ctx.fillStyle = "#FF8A3D"; ctx.font="bold 12px monospace"; ctx.textAlign="center";
     ctx.fillText("⊘", x, y+4);
   });
-  // pathways (roads): purple dashed lines + R-label at midpoint
-  STATE.site.pathways.forEach((pw, i) => {
-    const x1 = P.px(pw[0][0]), y1 = P.py(pw[0][1]);
-    const x2 = P.px(pw[1][0]), y2 = P.py(pw[1][1]);
-    ctx.strokeStyle = "#9B6BFF"; ctx.lineWidth = 3; ctx.setLineDash([5,3]);
-    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-    ctx.setLineDash([]);
-    // road endpoints
-    ctx.fillStyle = "#9B6BFF";
-    ctx.beginPath(); ctx.arc(x1, y1, 3, 0, 2*Math.PI); ctx.fill();
-    ctx.beginPath(); ctx.arc(x2, y2, 3, 0, 2*Math.PI); ctx.fill();
-    // label at midpoint
-    const mx = (x1+x2)/2, my = (y1+y2)/2;
-    ctx.fillStyle = "rgba(155,107,255,.85)";
-    ctx.fillRect(mx-12, my-7, 24, 14);
-    ctx.fillStyle = "#fff"; ctx.font = "bold 10px 'Share Tech Mono', monospace"; ctx.textAlign = "center";
-    ctx.fillText(`R${i+1}`, mx, my+3);
-  });
-  // pathway-in-progress preview
-  if (STATE.site.pathwayTemp && SITE_HOVER) {
-    const x1 = P.px(STATE.site.pathwayTemp[0]), y1 = P.py(STATE.site.pathwayTemp[1]);
-    const x2 = P.px(SITE_HOVER[0]),             y2 = P.py(SITE_HOVER[1]);
-    ctx.strokeStyle = "rgba(155,107,255,0.55)"; ctx.lineWidth = 2; ctx.setLineDash([3,4]);
-    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = "#9B6BFF";
-    ctx.beginPath(); ctx.arc(x1, y1, 3, 0, 2*Math.PI); ctx.fill();
-  }
 }
 function drawGate(ctx, P, g, color, glyph) {
   const x = P.px(g.x), y = P.py(g.y);
@@ -1437,105 +1286,78 @@ async function runPlan() {
   const t0 = performance.now();
   const steps = [
     "Building field mask from polygon...",
-    "Splitting field by pathways into sub-regions...",
-    "Decomposing each region into truck-width zones...",
-    "Assigning zones to trucks via token broker + computing waypoints...",
-    "Routing trucks through entry/exit gates and tallying distances...",
+    "Decomposing site into truck-width zones...",
+    "Assigning zones to trucks via token broker...",
+    "Computing dump waypoints per zone (boustrophedon order)...",
+    "Routing trucks through entry/exit gates...",
     "Estimating projected coverage and ETA..."
   ];
   stepsEl.innerHTML = steps.map(s => `<div style="color:var(--txt3);font-family:'Share Tech Mono',monospace;font-size:11px;padding:3px 0">⋯ ${s}</div>`).join("");
 
   await new Promise(r => setTimeout(r, 50));
-  // Step 1: mask of the entire field
+  // Step 1: mask
   const mask = buildMask(STATE.site.verts);
   const insideCells = maskInsideCount(mask);
   markStep(0);
   await new Promise(r => setTimeout(r, 50));
 
-  // Step 2: split polygon by pathways → sub-regions
-  const regions = splitPolygonByPathways(STATE.site.verts, STATE.site.pathways);
+  // Step 2: zones — use widest truck so strips don't get re-issued; we'll fit narrower trucks inside
+  const widestTW = Math.max(...STATE.fleet.trucks.map(t => t.width));
+  const zones = buildZones(STATE.site.verts, widestTW);
   markStep(1);
   await new Promise(r => setTimeout(r, 50));
 
-  // Step 3: for each region, decompose into zones.
-  //   - widestTW comes from the fleet (in METRES) and is converted to logical units
-  //   - small regions (<5000 m² real) become a single zone instead of a strip-stack
-  const widestTWMetres  = Math.max(...STATE.fleet.trucks.map(t => t.width));
-  const widestTWLogical = metresToLogical(widestTWMetres);
-  const ZONE_THRESHOLD_M2 = 5000;
-  let zones = [];
-  let zoneCounter = 0;
-  regions.forEach((region, ri) => {
-    if (region.areaM2 < ZONE_THRESHOLD_M2 && region.verts.length >= 3) {
-      // small region — treat as a single zone using its bounding box
-      const xs = region.verts.map(v => v[0]), ys = region.verts.map(v => v[1]);
-      zones.push({
-        id: zoneCounter++,
-        regionId: ri,
-        regionLabel: region.label,
-        x_min: Math.min(...xs), x_max: Math.max(...xs),
-        y_bot: Math.min(...ys), y_top: Math.max(...ys),
-        area:  polyArea(region.verts),
-        isSingleZone: true,
-      });
-    } else {
-      // big region — strip decomposition
-      const strips = buildZones(region.verts, widestTWLogical);
-      strips.forEach(s => {
-        zones.push({ ...s, id: zoneCounter++, regionId: ri, regionLabel: region.label });
-      });
-    }
-  });
-
-  markStep(2);
-  await new Promise(r => setTimeout(r, 50));
-
-  // Step 4: assign zones round-robin + compute waypoints (boustrophedon per zone, real dump-radius per truck)
+  // Step 3: assign trucks to zones round-robin (token broker would do this at runtime)
   const trucks = STATE.fleet.trucks;
-  const assignments = {};
-  const truckZones  = {};
+  const assignments = {};   // zoneId -> truckId
+  const truckZones  = {};   // truckId -> [zoneId]
   trucks.forEach(t => truckZones[t.id] = []);
   zones.forEach((z, i) => {
     const t = trucks[i % trucks.length];
     assignments[z.id] = t.id;
     truckZones[t.id].push(z.id);
   });
+  markStep(2);
+  await new Promise(r => setTimeout(r, 50));
+
+  // Step 4: waypoints — for each (truck, zone) pair, run greedy packer with that truck's dump radius
   const filled = new Uint8Array(HW*HH);
-  const waypoints = {};
+  const waypoints = {};   // truckId -> [[x,y,'dump'|'transit']]
   trucks.forEach(t => waypoints[t.id] = []);
-  const entry = STATE.site.entries[0] || { x: zones[0]?.x_min ?? 5, y: ((zones[0]?.y_bot ?? 0)+(zones[0]?.y_top ?? 0))/2, name:"E0" };
+  // ensure entry/exit defaults
+  const entry = STATE.site.entries[0] || { x: zones[0].x_min, y: (zones[0].y_bot+zones[0].y_top)/2, name:"E0" };
   const exit  = STATE.site.exits[0]   || entry;
   let totalDumps = 0;
   zones.forEach(z => {
     const tId = assignments[z.id];
     const truck = trucks.find(tt => tt.id === tId);
-    // truck.dumpRadius is in METRES from fleet config → convert
-    const drLogical = metresToLogical(truck.dumpRadius);
-    const dumps = boustrophedonOrder(greedyDumpsInZone(z, mask, filled, drLogical), z);
+    const dumps = boustrophedonOrder(greedyDumpsInZone(z, mask, filled, truck.dumpRadius), z);
+    // prepend a transit to the zone, append a transit back toward exit
     if (waypoints[tId].length === 0) waypoints[tId].push([entry.x, entry.y, "transit"]);
     dumps.forEach(d => waypoints[tId].push([d[0], d[1], "dump"]));
     totalDumps += dumps.length;
   });
+  // append exit waypoint at end of each truck route
   trucks.forEach(t => waypoints[t.id].push([exit.x, exit.y, "transit"]));
   markStep(3);
   await new Promise(r => setTimeout(r, 50));
 
-  // Step 5: per-truck distance — real metres, then km
-  const scale = getScale();
+  // Step 5: route distance per truck
   const truckKm = {};
   trucks.forEach(t => {
     const wp = waypoints[t.id];
     let d = 0;
     for (let i=1; i<wp.length; i++) d += Math.hypot(wp[i][0]-wp[i-1][0], wp[i][1]-wp[i-1][1]);
-    truckKm[t.id] = (d * scale) / 1000;   // logical→m via scale, then →km
+    truckKm[t.id] = d / 1000;   // metres-as-units → kilometres approximation
   });
   markStep(4);
   await new Promise(r => setTimeout(r, 50));
 
-  // Step 6: projected coverage
+  // Step 6: projected coverage from filled mask
   let nFilled = 0;
   for (let i=0; i<filled.length; i++) if (filled[i]) nFilled++;
   const projectedCov = nFilled / Math.max(insideCells, 1);
+  // ETA = max truck's dumps * avg dump cycle 2.5 sim-min + transits 0.5 sim-min each
   const etaMin = Math.max(...trucks.map(t => {
     const wp = waypoints[t.id];
     const dumps = wp.filter(w => w[2]==="dump").length;
@@ -1545,10 +1367,9 @@ async function runPlan() {
 
   STATE.plan = {
     zones, mask, insideCells, assignments, truckZones, waypoints,
-    truckKm, projectedCov, totalDumps, etaMin,
-    regions,                       // NEW: sub-regions list (for preview + report)
-    widestTW: widestTWMetres,      // store the METRES value
-    scaleMperUnit: scale,
+    truckKm, projectedCov, totalDumps,
+    etaMin,
+    widestTW,
   };
 
   const elapsed = ((performance.now()-t0)/1000).toFixed(2);
@@ -1607,19 +1428,6 @@ function drawPlanPreview() {
   ctx.strokeStyle="#3DB5F7"; ctx.lineWidth=2.5; ctx.beginPath();
   STATE.site.verts.forEach((v,i) => { const x=P.px(v[0]),y=P.py(v[1]); if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y); });
   ctx.closePath(); ctx.stroke();
-  // pathways (purple dashed) over the zones
-  (STATE.site.pathways || []).forEach((pw, i) => {
-    const x1 = P.px(pw[0][0]), y1 = P.py(pw[0][1]);
-    const x2 = P.px(pw[1][0]), y2 = P.py(pw[1][1]);
-    ctx.strokeStyle = "#9B6BFF"; ctx.lineWidth = 3; ctx.setLineDash([5,3]);
-    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-    ctx.setLineDash([]);
-    const mx = (x1+x2)/2, my = (y1+y2)/2;
-    ctx.fillStyle = "rgba(155,107,255,.85)";
-    ctx.fillRect(mx-12, my-7, 24, 14);
-    ctx.fillStyle = "#fff"; ctx.font = "bold 10px 'Share Tech Mono', monospace"; ctx.textAlign = "center";
-    ctx.fillText(`R${i+1}`, mx, my+3);
-  });
   // routes
   STATE.fleet.trucks.forEach(t => {
     const wp = STATE.plan.waypoints[t.id];

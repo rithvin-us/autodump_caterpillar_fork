@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-06-05
+
+### UI/Branding Redesign
+- Updated the site theme from dark mode to a light mode matching the Caterpillar brand aesthetics.
+- Replaced the 'Barlow Condensed' font with standard 'Arial'.
+- Renamed the main entry file from `index v1.10.html` to `index.html`.
+- Removed horizontal scanline styling from the site background.
+- Redesigned the top bar logo to use the classic Caterpillar text and yellow triangle, removing the "Operations Console" and version badges.
+- Updated the site favicon from a yellow square to a Caterpillar-style isosceles yellow triangle.
+- Changed the browser tab title to simply "AutoDump".
+- Redesigned the "Three-layer architecture" SVG diagram into a modern, responsive HTML/CSS flexbox layout with clean borders and shadows.
+
 ## 2026-06-04
 
 ### Workspace organization
