@@ -38,7 +38,7 @@
 - Reworded the button label to make it explicit that it opens the deployed `site/index.html`.
 - Added matching guidance in the docs so the published index path is documented consistently.
 
-### Git hook workflow
+### Git hook workflow . .
 - Added a repo-tracked Git hook set in `config/git-hooks/`.
 - Added `config/setup-git-hooks.ps1` to set `core.hooksPath` for the local clone.
 - Documented the hook workflow in `config/git-hooks/README.md` and `docs/README.md`.
@@ -52,3 +52,8 @@
 ### Verification
 - Confirmed the workspace root contains no files after the reorganization.
 - Confirmed the edited HTML and documentation files pass `git diff --check`.
+
+
+
+### Dummy change made
+
