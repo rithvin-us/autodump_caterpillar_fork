@@ -33,6 +33,17 @@
 - Updated the GitHub Pages workflow to deploy from `./site`.
 - Updated archive notes in `older versions/README.md`.
 
+### Git hook workflow
+- Added a repo-tracked Git hook set in `config/git-hooks/`.
+- Added `config/setup-git-hooks.ps1` to set `core.hooksPath` for the local clone.
+- Documented the hook workflow in `config/git-hooks/README.md` and `docs/README.md`.
+- Marked the hook scripts executable in the Git index and confirmed the local hooks path is configured.
+
+### Automatic commit wrapper
+- Added `config/sync-commit.ps1` to stage code changes, update the docs logs, and create the commit in one step.
+- Added the `git ccommit` alias through `config/setup-git-hooks.ps1`.
+- Documented the wrapper so the repo has a single, repeatable commit path that keeps changelog and testing notes in sync.
+
 ### Verification
 - Confirmed the workspace root contains no files after the reorganization.
 - Confirmed the edited HTML and documentation files pass `git diff --check`.

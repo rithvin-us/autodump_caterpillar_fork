@@ -1,0 +1,24 @@
+#!/usr/bin/env sh
+set -eu
+
+if ! git diff --cached --name-only | grep -q .; then
+  exit 0
+fi
+
+needs_update=0
+
+if git diff --cached --name-only | grep -v -E '^(docs/CHANGELOG\.md|docs/TESTING\.md)$' | grep -q .; then
+  needs_update=1
+fi
+
+if [ "$needs_update" -eq 1 ] && ! git diff --cached --name-only | grep -qx 'docs/CHANGELOG.md'; then
+  printf '%s\n' 'Commit blocked: update docs/CHANGELOG.md before committing code, layout, or workflow changes.' >&2
+  exit 1
+fi
+
+if [ "$needs_update" -eq 1 ] && ! git diff --cached --name-only | grep -qx 'docs/TESTING.md'; then
+  printf '%s\n' 'Commit blocked: update docs/TESTING.md with the validation log before committing changes.' >&2
+  exit 1
+fi
+
+exit 0

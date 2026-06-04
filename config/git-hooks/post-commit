@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+set -eu
+
+printf '%s\n' 'Git hook note: if you changed code, keep docs/CHANGELOG.md and docs/TESTING.md in sync before the next commit.'
