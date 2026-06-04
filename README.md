@@ -20,8 +20,13 @@ the polygon math, the token broker, and the greedy circle-packer are all embedde
 JavaScript. The only network call is to `fonts.googleapis.com` for the typeface (with system
 font fallbacks if that fails).
 
-Older standalone builds are kept in the `older versions/` folder for reference. The root
-`index.html` is the live site entry point.
+Older standalone builds are kept in the `older versions/` folder for reference. The live
+site entry point is `site/index.html`.
+
+## Documentation
+
+- [CHANGELOG.md](CHANGELOG.md) — summary of the repo reorganization and feature updates.
+- [TESTING.md](TESTING.md) — testing log with errors, fixes, and verification results.
 
 ## What's inside
 
@@ -55,11 +60,11 @@ Older standalone builds are kept in the `older versions/` folder for reference. 
 
 ## Local development
 
-You don't actually need a web server — `index.html` opens directly in any browser. But
-during development a local server helps with cache busting:
+You don't actually need a web server — `site/index.html` opens directly in any browser.
+But during development a local server helps with cache busting:
 
 ```bash
-cd deploy/
+cd site/
 python3 -m http.server 8000
 # open http://localhost:8000/
 ```

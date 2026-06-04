@@ -36,9 +36,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload the repo root (where index.html lives).
-          # If you move the site into a subfolder, change this to e.g. "./site"
-          path: "."
+          # Upload the site folder where the deployable HTML lives.
+          path: "./site"
 
       - name: Deploy to GitHub Pages
         id: deployment

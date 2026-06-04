@@ -20,8 +20,8 @@ The final URL will look like `https://YOUR-USERNAME.github.io/autodump/`.
    - Click **Create repository**
 
 2. **Upload the files.** On your new repo page, click **"Add file → Upload files"**.
-   - Drag the entire contents of this `deploy/` folder into the browser
-     (the `index.html`, `404.html`, `README.md`, `.nojekyll`, `.github/`, and `DEPLOY.md`)
+       - Drag the entire contents of this `site/` folder into the browser
+             (the `index.html`, `404.html`, `.nojekyll`, and `CNAME.example` files)
    - **Important:** the `.nojekyll` file is invisible on macOS Finder.
      Show hidden files: `Cmd + Shift + .` On Windows: View → Show → Hidden items.
    - At the bottom: **Commit changes**
@@ -87,7 +87,7 @@ After the URL is live, do these to make sure the site is competition-ready.
       shows the AutoDump title + description (Open Graph tags). If it shows just
       "github.io", clear the platform's link cache and try again.
 - [ ] **Update the README placeholders.** Replace every `YOUR-USERNAME` with your
-      GitHub handle in `README.md` and inside `index.html`'s `<meta property="og:url">`.
+      GitHub handle in `docs/README.md` and inside `site/index.html`'s `<meta property="og:url">`.
 
 ---
 
@@ -99,23 +99,23 @@ Skip this if you're happy with `*.github.io`. Otherwise:
 2. In your domain registrar, add a **CNAME** record:
    - Host: `@` (or `www`)
    - Value: `YOUR-USERNAME.github.io`
-3. In the repo, rename `CNAME.example` → `CNAME` and put your domain on the first line:
+3. In `site/`, rename `CNAME.example` → `CNAME` and put your domain on the first line:
    ```
    autodump.tech
    ```
 4. Commit, push. GitHub will detect it and provision HTTPS automatically (takes 1-15 min).
-5. Update the `<link rel="canonical">` and OG `og:url` meta tags in `index.html` to your
+5. Update the `<link rel="canonical">` and OG `og:url` meta tags in `site/index.html` to your
    new domain.
 
 ---
 
 ## 🔁 Updating the site after launch
 
-Just push a new `index.html` and the site updates within ~30 seconds.
+Just push a new `site/index.html` and the site updates within ~30 seconds.
 
 ```bash
-# Make changes to index.html, then:
-git add index.html
+# Make changes to site/index.html, then:
+git add site/index.html
 git commit -m "Update: <what you changed>"
 git push
 ```
