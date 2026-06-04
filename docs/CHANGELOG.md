@@ -33,6 +33,11 @@
 - Updated the GitHub Pages workflow to deploy from `./site`.
 - Updated archive notes in `older versions/README.md`.
 
+### Live demo link clarification
+- Updated the public demo link in `README.md` and `docs/README.md` to point at the deployed Pages root.
+- Reworded the button label to make it explicit that it opens the deployed `site/index.html`.
+- Added matching guidance in the docs so the published index path is documented consistently.
+
 ### Git hook workflow
 - Added a repo-tracked Git hook set in `config/git-hooks/`.
 - Added `config/setup-git-hooks.ps1` to set `core.hooksPath` for the local clone.
@@ -40,9 +45,9 @@
 - Marked the hook scripts executable in the Git index and confirmed the local hooks path is configured.
 
 ### Automatic commit wrapper
-- Added `config/sync-commit.ps1` to stage code changes, update the docs logs, and create the commit in one step.
+- Added `config/sync-commit.ps1` to stage code changes, update the changelog, and create the commit in one step.
 - Added the `git ccommit` alias through `config/setup-git-hooks.ps1`.
-- Documented the wrapper so the repo has a single, repeatable commit path that keeps changelog and testing notes in sync.
+- Documented the wrapper so the repo has a single, repeatable commit path that keeps the changelog in sync.
 
 ### Verification
 - Confirmed the workspace root contains no files after the reorganization.

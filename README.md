@@ -9,7 +9,9 @@
 [![Coverage](https://img.shields.io/badge/coverage-62%25%20→%2075%25-00D26A)]()
 [![Hardware](https://img.shields.io/badge/new%20hardware-ZERO-00D26A)]()
 
-## 🌐 [▶ Open the live demo](https://YOUR-USERNAME.github.io/autodump/)
+## 🌐 [▶ Open the deployed index](https://preethikakumaravel.github.io/autodump_caterpillar/site/index.html)
+
+This button opens the GitHub Pages root, which serves `site/index.html`.
 
 A three-layer software system that raises field coverage of autonomous Cat 793 dump trucks
 on irregular mining polygons from **62.18 %** (current Cat practice) to **74.84 %** (trained
@@ -25,8 +27,8 @@ site entry point is `site/index.html`.
 
 ## Documentation
 
-- [CHANGELOG.md](CHANGELOG.md) — summary of the repo reorganization and feature updates.
-- [TESTING.md](TESTING.md) — testing log with errors, fixes, and verification results.
+- [CHANGELOG.md](docs/CHANGELOG.md) — summary of the repo reorganization and feature updates.
+- [TESTING.md](docs/TESTING.md) — testing log with errors, fixes, and verification results.
 
 ## What's inside
 

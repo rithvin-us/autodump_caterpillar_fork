@@ -11,7 +11,6 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $docsDir = Join-Path $repoRoot 'docs'
 $changeLogPath = Join-Path $docsDir 'CHANGELOG.md'
-$testingPath = Join-Path $docsDir 'TESTING.md'
 
 function Add-ChangelogEntry {
   param(
@@ -73,29 +72,9 @@ if (-not $staged -or $staged.Count -eq 0) {
 }
 
 $trackedChanges = @($staged | Where-Object { $_ -notmatch '^(docs/CHANGELOG\.md|docs/TESTING\.md)$' })
-$testSummary = 'no separate validation command was provided'
-$testExit = 0
-$testOutput = ''
-
-if ($TestCommand) {
-  $invokeResult = & powershell -NoProfile -ExecutionPolicy Bypass -Command $TestCommand 2>&1
-  $testExit = $LASTEXITCODE
-  $testOutput = ($invokeResult | Out-String).Trim()
-  if ($testExit -eq 0) {
-    $testSummary = 'validation command completed successfully'
-  } else {
-    $testSummary = 'validation command failed'
-  }
-}
 
 Add-ChangelogEntry -Path $changeLogPath -Summary $Message -Files $trackedChanges
-if ($TestCommand) {
-  $commandText = $TestCommand
-} else {
-  $commandText = 'not provided'
-}
-Add-TestingEntry -Path $testingPath -Summary $testSummary -CommandText $commandText -ExitCode $testExit -OutputText $testOutput
 
-git -C $repoRoot add docs/CHANGELOG.md docs/TESTING.md
+git -C $repoRoot add docs/CHANGELOG.md
 
 git -C $repoRoot commit -m $Message
