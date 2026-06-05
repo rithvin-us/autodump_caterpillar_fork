@@ -413,6 +413,22 @@ document.getElementById("content").innerHTML = `
     </div>
   </div>
 
+<div class="card" style="padding:14px">
+  <div class="card-h"><div class="card-title">Decomposition parameters</div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div>
+      <label class="card-sub" for="p-zone-threshold">Small region threshold</label>
+      <input class="cell" type="number" id="p-zone-threshold" value="5000" step="500" min="100" style="width:100%"/>
+      <div class="card-sub">m² — regions below this are treated as a single zone (no strip decomposition)</div>
+    </div>
+    <div>
+      <label class="card-sub" for="p-min-zone-area">Min zone area</label>
+      <input class="cell" type="number" id="p-min-zone-area" value="500" step="100" style="width:100%"/>
+      <div class="card-sub">m² — zones smaller than this are skipped</div>
+    </div>
+  </div>
+</div>
+
   <div id="plan-status" class="card" style="display:none">
     <div class="card-h"><div class="card-title">Pipeline status</div><div class="card-sub" id="plan-status-elapsed">—</div></div>
     <div id="plan-steps"></div>
@@ -672,7 +688,7 @@ document.getElementById("content").innerHTML = `
     </div>
   </div>
 </div>
-`;
+`
 </script>
 
 <script>
@@ -908,6 +924,61 @@ function buildZones(V, truckWidth) {
 }
 
 // ============================================================================
+//  LANE ROUTING — trucks reach zones only along the declared pathways
+// ============================================================================
+function _ld(a,b){ return Math.hypot(a[0]-b[0], a[1]-b[1]); }
+function _lkey(p){ return p[0].toFixed(3)+","+p[1].toFixed(3); }
+function _projSeg(P,A,B){
+  const dx=B[0]-A[0], dy=B[1]-A[1], L2=dx*dx+dy*dy||1e-9;
+  let t=((P[0]-A[0])*dx+(P[1]-A[1])*dy)/L2; t=Math.max(0,Math.min(1,t));
+  return [A[0]+t*dx, A[1]+t*dy];
+}
+function _segInt(p1,p2,p3,p4){
+  const d=(p2[0]-p1[0])*(p4[1]-p3[1])-(p2[1]-p1[1])*(p4[0]-p3[0]);
+  if(Math.abs(d)<1e-9) return null;
+  const t=((p3[0]-p1[0])*(p4[1]-p3[1])-(p3[1]-p1[1])*(p4[0]-p3[0]))/d;
+  const u=((p3[0]-p1[0])*(p2[1]-p1[1])-(p3[1]-p1[1])*(p2[0]-p1[0]))/d;
+  if(t<-1e-6||t>1+1e-6||u<-1e-6||u>1+1e-6) return null;
+  return [p1[0]+t*(p2[0]-p1[0]), p1[1]+t*(p2[1]-p1[1])];
+}
+// Shortest route from `from` to `to` constrained to the road network (+ short
+// straight on/off ramps). Returns an ordered polyline incl. endpoints. With no
+// roads it degrades to a straight segment so road-free demos still work.
+function laneRoute(pathways, from, to){
+  if(!pathways || !pathways.length) return [from.slice(), to.slice()];
+  const nodes=new Map();
+  const add=p=>{ const k=_lkey(p); if(!nodes.has(k)) nodes.set(k,p.slice()); return k; };
+  const seg=pathways.map(s=>[s[0].slice(), s[1].slice()]);
+  seg.forEach(s=>{ add(s[0]); add(s[1]); });
+  for(let i=0;i<seg.length;i++) for(let j=i+1;j<seg.length;j++){
+    const x=_segInt(seg[i][0],seg[i][1],seg[j][0],seg[j][1]); if(x) add(x);
+  }
+  const access=P=>{ let best=null,bd=Infinity; seg.forEach(s=>{ const q=_projSeg(P,s[0],s[1]); const d=_ld(P,q); if(d<bd){bd=d;best=q;} }); return add(best); };
+  const aFrom=access(from), aTo=access(to);
+  const adj=new Map();
+  const edge=(k1,k2)=>{ const w=_ld(nodes.get(k1),nodes.get(k2)); if(w<1e-9)return;
+    (adj.get(k1)||adj.set(k1,[]).get(k1)).push({k:k2,w});
+    (adj.get(k2)||adj.set(k2,[]).get(k2)).push({k:k1,w}); };
+  seg.forEach(s=>{
+    const on=[...nodes.entries()].filter(([k,p])=>_ld(p,_projSeg(p,s[0],s[1]))<1e-6).map(([k])=>k);
+    on.sort((k1,k2)=>_ld(s[0],nodes.get(k1))-_ld(s[0],nodes.get(k2)));
+    for(let i=1;i<on.length;i++) edge(on[i-1],on[i]);
+  });
+  const kFrom=add(from), kTo=add(to);
+  edge(kFrom,aFrom); edge(kTo,aTo);
+  const D=new Map(), prev=new Map(), seen=new Set();
+  nodes.forEach((_,k)=>D.set(k,Infinity)); D.set(kFrom,0);
+  while(true){
+    let u=null,ud=Infinity; D.forEach((d,k)=>{ if(!seen.has(k)&&d<ud){ud=d;u=k;} });
+    if(u===null||u===kTo) break; seen.add(u);
+    (adj.get(u)||[]).forEach(e=>{ const nd=ud+e.w; if(nd<D.get(e.k)){D.set(e.k,nd); prev.set(e.k,u);} });
+  }
+  if(D.get(kTo)===Infinity) return [from.slice(), to.slice()];
+  const path=[]; let c=kTo; while(c!==undefined){ path.unshift(nodes.get(c)); c=prev.get(c); }
+  return path;
+}
+
+// ============================================================================
 //  GREEDY CIRCLE PACKER (for ceiling + waypoint generation per zone)
 // ============================================================================
 function greedyDumpsInZone(zone, mask, filled, dumpRadius) {
@@ -1093,6 +1164,19 @@ function siteOnClick(e) {
   } else if (M === "nogo") {
     if (!STATE.site.closed) { siteFlash("Close the polygon first"); return; }
     STATE.site.nogo.push([+fx.toFixed(2), +fy.toFixed(2)]);
+  } else if (M === "pathway") {
+    if (!STATE.site.closed) { siteFlash("Close the polygon first"); return; }
+    const pt = [+fx.toFixed(2), +fy.toFixed(2)];
+    if (STATE.site.pathwayTemp) {
+      // Second click — complete the pathway segment
+      STATE.site.pathways.push([STATE.site.pathwayTemp, pt]);
+      STATE.site.pathwayTemp = null;
+      siteFlash(`Road R${STATE.site.pathways.length} placed`);
+    } else {
+      // First click — store start point
+      STATE.site.pathwayTemp = pt;
+      siteFlash("Road start placed — click the other end");
+    }
   }
   siteUpdateStats(); drawSite();
 }
@@ -1277,6 +1361,7 @@ function drawSite() {
     ctx.fillStyle = "#9B6BFF";
     ctx.beginPath(); ctx.arc(x1, y1, 3, 0, 2*Math.PI); ctx.fill();
   }
+  drawScaleBar(ctx, P);
 }
 function drawGate(ctx, P, g, color, glyph) {
   const x = P.px(g.x), y = P.py(g.y);
@@ -1468,7 +1553,8 @@ async function runPlan() {
   //   - small regions (<5000 m² real) become a single zone instead of a strip-stack
   const widestTWMetres  = Math.max(...STATE.fleet.trucks.map(t => t.width));
   const widestTWLogical = metresToLogical(widestTWMetres);
-  const ZONE_THRESHOLD_M2 = 5000;
+  const ZONE_THRESHOLD_M2 = parseFloat(document.getElementById('p-zone-threshold')?.value) || 5000;
+  const MIN_ZONE_AREA_M2  = parseFloat(document.getElementById('p-min-zone-area')?.value)  || 500;
   let zones = [];
   let zoneCounter = 0;
   regions.forEach((region, ri) => {
@@ -1493,36 +1579,100 @@ async function runPlan() {
     }
   });
 
+  const m2PerLogical2 = getScale() * getScale();
+  zones = zones.filter(z => (z.area * m2PerLogical2) >= MIN_ZONE_AREA_M2);
+  zones.forEach((z, i) => z.id = i);   // re-index so token/assignment arrays stay contiguous
+
   markStep(2);
   await new Promise(r => setTimeout(r, 50));
 
-  // Step 4: assign zones round-robin + compute waypoints (boustrophedon per zone, real dump-radius per truck)
+  // ── Step 4: BIG-FIRST assignment + path-constrained routing + small-truck gap-fill
   const trucks = STATE.fleet.trucks;
+  const pathways = STATE.site.pathways || [];
+  const entry = STATE.site.entries[0] || { x: zones[0]?.x_min ?? 5, y: ((zones[0]?.y_bot ?? 0)+(zones[0]?.y_top ?? 0))/2, name:"E0" };
+  const exit  = STATE.site.exits[0]   || entry;
+  const entryXY = [entry.x, entry.y], exitXY = [exit.x, exit.y];
+
+  // rank by payload — biggest-capacity trucks are the primary "fill-first" workers
+  const payloadOf = t => (TRUCK_MODELS[t.model]?.payload) || t.width || 1;
+  const ranked = [...trucks].sort((a,b)=> payloadOf(b)-payloadOf(a));
+  const maxPay = payloadOf(ranked[0]);
+  let bigTrucks   = ranked.filter(t => payloadOf(t) >= maxPay*0.85);
+  let smallTrucks = ranked.filter(t => !bigTrucks.includes(t));
+  if (bigTrucks.length === 0) bigTrucks = ranked.slice();
+
   const assignments = {};
   const truckZones  = {};
   trucks.forEach(t => truckZones[t.id] = []);
-  zones.forEach((z, i) => {
-    const t = trucks[i % trucks.length];
+
+  // big trucks fill first: biggest zones go to the least-loaded big truck, so when
+  // every big truck is busy the next free zone still lands on whichever big truck
+  // currently carries the least area ("next big truck gets assigned there").
+  const load = {}; bigTrucks.forEach(t => load[t.id] = 0);
+  [...zones].sort((a,b)=> b.area - a.area).forEach(z => {
+    const t = bigTrucks.reduce((best,tt)=> load[tt.id] < load[best.id] ? tt : best, bigTrucks[0]);
     assignments[z.id] = t.id;
     truckZones[t.id].push(z.id);
+    load[t.id] += z.area;
   });
+
   const filled = new Uint8Array(HW*HH);
   const waypoints = {};
   trucks.forEach(t => waypoints[t.id] = []);
-  const entry = STATE.site.entries[0] || { x: zones[0]?.x_min ?? 5, y: ((zones[0]?.y_bot ?? 0)+(zones[0]?.y_top ?? 0))/2, name:"E0" };
-  const exit  = STATE.site.exits[0]   || entry;
   let totalDumps = 0;
-  zones.forEach(z => {
-    const tId = assignments[z.id];
-    const truck = trucks.find(tt => tt.id === tId);
-    // truck.dumpRadius is in METRES from fleet config → convert
-    const drLogical = metresToLogical(truck.dumpRadius);
-    const dumps = boustrophedonOrder(greedyDumpsInZone(z, mask, filled, drLogical), z);
-    if (waypoints[tId].length === 0) waypoints[tId].push([entry.x, entry.y, "transit"]);
-    dumps.forEach(d => waypoints[tId].push([d[0], d[1], "dump"]));
-    totalDumps += dumps.length;
+
+  const zoneCentroid = z => [ (z.x_min+z.x_max)/2, (z.y_bot+z.y_top)/2 ];
+  const pushLane = (wp, cur, dest) => {
+    const poly = laneRoute(pathways, cur, dest);
+    for (let i=1;i<poly.length;i++) wp.push([+poly[i][0].toFixed(2), +poly[i][1].toFixed(2), "transit"]);
+    return dest;
+  };
+
+  // PASS 1 — big trucks lay the bulk pattern (coarse, large dump radius)
+  bigTrucks.forEach(t => {
+    const wp = waypoints[t.id];
+    const drLogical = metresToLogical(t.dumpRadius);
+    let cur = entryXY;
+    wp.push([entry.x, entry.y, "transit"]);
+    truckZones[t.id].forEach(zid => {
+      const z = zones.find(zz => zz.id === zid);
+      const access = zoneCentroid(z);
+      cur = pushLane(wp, cur, access);                       // drive in along roads
+      const dumps = boustrophedonOrder(greedyDumpsInZone(z, mask, filled, drLogical), z);
+      dumps.forEach(d => wp.push([d[0], d[1], "dump"]));
+      totalDumps += dumps.length;
+      cur = pushLane(wp, cur, access);                       // back out to the road
+    });
+    cur = pushLane(wp, cur, exitXY);
+    wp.push([exit.x, exit.y, "transit"]);
   });
-  trucks.forEach(t => waypoints[t.id].push([exit.x, exit.y, "transit"]));
+
+  // PASS 2 — small trucks sweep the SAME zones; greedyDumpsInZone respects `filled`
+  // so it only returns dumps where the big trucks left gaps (missed density).
+  if (smallTrucks.length) {
+    let si = 0;
+    zones.forEach(z => {
+      const t = smallTrucks[si % smallTrucks.length];
+      const drLogical = metresToLogical(t.dumpRadius);
+      const gaps = boustrophedonOrder(greedyDumpsInZone(z, mask, filled, drLogical), z);
+      if (gaps.length === 0) return;                         // nothing missed here
+      si++;
+      const wp = waypoints[t.id];
+      if (wp.length === 0) wp.push([entry.x, entry.y, "transit"]);
+      let cur = [wp[wp.length-1][0], wp[wp.length-1][1]];
+      const access = zoneCentroid(z);
+      cur = pushLane(wp, cur, access);
+      gaps.forEach(d => wp.push([d[0], d[1], "dump"]));
+      totalDumps += gaps.length;
+      pushLane(wp, cur, access);
+      if (!truckZones[t.id].includes(z.id)) truckZones[t.id].push(z.id);
+    });
+    smallTrucks.forEach(t => {
+      const wp = waypoints[t.id];
+      if (wp.length) { pushLane(wp, [wp[wp.length-1][0], wp[wp.length-1][1]], exitXY); wp.push([exit.x, exit.y, "transit"]); }
+    });
+  }
+
   markStep(3);
   await new Promise(r => setTimeout(r, 50));
 
@@ -1644,6 +1794,7 @@ function drawPlanPreview() {
   // gates
   STATE.site.entries.forEach(g => drawGate(ctx, P, g, "#00D26A", "▶"));
   STATE.site.exits.forEach(g => drawGate(ctx, P, g, "#FF4D5E", "◀"));
+  drawScaleBar(ctx, P);
 }
 
 function exportPlan() {
@@ -1755,16 +1906,131 @@ function opsLog(msg, cls) {
   STATE.ops.events.push({ t: STATE.ops.t, msg, cls });
 }
 
+// ── Step 4 helpers ──────────────────────────────────────────────────────────
+const TRUCK_RAD_LOGICAL = 0.75;          // half of the 1.5-logical body length
+const CAT793_TURN_M     = 11.5;          // Cat 793 turning radius (metres)
+
+// Collision avoidance: keep a 2.5×-radius gap. Lower-index truck has right of way;
+// the higher-index truck deflects around, or waits if it's right on top of it.
+function moveTruckWithAvoidance(tr, ops, target, step) {
+  const minGap = 2.5 * TRUCK_RAD_LOGICAL;
+  const myIdx  = ops.trucks.indexOf(tr);
+  let nearest = null, nearestD = Infinity;
+  for (const ot of ops.trucks) {
+    if (ot === tr || ot.finished) continue;
+    const d = Math.hypot(ot.x - tr.x, ot.y - tr.y);
+    if (d < nearestD) { nearestD = d; nearest = ot; }
+  }
+  let aim = [target[0], target[1]], wait = false;
+  if (nearest && nearestD < minGap) {
+    const ni = ops.trucks.indexOf(nearest);
+    const tx = target[0]-tr.x, ty = target[1]-tr.y, tl = Math.hypot(tx,ty) || 1;
+    const ox = nearest.x-tr.x,  oy = nearest.y-tr.y;
+    const ahead = (ox*tx + oy*ty) / tl;        // is the blocker in my path?
+    if (ahead > 0 && myIdx > ni) {             // I yield to the lower-index truck
+      if (nearestD < TRUCK_RAD_LOGICAL * 1.6) {
+        wait = true;                           // too close → stop and yield
+      } else {                                 // deflect perpendicular to go around
+        const px = -ty/tl, py = tx/tl;
+        const side = (ox*px + oy*py) > 0 ? -1 : 1;
+        aim = [tr.x + tx/tl*step*3 + px*side*minGap,
+               tr.y + ty/tl*step*3 + py*side*minGap];
+      }
+      if (tr.yieldingTo !== nearest.id) {      // log once per yield event
+        opsLog(`${tr.id} yielding to ${nearest.id}`, "amber");
+        tr.yieldingTo = nearest.id;
+      }
+    } else if (tr.yieldingTo) { tr.yieldingTo = null; }
+  } else if (tr.yieldingTo) { tr.yieldingTo = null; }
+  return { wait, aim };
+}
+
+// Turning radius: clamp heading change to step / turnRadiusLogical, move along heading.
+function moveTruckWithTurning(tr, aim, step) {
+  const desired = Math.atan2(aim[1]-tr.y, aim[0]-tr.x);   // logical-space heading
+  if (tr.heading === undefined) tr.heading = desired;
+  const turnRadiusLogical = Math.max(metresToLogical(CAT793_TURN_M), 1e-3);
+  const maxTurnRate = step / turnRadiusLogical;
+  let dH = desired - tr.heading;
+  while (dH >  Math.PI) dH -= 2*Math.PI;
+  while (dH < -Math.PI) dH += 2*Math.PI;
+  tr.heading += Math.max(-maxTurnRate, Math.min(maxTurnRate, dH));
+  tr.x += Math.cos(tr.heading) * step;
+  tr.y += Math.sin(tr.heading) * step;
+  if (!tr.trail) tr.trail = [];
+  tr.trail.push([tr.x, tr.y]);
+  if (tr.trail.length > 20) tr.trail.shift();
+}
+
+// Oriented truck: body + CAT-yellow cab at the front + direction arrow + trail + glow.
+function drawTruck(ctx, P, tr) {
+  const x = P.px(tr.x), y = P.py(tr.y);
+  const heading = (tr.heading !== undefined) ? tr.heading
+    : (tr.waypoints[tr.wpIdx]
+        ? Math.atan2(tr.waypoints[tr.wpIdx][1]-tr.y, tr.waypoints[tr.wpIdx][0]-tr.x) : 0);
+  // fading trail
+  if (tr.trail) for (let i=0;i<tr.trail.length;i++) {
+    const a = (i+1)/tr.trail.length;
+    ctx.fillStyle = `rgba(255,255,255,${a*0.22})`;
+    ctx.beginPath(); ctx.arc(P.px(tr.trail[i][0]), P.py(tr.trail[i][1]), 1.5, 0, 2*Math.PI); ctx.fill();
+  }
+  // active-zone glow (kept from original)
+  if (tr.state === "dumping") {
+    ctx.fillStyle = tr.color + "55";
+    ctx.beginPath(); ctx.arc(x, y, 10 + tr.dumpProgress*6, 0, 2*Math.PI); ctx.fill();
+  }
+  const L = 1.5 * P.s, W = 0.8 * P.s;     // logical → pixels
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(-heading);   // logical heading → screen (Y-down)
+  ctx.fillStyle = tr.color; ctx.strokeStyle = "#0c0c0c"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(-L/2, -W/2, L, W, 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#FFC72C";                    // Caterpillar yellow cab at front (+x)
+  ctx.fillRect(L/2 - L*0.28, -W/2, L*0.28, W);
+  ctx.strokeStyle = "#0c0c0c"; ctx.lineWidth = 1.2; ctx.beginPath();
+  ctx.moveTo(L*0.55, 0); ctx.lineTo(L*0.30, -W*0.32);
+  ctx.moveTo(L*0.55, 0); ctx.lineTo(L*0.30,  W*0.32); ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = "#fff"; ctx.font = "bold 8px monospace"; ctx.textAlign = "center";
+  ctx.fillText(tr.id, x, y - W - 2);
+}
+
+// Scale ruler + N compass (shared by ops, site, and plan canvases).
+function drawScaleBar(ctx, P) {
+  const cw = ctx.canvas.width, ch = ctx.canvas.height;
+  const pxPerM = P.s / getScale();              // P.s = px/logical, getScale() = m/logical
+  const maxBarPx = cw * 0.15;
+  const candidates = [10,20,50,100,200,500,1000,2000,5000,10000];
+  let metres = candidates[0];
+  for (const m of candidates) if (m * pxPerM <= maxBarPx) metres = m;
+  const barPx = metres * pxPerM, x0 = 20, y0 = ch - 20;
+  ctx.save();
+  ctx.strokeStyle = "#fff"; ctx.fillStyle = "#fff"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0+barPx, y0); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x0, y0-5); ctx.lineTo(x0, y0+5);
+  ctx.moveTo(x0+barPx, y0-5); ctx.lineTo(x0+barPx, y0+5); ctx.stroke();
+  ctx.font = "11px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+  ctx.fillText(`${metres} m`, x0 + barPx/2, y0 - 6);
+  const cx = cw - 30, cy = ch - 30;             // compass rose
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(cx, cy+10); ctx.lineTo(cx, cy-12); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy-14); ctx.lineTo(cx-4, cy-7); ctx.lineTo(cx+4, cy-7); ctx.closePath(); ctx.fill();
+  ctx.textBaseline = "alphabetic"; ctx.fillText("N", cx, cy-16);
+  ctx.restore();
+}
+
 function opsTick() {
   const ops = STATE.ops;
-  const dtMin = (0.08 * ops.speedMul) / 60;   // 80 ms × speed → seconds → sim minutes
+  ops.dumpAnims = ops.dumpAnims || [];
+  const dtMin = (0.08 * ops.speedMul) / 60;
   ops.t += dtMin;
+  // arrival radius scales with turn radius so trucks don't orbit a point they can't reach
+  const ARRIVE = Math.max(0.4, 0.7 * metresToLogical(CAT793_TURN_M));
   let active = 0;
   ops.trucks.forEach(tr => {
     if (tr.finished) return;
-    // shift gate: is the truck currently on shift?
     const fleetTr = STATE.fleet.trucks.find(x => x.id === tr.id);
-    const simMinOfDay = (6*60 + ops.t) % 1440;     // 6 AM start
+    const simMinOfDay = (6*60 + ops.t) % 1440;
     const onShift = isOnShift(fleetTr, simMinOfDay);
     if (!onShift) { tr.idleMin += dtMin; return; }
     active++;
@@ -1774,18 +2040,17 @@ function opsTick() {
     const dx = target[0] - tr.x, dy = target[1] - tr.y;
     const dist = Math.hypot(dx, dy);
     if (tr.state === "dumping") {
-      tr.dumpProgress += dtMin / 2.5;     // 2.5 sim-min per dump
+      tr.dumpProgress += dtMin / 2.5;
       if (tr.dumpProgress >= 1) {
         applyDump(tr.x, tr.y, tr.dumpRadius);
+        ops.dumpAnims.push({ x: tr.x, y: tr.y, r: tr.dumpRadius*0.4, maxR: tr.dumpRadius*2.2, alpha: 0.8 });
         tr.dumps++; tr.dumpProgress = 0; tr.state = "transit"; tr.wpIdx++;
         if (tr.dumps % 5 === 0) opsLog(`${tr.id} placed ${tr.dumps} dumps`, "amber");
       }
       return;
     }
-    if (dist < 0.4) {
-      // arrived at waypoint
+    if (dist < ARRIVE) {
       if (target[2] === "dump") {
-        // request token for the zone
         const zone = STATE.plan.zones.find(z => target[0] >= z.x_min && target[0] <= z.x_max && target[1] >= z.y_bot && target[1] <= z.y_top);
         if (zone) {
           const tok = ops.tokens[zone.id];
@@ -1794,7 +2059,6 @@ function opsTick() {
             tr.state = "dumping"; tr.dumpProgress = 0;
             if (tok.holder !== tr.id) opsLog(`${tr.id} acquired Z${zone.id+1}`, "green");
           } else {
-            // wait
             if (!tok.queue.includes(tr.id)) {
               tok.queue.push(tr.id);
               opsLog(`${tr.id} queued for Z${zone.id+1} (held by ${tok.holder})`, "amber");
@@ -1806,15 +2070,12 @@ function opsTick() {
         tr.state = "dumping"; tr.dumpProgress = 0;
         return;
       }
-      // transit waypoint reached
       tr.wpIdx++;
-      // check if this waypoint completed a zone — release its token
       const prevZone = STATE.plan.zones.find(z =>
         tr.x >= z.x_min && tr.x <= z.x_max && tr.y >= z.y_bot && tr.y <= z.y_top);
       if (prevZone) {
         const tok = ops.tokens[prevZone.id];
         if (tok.holder === tr.id) {
-          // check if truck has more dumps in this zone
           const remaining = wp.slice(tr.wpIdx).some(w =>
             w[2]==="dump" && w[0] >= prevZone.x_min && w[0] <= prevZone.x_max && w[1] >= prevZone.y_bot && w[1] <= prevZone.y_top);
           if (!remaining) {
@@ -1830,11 +2091,21 @@ function opsTick() {
       }
       return;
     }
-    const v = 6 * STATE.ops.speedMul * dtMin;   // 6 m / sim-min ≈ 0.36 km/h scaled
+    // ── movement: avoidance → turning ──────────────────────────────────────
+    const v = 6 * STATE.ops.speedMul * dtMin;
     const step = Math.min(v, dist);
-    tr.x += dx/dist * step;
-    tr.y += dy/dist * step;
-    tr.km += step / 1000;
+    const avoid = moveTruckWithAvoidance(tr, ops, target, step);
+    if (avoid.wait) {
+      tr.idleMin += dtMin;
+    } else {
+      const bx = tr.x, by = tr.y;
+      moveTruckWithTurning(tr, avoid.aim, step);
+      tr.km += Math.hypot(tr.x-bx, tr.y-by) / 1000;
+    }
+  });
+  // advance + cull dump animations
+  ops.dumpAnims = ops.dumpAnims.filter(a => {
+    a.r += (a.maxR - a.r) * 0.18; a.alpha -= 0.06; return a.alpha > 0;
   });
   const cov = ops.nFilled / Math.max(STATE.plan.insideCells, 1);
   ops.coverageHistory.push({t: ops.t, cov});
@@ -1892,7 +2163,6 @@ function drawOps() {
   const c = document.getElementById("opsCanvas"); if (!c) return;
   const ctx = c.getContext("2d");
   const P = fit(c); clearC(ctx); drawGrid(ctx, P);
-  // zones (faint)
   if (STATE.plan) {
     STATE.plan.zones.forEach(z => {
       const tId = STATE.plan.assignments[z.id];
@@ -1902,17 +2172,13 @@ function drawOps() {
       ctx.fillRect(P.px(z.x_min), P.py(z.y_top), (z.x_max-z.x_min)*P.s, (z.y_top-z.y_bot)*P.s);
     });
   }
-  // heatmap from STATE.ops.heatmap
   if (STATE.ops.heatmap) {
     const cellW = GRID_RES * P.s;
-    for (let gy=0; gy<HH; gy++) {
-      for (let gx=0; gx<HW; gx++) {
-        const v = STATE.ops.heatmap[gy*HW+gx];
-        if (v > 0.1 && STATE.plan.mask[gy*HW+gx]) {
-          const r = Math.min(1, v);
-          ctx.fillStyle = `rgba(0,210,106,${r*0.6})`;
-          ctx.fillRect(P.px(gx*GRID_RES) - cellW/2, P.py(gy*GRID_RES) - cellW/2, cellW, cellW);
-        }
+    for (let gy=0; gy<HH; gy++) for (let gx=0; gx<HW; gx++) {
+      const v = STATE.ops.heatmap[gy*HW+gx];
+      if (v > 0.1 && STATE.plan.mask[gy*HW+gx]) {
+        ctx.fillStyle = `rgba(0,210,106,${Math.min(1,v)*0.6})`;
+        ctx.fillRect(P.px(gx*GRID_RES) - cellW/2, P.py(gy*GRID_RES) - cellW/2, cellW, cellW);
       }
     }
   }
@@ -1920,37 +2186,18 @@ function drawOps() {
   ctx.strokeStyle="#3DB5F7"; ctx.lineWidth=2; ctx.beginPath();
   STATE.site.verts.forEach((v,i) => { const x=P.px(v[0]),y=P.py(v[1]); if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y); });
   ctx.closePath(); ctx.stroke();
+  // dump animations (expanding fading rings)
+  (STATE.ops.dumpAnims || []).forEach(a => {
+    ctx.strokeStyle = `rgba(255,199,12,${a.alpha})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(P.px(a.x), P.py(a.y), a.r * P.s, 0, 2*Math.PI); ctx.stroke();
+  });
   // gates
   STATE.site.entries.forEach(g => drawGate(ctx, P, g, "#00D26A", "▶"));
   STATE.site.exits.forEach(g => drawGate(ctx, P, g, "#FF4D5E", "◀"));
   // trucks
-  STATE.ops.trucks.forEach(tr => {
-    const x = P.px(tr.x), y = P.py(tr.y);
-    const w = tr.width * P.s * 0.4, h = (tr.width*0.6) * P.s * 0.4;
-    ctx.save();
-    // direction toward next waypoint
-    const wp = tr.waypoints[tr.wpIdx];
-    let angle = 0;
-    if (wp) angle = Math.atan2(-(wp[1]-tr.y), (wp[0]-tr.x));
-    ctx.translate(x, y); ctx.rotate(angle);
-    ctx.fillStyle = tr.color;
-    ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5;
-    // body
-    ctx.beginPath();
-    ctx.roundRect(-w/2, -h/2, w, h, 2);
-    ctx.fill(); ctx.stroke();
-    // dump indicator
-    if (tr.state === "dumping") {
-      ctx.strokeStyle = "#FFC107"; ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(0, 0, w*0.7 + tr.dumpProgress*8, 0, 2*Math.PI);
-      ctx.stroke();
-    }
-    ctx.fillStyle = "#000"; ctx.font = "bold 8px monospace"; ctx.textAlign = "center";
-    ctx.rotate(-angle);
-    ctx.fillText(tr.id, 0, 3);
-    ctx.restore();
-  });
+  STATE.ops.trucks.forEach(tr => drawTruck(ctx, P, tr));
+  // scale ruler + compass
+  drawScaleBar(ctx, P);
 }
 
 function renderTokens() {

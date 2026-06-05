@@ -23,6 +23,16 @@
 - Changed the browser tab title to simply "AutoDump".
 - Redesigned the "Three-layer architecture" SVG diagram into a modern, responsive HTML/CSS flexbox layout with clean borders and shadows.
 
+#### `site/index.html` — file-level changes
+- Set page `<title>` to "AutoDump", added canonical, Open Graph and Twitter metadata for sharing and SEO.
+- Replaced the favicon with an inline SVG Caterpillar-style yellow triangle and updated the `theme-color` meta.
+- Consolidated and prioritized `Arial` as the primary UI font in CSS (body font-family), while keeping legacy font links for fallbacks.
+- Reworked the top bar markup and styles to display the `AUTODUMP` brand text with a small yellow triangle mark; removed version badges and other ancillary labels.
+- Removed decorative horizontal scanline styling and improved overall layout spacing, grid, and responsive rules.
+- Added the tilt simulator visual/layout and controls into the page (`.tilt-demo`), plus improved canvas and control styling for the About/Method interaction.
+- Embedded the trained model and runtime parameters directly in the page (`EMBED` constant with `q_table`, `q_shape`, evaluation metrics), enabling offline demo evaluation.
+- Consolidated many client-side modules (zone decomposition, lane routing, greedy packer, navigation, plan export) into the single `index.html` deployable bundle for easier distribution.
+
 ## 2026-06-04
 
 ### Workspace organization
