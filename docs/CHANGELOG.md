@@ -14,6 +14,27 @@
 
 - Editorial: minor wording and formatting fixes to `CHANGELOG.md` to validate commit flow (test edit).
 
+## 2026-06-05 — v3.0.3 (Zone Decomposition + Hex-Spot Integration)
+
+### Plan Generation (Step 3)
+- Replaced `greedyDumpsInZone` with `hexDumpsInZone`, which calls `buildHexSpots()` from `hexpack_engine.js` per zone to produce staggered hex-lattice waypoints instead of a greedy grid.
+- Spots are collected into `STATE.plan.hexSpots` so both Plan Preview and Live Ops can render them.
+- Plan Preview canvas now draws hex spot circles (dashed outlines) inside each zone, replacing the old filled-dot waypoint markers.
+
+### Live Operations (Step 4)
+- Restored the v3.0.2 waypoint-following simulation (`opsTick`, `drawOps`, `opsReset`, collision avoidance, turning radius, token locking).
+- `drawOps()` now renders HexPackSim-style spot circles: dashed-empty → orange-active → green-filled, overlaid on zone rectangles.
+- Zone backgrounds show dashed borders and zone labels (`Z1`, `Z2`, …) during simulation.
+- `opsTick()` marks spots as **active** when a truck arrives and **filled** after dumping completes.
+- Removed the heatmap grid overlay in favour of per-spot circle rendering.
+
+### Shared
+- Zone decomposition (sweep-line strips + sliver merge) and lane routing (`laneRoute`) remain unchanged from v3.0.2.
+- Big-truck-first assignment with small-truck gap-fill logic preserved.
+- `hexpack_engine.js` used as a library (`buildHexSpots` only); `HexPackSim` class no longer drives the ops canvas.
+
+---
+
 ## 2026-06-05
 
 ### UI/Branding Redesign

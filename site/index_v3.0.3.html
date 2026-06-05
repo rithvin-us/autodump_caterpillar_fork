@@ -1,0 +1,2582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>AutoDump</title>
+<link rel="canonical" href="https://preethikakumaravel.github.io/autodump_caterpillar/"/>
+<meta property="og:url" content="https://preethikakumaravel.github.io/autodump_caterpillar/"/>
+<meta name="description" content="AutoDump Operations: a deployable tool that plans dump-truck routes for autonomous Cat 793/797/785 fleets on irregular mining fields. Built for the Caterpillar Innovation Challenge 2026."/>
+<meta name="author" content="Team Techiva@26 — PSG Institute of Technology"/>
+<meta name="theme-color" content="#0B1320"/>
+<meta property="og:type" content="website"/>
+<meta property="og:title" content="AutoDump Operations — Caterpillar Innovation Challenge 2026"/>
+<meta property="og:description" content="Plan-and-execute tool for autonomous mining-truck dump packing. Site setup → fleet config → live operations → exportable waypoints."/>
+<meta name="twitter:card" content="summary_large_image"/>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpolygon points='32,28 4,56 60,56' fill='%23FFC107'/%3E%3C/svg%3E"/>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#FFFFFF;--bg1:#F8F8F8;--bg2:#EEEEEE;--bg3:#E0E0E0;
+  --border:#DCDCDC;--border2:#CCCCCC;
+  --txt:#000000;--txt2:#333333;--txt3:#666666;
+  --cat:#FFCC00;--cat2:#E6B800;--cat-bg:rgba(255,204,0,.15);
+  --green:#00994C;--green-bg:rgba(0,153,76,.15);
+  --red:#E53935;--red-bg:rgba(229,57,53,.15);
+  --blue:#1E88E5;--blue-bg:rgba(30,136,229,.15);
+  --purple:#8E24AA;--orange:#FB8C00;
+}
+html,body{height:100%;overflow:hidden;font-family:Arial,Helvetica,sans-serif;background:var(--bg0);color:var(--txt)}
+body{font-size:14px}
+#shell{display:grid;grid-template-rows:54px 1fr 28px;height:100vh}
+
+/* TOP BAR */
+#topbar{display:flex;align-items:center;justify-content:space-between;background:#FFFFFF;border-bottom:2px solid var(--cat);padding:0 22px;z-index:10;box-shadow:0 2px 12px rgba(0,0,0,.1)}
+.brand{display:flex;align-items:center;gap:12px}
+.cat-logo-text{font-family:'Arial Black',Impact,sans-serif;font-size:26px;font-weight:900;color:#000;letter-spacing:-1px;position:relative;line-height:1}
+.cat-triangle{position:absolute;bottom:0;left:2px;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:12px solid var(--cat);pointer-events:none}
+.brand-sub{font-size:10px;color:var(--txt3);letter-spacing:1.5px;font-weight:700;text-transform:uppercase;margin-top:1px}
+.brand-badge{background:var(--cat);color:#000;font-size:9px;font-weight:700;padding:3px 8px;border-radius:3px;letter-spacing:.5px;margin-bottom:14px}
+.workflow-progress{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--txt3);font-family:'Share Tech Mono',Consolas,monospace;letter-spacing:1px}
+.wf-step{padding:3px 9px;border-radius:3px;background:var(--bg3);color:var(--txt3)}
+.wf-step.done{background:var(--green-bg);color:var(--green)}
+.wf-step.cur{background:var(--cat);color:#000;font-weight:700}
+.wf-arrow{color:var(--txt3)}
+
+/* MAIN */
+#main{display:grid;grid-template-columns:240px 1fr;overflow:hidden}
+
+/* SIDEBAR */
+#sidebar{background:var(--bg1);border-right:1px solid var(--border2);display:flex;flex-direction:column;padding:14px 0;gap:2px;overflow-y:auto}
+.sb-label{font-size:9px;font-weight:700;color:var(--txt3);letter-spacing:2.5px;text-transform:uppercase;padding:14px 18px 6px}
+.nav-item{display:flex;align-items:center;gap:11px;padding:12px 18px;font-size:14px;font-weight:500;color:var(--txt2);cursor:pointer;transition:all .15s;letter-spacing:.4px;border-left:3px solid transparent;position:relative}
+.nav-item:hover{background:var(--bg2);color:var(--txt)}
+.nav-item.active{background:var(--cat-bg);color:var(--cat);font-weight:700;border-left-color:var(--cat)}
+.nav-item.disabled{opacity:.4;cursor:not-allowed}
+.nav-item.disabled:hover{background:transparent;color:var(--txt2)}
+.nav-num{width:24px;height:24px;border-radius:50%;background:var(--bg3);color:var(--txt3);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',Consolas,monospace}
+.nav-item.active .nav-num{background:var(--cat);color:#000}
+.nav-item.done .nav-num{background:var(--green);color:#000}
+.nav-item.done .nav-num::before{content:'✓'}
+.nav-item.done .nav-num span{display:none}
+.nav-sub{font-size:10px;color:var(--txt3);font-family:'Share Tech Mono',Consolas,monospace;text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+.nav-item-stack{display:flex;flex-direction:column;flex:1}
+
+/* CONTENT */
+#content{display:flex;flex-direction:column;background:var(--bg0);overflow:hidden}
+.page{display:none;flex:1;overflow:auto;padding:22px 28px}
+.page.active{display:flex;flex-direction:column;gap:18px}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:4px}
+.page-title{font-size:24px;font-weight:900;color:var(--txt);letter-spacing:1px}
+.page-title span{color:var(--cat)}
+.page-sub{font-size:13px;color:var(--txt2);margin-top:3px;max-width:680px;line-height:1.5}
+.tag{display:inline-block;background:var(--cat-bg);color:var(--cat);font-size:10px;font-weight:700;padding:3px 9px;border-radius:3px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px}
+
+/* CARDS */
+.card{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:10px;gap:14px}
+.card-title{font-size:12px;font-weight:700;color:var(--cat);letter-spacing:1.5px;text-transform:uppercase}
+.card-sub{font-size:11px;color:var(--txt3);font-family:'Share Tech Mono',Consolas,monospace}
+
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+
+/* STATS */
+.stat{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:14px;text-align:center}
+.stat-v{font-size:28px;font-weight:900;color:var(--cat);font-family:'Share Tech Mono',Consolas,monospace;line-height:1}
+.stat-v.green{color:var(--green)} .stat-v.red{color:var(--red)} .stat-v.blue{color:var(--blue)}
+.stat-l{font-size:10px;color:var(--txt3);letter-spacing:1.2px;text-transform:uppercase;margin-top:5px}
+
+/* BUTTONS */
+.btn{font-size:13px;font-weight:600;padding:9px 16px;border-radius:6px;cursor:pointer;border:1px solid var(--border2);background:var(--bg2);color:var(--txt);letter-spacing:.5px;transition:all .15s;display:inline-flex;align-items:center;gap:6px;font-family:Arial,sans-serif}
+.btn:hover{background:var(--bg3);border-color:var(--txt3)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.primary{background:var(--cat-bg);color:var(--cat);border-color:var(--cat);font-weight:700}
+.btn.primary:hover:not(:disabled){background:rgba(255,193,7,.22)}
+.btn.success{background:var(--green-bg);color:var(--green);border-color:var(--green)}
+.btn.danger{background:var(--red-bg);color:var(--red);border-color:var(--red)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn-sm{font-size:11px;padding:5px 10px}
+
+/* MODE BUTTONS (drawing mode) */
+.mode-btn{flex:1;padding:8px 10px;border-radius:5px;background:var(--bg2);border:1px solid var(--border2);color:var(--txt2);font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer;text-transform:uppercase;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px}
+.mode-btn:hover{background:var(--bg3)}
+.mode-btn.active{background:var(--cat);color:#000;border-color:var(--cat)}
+.mode-btn .mb-i{font-size:14px;line-height:1}
+.mode-btn .mb-l{font-size:9px;letter-spacing:1px}
+
+/* TABLES */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 10px;color:var(--txt3);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--txt);font-family:'Share Tech Mono',Consolas,monospace;font-size:12px}
+tr:hover td{background:var(--bg2)}
+td.k{color:var(--txt3);font-family:Arial,sans-serif}
+td.v{color:var(--cat);font-weight:700}
+input.cell, select.cell{width:100%;background:var(--bg2);border:1px solid var(--border2);color:var(--txt);padding:5px 7px;border-radius:4px;font-family:'Share Tech Mono',Consolas,monospace;font-size:12px}
+input.cell:focus, select.cell:focus{outline:none;border-color:var(--cat)}
+
+/* CANVAS */
+canvas.field{background:#F5F5F5;border:1px solid var(--border);border-radius:6px;width:100%;display:block}
+
+/* LOG */
+.log{background:#F5F5F5;border:1px solid var(--border);border-radius:6px;padding:10px;font-family:'Share Tech Mono',Consolas,monospace;font-size:11px;color:var(--green);max-height:240px;overflow-y:auto;line-height:1.6}
+.log-line{padding:1px 0}
+.log-line.amber{color:var(--cat)} .log-line.blue{color:var(--blue)} .log-line.red{color:var(--red)}
+
+/* FOOTER */
+#footer{display:flex;align-items:center;justify-content:space-between;background:var(--bg1);border-top:1px solid var(--border);padding:0 20px;font-size:11px;color:var(--txt3);font-family:'Share Tech Mono',Consolas,monospace;letter-spacing:1px}
+#footer span.amber{color:var(--cat)}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg0)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:var(--txt3)}
+
+/* ALERTS */
+.alert{padding:10px 14px;border-radius:6px;font-size:12px;border:1px solid;line-height:1.5}
+.alert.ok{background:var(--green-bg);color:var(--green);border-color:var(--green)}
+.alert.warn{background:rgba(255,138,61,.12);color:var(--orange);border-color:var(--orange)}
+.alert.err{background:var(--red-bg);color:var(--red);border-color:var(--red)}
+
+/* PANEL — for right-side controls */
+.panel{display:flex;flex-direction:column;gap:14px}
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpi{background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:10px;text-align:center}
+.kpi-v{font-size:20px;font-weight:900;color:var(--cat);font-family:'Share Tech Mono',Consolas,monospace}
+.kpi-l{font-size:9px;color:var(--txt3);text-transform:uppercase;letter-spacing:1px;margin-top:3px}
+
+/* PROGRESS BAR */
+.pbar{height:18px;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;overflow:hidden;position:relative}
+.pbar-fill{height:100%;background:linear-gradient(90deg,var(--cat),var(--green));transition:width .3s ease}
+.pbar-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',Consolas,monospace;font-size:11px;font-weight:700;color:var(--txt);text-shadow:0 1px 2px rgba(0,0,0,.7)}
+
+/* CODE BLOCK */
+pre{background:#F5F5F5;padding:10px;border-radius:6px;color:var(--green);font-family:'Share Tech Mono',Consolas,monospace;font-size:11px;overflow-x:auto;line-height:1.5;border:1px solid var(--border)}
+code{font-family:'Share Tech Mono',Consolas,monospace;color:var(--cat);font-size:12px}
+
+/* TIMELINE / GANTT */
+.gantt-row{display:grid;grid-template-columns:90px 1fr;gap:8px;align-items:center;margin-bottom:6px}
+.gantt-row .gantt-label{color:var(--txt2);font-family:'Share Tech Mono',Consolas,monospace;font-size:11px}
+.gantt-bar{height:18px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;position:relative;overflow:hidden}
+.gantt-seg{position:absolute;top:0;bottom:0;background:var(--green-bg);border:1px solid var(--green);font-size:9px;color:var(--green);text-align:center;line-height:16px;font-family:'Share Tech Mono',Consolas,monospace}
+.gantt-seg.maint{background:rgba(255,138,61,.2);border-color:var(--orange);color:var(--orange)}
+
+.field-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.field-row label{font-size:11px;color:var(--txt3);width:120px;text-transform:uppercase;letter-spacing:1px;font-weight:700}
+.field-row input, .field-row select{flex:1}
+
+.action-bar{display:flex;justify-content:flex-end;gap:8px;padding-top:12px;border-top:1px solid var(--border);margin-top:12px}
+
+/* TILT DEMO */
+.tilt-demo{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:16px;align-items:stretch}
+.tilt-visual,.tilt-sidebar{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.tilt-visual{justify-content:flex-start}
+.tilt-sidebar{justify-content:space-between}
+.tilt-label{font-size:18px;font-weight:900;letter-spacing:1px;color:var(--txt);font-family:Arial,sans-serif}
+.tilt-sub{font-size:13px;color:var(--txt2);line-height:1.6}
+.tilt-stage{width:100%;border-radius:10px;background:#F5F5F5;border:1px solid var(--border);overflow:hidden}
+.slider-group{display:flex;align-items:center;gap:12px}
+.slider-group label{font-size:11px;color:var(--txt3);width:126px;text-transform:uppercase;letter-spacing:1px;font-weight:700}
+.slider-group input[type=range]{flex:1;accent-color:var(--cat)}
+.slider-val{font-size:13px;color:var(--cat);font-family:'Share Tech Mono',Consolas,monospace;min-width:48px;text-align:right}
+.fill-ratio-wrap{display:flex;flex-direction:column;gap:6px}
+.fill-ratio-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.fill-ratio-title{font-size:11px;color:var(--txt3);text-transform:uppercase;letter-spacing:1px;font-weight:700}
+.fill-ratio-value{font-size:34px;line-height:1;font-weight:700;color:var(--cat);font-family:'Share Tech Mono',Consolas,monospace}
+.fill-ratio-bar{width:100%;height:12px;background:#E0E0E0;border:1px solid var(--border2);border-radius:999px;overflow:hidden}
+.fill-ratio-bar-inner{height:100%;width:0%;background:linear-gradient(90deg,var(--cat),var(--green));transition:width .35s ease}
+.tilt-status{font-size:11px;font-family:'Share Tech Mono',Consolas,monospace;letter-spacing:1px}
+.tilt-note{font-size:12px;color:var(--txt2);line-height:1.6}
+
+@media (max-width: 980px){
+  .tilt-demo{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div id="shell">
+
+<div id="topbar">
+  <div class="brand">
+    <div style="display:flex;flex-direction:column;justify-content:center;">
+      <div class="cat-logo-text">AUTODUMP<div class="cat-triangle"></div></div>
+    </div>
+  </div>
+  <div class="workflow-progress">
+    <span class="wf-step cur" data-wf="site">1 · SITE</span>
+    <span class="wf-arrow">→</span>
+    <span class="wf-step" data-wf="fleet">2 · FLEET</span>
+    <span class="wf-arrow">→</span>
+    <span class="wf-step" data-wf="plan">3 · PLAN</span>
+    <span class="wf-arrow">→</span>
+    <span class="wf-step" data-wf="ops">4 · OPERATE</span>
+    <span class="wf-arrow">→</span>
+    <span class="wf-step" data-wf="report">5 · REPORT</span>
+  </div>
+</div>
+
+<div id="main">
+  <div id="sidebar">
+    <div class="sb-label">WORKFLOW</div>
+    <div class="nav-item active" data-page="site"><span class="nav-num"><span>1</span></span>
+      <div class="nav-item-stack"><span>Site Setup</span><span class="nav-sub">polygon · gates</span></div></div>
+    <div class="nav-item" data-page="fleet"><span class="nav-num"><span>2</span></span>
+      <div class="nav-item-stack"><span>Fleet Config</span><span class="nav-sub">trucks · shifts</span></div></div>
+    <div class="nav-item" data-page="plan"><span class="nav-num"><span>3</span></span>
+      <div class="nav-item-stack"><span>Plan Generation</span><span class="nav-sub">zones · waypoints</span></div></div>
+    <div class="nav-item" data-page="ops"><span class="nav-num"><span>4</span></span>
+      <div class="nav-item-stack"><span>Live Operations</span><span class="nav-sub">simulate · monitor</span></div></div>
+    <div class="nav-item" data-page="report"><span class="nav-num"><span>5</span></span>
+      <div class="nav-item-stack"><span>Report &amp; Export</span><span class="nav-sub">stats · CSV · JSON</span></div></div>
+    <div class="sb-label">REFERENCE</div>
+    <div class="nav-item" data-page="about"><span class="nav-num"><span>i</span></span>
+      <div class="nav-item-stack"><span>About / Method</span><span class="nav-sub">algorithm · training</span></div></div>
+  </div>
+
+  <div id="content">
+    <!-- pages injected here -->
+  </div>
+</div>
+
+<div id="footer">
+  <span>TECHIVA@26 · PSGitech · Caterpillar Innovation Challenge 2026 · PS-4 — Operations Console v2.0</span>
+  <span class="amber" id="f-status">ready</span>
+</div>
+</div>
+
+<!-- Pages slot in here via simple template injection at load -->
+<script>
+document.getElementById("content").innerHTML = `
+<!-- ============================================================
+     PAGE 1 · SITE SETUP
+     ============================================================ -->
+<div class="page active" id="page-site">
+  <div class="page-header">
+    <div>
+      <span class="tag">step 1 of 5</span>
+      <div class="page-title">Site <span>Setup</span></div>
+      <div class="page-sub">Define the mining-field polygon, mark entry and exit gates, and identify no-go zones (water, slope, infrastructure). All values are stored in metres relative to the field's bounding box origin.</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" onclick="loadPreset('demo')">📋 Load demo site</button>
+      <button class="btn primary" onclick="finishSite()">Finish setup →</button>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 320px;gap:18px;flex:1">
+    <!-- LEFT: canvas -->
+    <div class="card" style="padding:14px">
+      <div class="card-h">
+        <div class="card-title">Mining field</div>
+        <div class="card-sub" id="site-canvas-sub">click to start drawing the polygon</div>
+      </div>
+      <canvas id="siteCanvas" class="field" width="720" height="540" style="cursor:crosshair"></canvas>
+    </div>
+
+    <!-- RIGHT: tools -->
+    <div class="panel">
+      <div class="card">
+        <div class="card-h"><div class="card-title">Drawing mode</div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <div class="mode-btn active" data-mode="poly" onclick="setMode('poly')">
+            <span class="mb-i">⬢</span><span class="mb-l">Polygon</span>
+          </div>
+          <div class="mode-btn" data-mode="pathway" onclick="setMode('pathway')">
+            <span class="mb-i" style="color:#9B6BFF">━</span><span class="mb-l">Pathway / Road</span>
+          </div>
+          <div class="mode-btn" data-mode="entry" onclick="setMode('entry')">
+            <span class="mb-i" style="color:#00D26A">▶</span><span class="mb-l">Entry gate</span>
+          </div>
+          <div class="mode-btn" data-mode="exit" onclick="setMode('exit')">
+            <span class="mb-i" style="color:#FF4D5E">◀</span><span class="mb-l">Exit gate</span>
+          </div>
+          <div class="mode-btn" data-mode="nogo" onclick="setMode('nogo')">
+            <span class="mb-i" style="color:#FF8A3D">⊘</span><span class="mb-l">No-go zone</span>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--txt3);margin-top:10px;line-height:1.5">
+          <strong style="color:var(--cat)" id="mode-hint">Polygon mode:</strong>
+          <span id="mode-hint-body">click to add vertices, double-click to close.</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><div class="card-title">Polygon controls</div></div>
+        <div class="btn-row">
+          <button class="btn btn-sm" onclick="siteUndo()">↶ Undo</button>
+          <button class="btn btn-sm" onclick="sitePresetRect()">▭ Rectangle</button>
+          <button class="btn btn-sm" onclick="sitePresetL()">⌐ L-shape</button>
+          <button class="btn btn-sm danger" onclick="siteClear()">✕ Clear all</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><div class="card-title">Physical parameters</div></div>
+        <div class="field-row">
+          <label>Canvas width</label>
+          <input class="cell" type="number" id="p-real-width" value="500" step="10" min="20" max="20000" onchange="siteUpdateStats(); drawSite();"/>
+          <span style="color:var(--txt3);font-family:'Share Tech Mono',monospace;font-size:11px">m real</span>
+        </div>
+        <div class="field-row">
+          <label>Safety buffer</label>
+          <input class="cell" type="number" id="p-buffer" value="2.0" step="0.1" min="0" max="10"/>
+          <span style="color:var(--txt3);font-family:'Share Tech Mono',monospace;font-size:11px">m</span>
+        </div>
+        <div style="font-size:10px;color:var(--txt3);margin-top:4px;line-height:1.4">Canvas width = how many metres the full canvas represents in real life. All areas, distances and truck-width strips scale from this.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><div class="card-title">Site summary</div></div>
+        <div class="kpi-grid">
+          <div class="kpi"><div class="kpi-v" id="s-verts">0</div><div class="kpi-l">vertices</div></div>
+          <div class="kpi"><div class="kpi-v blue" id="s-area">—</div><div class="kpi-l">area (m²)</div></div>
+          <div class="kpi"><div class="kpi-v" id="s-area-ha">—</div><div class="kpi-l">hectares</div></div>
+          <div class="kpi"><div class="kpi-v" id="s-area-ac">—</div><div class="kpi-l">acres</div></div>
+          <div class="kpi"><div class="kpi-v green" id="s-entries">0</div><div class="kpi-l">entries</div></div>
+          <div class="kpi"><div class="kpi-v red" id="s-exits">0</div><div class="kpi-l">exits</div></div>
+          <div class="kpi"><div class="kpi-v" style="color:#9B6BFF" id="s-roads">0</div><div class="kpi-l">roads</div></div>
+          <div class="kpi"><div class="kpi-v" style="color:#9B6BFF" id="s-regions">1</div><div class="kpi-l">regions</div></div>
+        </div>
+        <div id="site-validation" style="margin-top:10px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     PAGE 2 · FLEET CONFIGURATION
+     ============================================================ -->
+<div class="page" id="page-fleet">
+  <div class="page-header">
+    <div>
+      <span class="tag">step 2 of 5</span>
+      <div class="page-title">Fleet <span>Configuration</span></div>
+      <div class="page-sub">Configure each truck in your fleet. Mix Cat 793, 797, and 785 models. Set shift hours and maintenance windows per truck — the planner will respect each truck's availability.</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" onclick="fleetAddRow()">+ Add truck</button>
+      <button class="btn" onclick="loadFleetPreset()">📋 Load demo fleet</button>
+      <button class="btn primary" onclick="finishFleet()">Finish fleet →</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h">
+      <div class="card-title">Fleet roster</div>
+      <div class="card-sub" id="fleet-count-sub">0 trucks</div>
+    </div>
+    <table>
+      <thead><tr>
+        <th>Truck</th><th>Model</th><th>Width</th><th>Dump r</th>
+        <th>Shift start</th><th>Shift end</th><th>Maintenance</th><th></th>
+      </tr></thead>
+      <tbody id="fleet-rows"></tbody>
+    </table>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-h"><div class="card-title">Cat truck specs</div><div class="card-sub">official manufacturer data</div></div>
+      <table>
+        <thead><tr><th>Model</th><th>Width</th><th>Payload</th><th>Dump radius</th></tr></thead>
+        <tbody>
+          <tr><td class="v">Cat 785</td><td>6.4 m</td><td>136 t</td><td>2.6 m</td></tr>
+          <tr><td class="v">Cat 793</td><td>7.6 m</td><td>240 t</td><td>3.2 m</td></tr>
+          <tr><td class="v">Cat 797</td><td>9.7 m</td><td>363 t</td><td>3.8 m</td></tr>
+        </tbody>
+      </table>
+      <div style="font-size:10px;color:var(--txt3);margin-top:8px;line-height:1.4">Width and dump radius determine the strip size and dump footprint in zone decomposition. The trained Q-learning policy was calibrated on Cat 793.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><div class="card-title">Shift schedule (Gantt)</div><div class="card-sub">24-hour timeline</div></div>
+      <div id="gantt"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     PAGE 3 · PLAN GENERATION
+     ============================================================ -->
+<div class="page" id="page-plan">
+  <div class="page-header">
+    <div>
+      <span class="tag">step 3 of 5</span>
+      <div class="page-title">Plan <span>Generation</span></div>
+      <div class="page-sub">Decompose the site into zones, assign trucks to zones via the token broker, and compute boustrophedon dump waypoints for each truck. The trained Q-learning policy is used when the configuration matches; otherwise the greedy fallback runs.</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn primary" onclick="runPlan()">⚙ Generate plan</button>
+      <button class="btn" onclick="exportPlan()" id="btn-export-plan" disabled>↓ Export plan JSON</button>
+    </div>
+  </div>
+
+<div class="card" style="padding:14px">
+  <div class="card-h"><div class="card-title">Decomposition parameters</div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div>
+      <label class="card-sub" for="p-zone-threshold">Small region threshold</label>
+      <input class="cell" type="number" id="p-zone-threshold" value="5000" step="500" min="100" style="width:100%"/>
+      <div class="card-sub">m² — regions below this are treated as a single zone (no strip decomposition)</div>
+    </div>
+    <div>
+      <label class="card-sub" for="p-min-zone-area">Min zone area</label>
+      <input class="cell" type="number" id="p-min-zone-area" value="500" step="100" style="width:100%"/>
+      <div class="card-sub">m² — zones smaller than this are skipped</div>
+    </div>
+  </div>
+</div>
+
+  <div id="plan-status" class="card" style="display:none">
+    <div class="card-h"><div class="card-title">Pipeline status</div><div class="card-sub" id="plan-status-elapsed">—</div></div>
+    <div id="plan-steps"></div>
+  </div>
+
+  <div id="plan-results" style="display:none;flex-direction:column;gap:16px">
+    <div class="grid-4">
+      <div class="stat"><div class="stat-v" id="p-zones">—</div><div class="stat-l">Zones</div></div>
+      <div class="stat"><div class="stat-v blue" id="p-waypoints">—</div><div class="stat-l">Waypoints</div></div>
+      <div class="stat"><div class="stat-v green" id="p-coverage">—</div><div class="stat-l">Projected cov.</div></div>
+      <div class="stat"><div class="stat-v" id="p-eta">—</div><div class="stat-l">ETA (min)</div></div>
+    </div>
+
+    <div class="grid-2" style="display:grid">
+      <div class="card" style="padding:14px">
+        <div class="card-h"><div class="card-title">Plan preview</div><div class="card-sub">zones colored by assigned truck</div></div>
+        <canvas id="planCanvas" class="field" width="720" height="540"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">Truck assignments</div></div>
+        <table>
+          <thead><tr><th>Truck</th><th>Model</th><th>Zones</th><th>Waypoints</th><th>Est. km</th></tr></thead>
+          <tbody id="plan-assignments"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     PAGE 4 · LIVE OPERATIONS
+     ============================================================ -->
+<div class="page" id="page-ops">
+  <div class="page-header">
+    <div>
+      <span class="tag">step 4 of 5</span>
+      <div class="page-title">Live <span>Operations</span></div>
+      <div class="page-sub">Multi-truck simulation. Each truck follows its assigned waypoints, requests zone-tokens from the broker, dumps fill the heatmap. Use this view to monitor a real fleet, replay a plan, or stress-test contention behaviour.</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn primary" id="btn-ops-play" onclick="opsToggle()">▶ Start</button>
+      <button class="btn" onclick="opsReset()">↻ Reset</button>
+      <select class="cell" id="ops-speed" onchange="opsSpeed()" style="width:90px;background:var(--bg2);border:1px solid var(--border2);color:var(--txt);padding:6px;font-family:'Share Tech Mono',Consolas,monospace">
+        <option value="1">1×</option><option value="5" selected>5×</option><option value="15">15×</option><option value="30">30×</option><option value="60">60×</option>
+      </select>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 300px;gap:16px;flex:1">
+    <div class="card" style="padding:14px">
+      <div class="card-h">
+        <div class="card-title">Field view</div>
+        <div class="card-sub" id="ops-canvas-sub">sim t=00:00 · 0 dumps · 0% coverage</div>
+      </div>
+      <canvas id="opsCanvas" class="field" width="720" height="540"></canvas>
+    </div>
+    <div class="panel">
+      <div class="card">
+        <div class="card-h"><div class="card-title">KPIs</div></div>
+        <div class="kpi-grid">
+          <div class="kpi"><div class="kpi-v" id="kpi-time">00:00</div><div class="kpi-l">sim time</div></div>
+          <div class="kpi"><div class="kpi-v blue" id="kpi-active">0</div><div class="kpi-l">active trucks</div></div>
+          <div class="kpi"><div class="kpi-v green" id="kpi-cov">0.0%</div><div class="kpi-l">coverage</div></div>
+          <div class="kpi"><div class="kpi-v" id="kpi-dumps">0</div><div class="kpi-l">dumps placed</div></div>
+        </div>
+        <div style="margin-top:10px">
+          <div class="pbar"><div class="pbar-fill" id="ops-pbar" style="width:0%"></div><div class="pbar-text" id="ops-pbar-text">0% complete</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">Token board</div></div>
+        <div id="ops-tokens" style="font-size:11px;font-family:'Share Tech Mono',Consolas,monospace"></div>
+      </div>
+      <div class="card" style="flex:1;display:flex;flex-direction:column">
+        <div class="card-h"><div class="card-title">Event log</div></div>
+        <div class="log" id="ops-log" style="flex:1"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     PAGE 5 · REPORT & EXPORT
+     ============================================================ -->
+<div class="page" id="page-report">
+  <div class="page-header">
+    <div>
+      <span class="tag">step 5 of 5</span>
+      <div class="page-title">Report &amp; <span>Export</span></div>
+      <div class="page-sub">End-of-run summary, per-truck breakdown, baseline comparison, and exportable plan files for integration with MineStar / FleetOps.</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn primary" onclick="exportWaypointsCSV()" id="btn-export-csv" disabled>↓ Waypoints CSV</button>
+      <button class="btn" onclick="exportSummaryJSON()" id="btn-export-json" disabled>↓ Summary JSON</button>
+      <button class="btn" onclick="window.print()">🖨 Print report</button>
+    </div>
+  </div>
+
+  <div id="report-empty" class="alert warn">Run a simulation in step 4 (Live Operations) to generate a report.</div>
+
+  <div id="report-body" style="display:none;flex-direction:column;gap:16px">
+    <div class="grid-4">
+      <div class="stat"><div class="stat-v green" id="rp-cov">—</div><div class="stat-l">Final coverage</div></div>
+      <div class="stat"><div class="stat-v blue" id="rp-vs">—</div><div class="stat-l">Δ vs baseline</div></div>
+      <div class="stat"><div class="stat-v" id="rp-dumps">—</div><div class="stat-l">Total dumps</div></div>
+      <div class="stat"><div class="stat-v" id="rp-time">—</div><div class="stat-l">Sim duration</div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-h"><div class="card-title">Per-truck stats</div></div>
+        <table>
+          <thead><tr><th>Truck</th><th>Dumps</th><th>Distance</th><th>Idle</th><th>Efficiency</th></tr></thead>
+          <tbody id="rp-trucks"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">Coverage over time</div></div>
+        <svg id="rp-chart" style="width:100%;height:260px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px"></svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     ABOUT (reference) — collapsed algorithm explainer
+     ============================================================ -->
+<div class="page" id="page-about">
+  <div class="page-header">
+    <div>
+      <span class="tag">reference</span>
+      <div class="page-title">About / <span>Method</span></div>
+      <div class="page-sub">How AutoDump works under the hood: zone decomposition, the trained Q-learning agent, the deadlock-free token protocol, and the published research that backs each layer.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Three-layer architecture</div></div>
+    <div style="padding:20px 0;overflow-x:auto;">
+      <div style="display:flex;align-items:stretch;gap:12px;min-width:700px;">
+        <!-- Card 1 -->
+        <div style="flex:1;background:var(--bg0);border:1px solid var(--border);border-radius:8px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,0.06);display:flex;flex-direction:column;align-items:center;text-align:center;">
+          <div style="font-size:11px;font-weight:900;color:var(--blue);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Layer 1</div>
+          <div style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:12px;">Zone Decomposition</div>
+          <div style="font-size:12px;color:var(--txt2);font-family:'Share Tech Mono',monospace;margin-bottom:4px;">Sweep-line</div>
+          <div style="font-size:12px;color:var(--txt2);font-family:'Share Tech Mono',monospace;margin-bottom:12px;">O(n log n)</div>
+          <div style="font-size:11px;color:var(--txt3);margin-top:auto;">Choset 2001</div>
+        </div>
+        
+        <div style="display:flex;align-items:center;color:var(--cat);font-size:24px;font-weight:900;">→</div>
+
+        <!-- Card 2 -->
+        <div style="flex:1;background:var(--bg0);border:1px solid var(--border);border-radius:8px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,0.06);display:flex;flex-direction:column;align-items:center;text-align:center;">
+          <div style="font-size:11px;font-weight:900;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Layer 2</div>
+          <div style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:12px;">Q-Learning Agent</div>
+          <div style="font-size:12px;color:var(--txt2);font-family:'Share Tech Mono',monospace;margin-bottom:4px;">60 states · 3 actions</div>
+          <div style="font-size:12px;color:var(--txt2);font-family:'Share Tech Mono',monospace;margin-bottom:12px;">trained 1500 ep</div>
+          <div style="font-size:11px;color:var(--txt3);margin-top:auto;">Sutton &amp; Barto 2018</div>
+        </div>
+
+        <div style="display:flex;align-items:center;color:var(--cat);font-size:24px;font-weight:900;">→</div>
+
+        <!-- Card 3 -->
+        <div style="flex:1;background:var(--bg0);border:1px solid var(--border);border-radius:8px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,0.06);display:flex;flex-direction:column;align-items:center;text-align:center;">
+          <div style="font-size:11px;font-weight:900;color:var(--purple);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Layer 3</div>
+          <div style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:12px;">Token Broker</div>
+          <div style="font-size:12px;color:var(--txt2);font-family:'Share Tech Mono',monospace;margin-bottom:4px;">FIFO + heartbeat</div>
+          <div style="font-size:12px;color:var(--txt2);font-family:'Share Tech Mono',monospace;margin-bottom:12px;">deadlock-free</div>
+          <div style="font-size:11px;color:var(--txt3);margin-top:auto;">Coffman 1971</div>
+        </div>
+
+        <div style="display:flex;align-items:center;color:var(--cat);font-size:24px;font-weight:900;">→</div>
+
+        <!-- Card 4 (Output) -->
+        <div style="flex:1.2;background:var(--bg0);border:1px solid var(--border);border-radius:8px;padding:16px;box-shadow:0 6px 16px rgba(255,204,0,0.15);display:flex;flex-direction:column;align-items:center;text-align:center;">
+          <div style="font-size:12px;font-weight:900;color:var(--cat);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Output</div>
+          <div style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:12px;">Dump waypoints + tokens</div>
+          <div style="font-size:26px;font-weight:900;color:var(--green);font-family:'Share Tech Mono',monospace;margin-bottom:6px;line-height:1;">+12.66 pp</div>
+          <div style="font-size:12px;color:var(--txt2);font-family:'Share Tech Mono',monospace;margin-bottom:12px;">62% → 75% coverage</div>
+          <div style="font-size:10px;color:var(--txt3);margin-top:auto;font-weight:700;background:var(--bg2);padding:4px 8px;border-radius:4px;">ZERO new hardware</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Interactive pile simulator</div><div class="card-sub">live dump correction</div></div>
+    <div class="tilt-demo">
+      <div class="tilt-visual">
+        <div class="tilt-label">INTERACTIVE PILE SIMULATOR</div>
+        <div class="tilt-sub">Drag the sliders to simulate pile lean. The truck corrects dump position automatically.</div>
+        <div class="tilt-stage">
+          <canvas id="tiltCanvas" class="field" width="500" height="320"></canvas>
+        </div>
+      </div>
+      <div class="tilt-sidebar">
+        <div>
+          <div class="tilt-label" style="font-size:1.1rem">LIVE CONTROL</div>
+          <div class="tilt-note">This deployment page keeps the correction logic visible without turning the page into a slide deck.</div>
+        </div>
+        <div class="slider-group">
+          <label for="tiltSlider">Pile tilt (°)</label>
+          <input type="range" id="tiltSlider" min="-40" max="40" value="-25">
+          <span class="slider-val" id="tiltVal">-25°</span>
+        </div>
+        <div class="slider-group">
+          <label for="fillSlider">Fill level (%)</label>
+          <input type="range" id="fillSlider" min="10" max="100" value="65">
+          <span class="slider-val" id="fillVal">65%</span>
+        </div>
+        <div class="fill-ratio-wrap">
+          <div class="fill-ratio-head">
+            <span class="fill-ratio-title">Current fill ratio</span>
+            <span class="tilt-status" id="spotStatus" style="color:var(--green)">AVAILABLE</span>
+          </div>
+          <div class="fill-ratio-value" id="fillRatioDisplay">0.65</div>
+          <div class="fill-ratio-bar"><div class="fill-ratio-bar-inner" id="fillRatioBar" style="width:65%"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--txt3);font-family:'Share Tech Mono',Consolas,monospace;letter-spacing:1px;">
+            <span>EMPTY</span><span>FULL</span>
+          </div>
+        </div>
+        <div class="alert ok">Geometry only. No formulas, just the live correction behavior.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-h"><div class="card-title">ML model — embedded trained Q-table</div></div>
+      <table>
+        <thead><tr><th>Property</th><th>Value</th></tr></thead>
+        <tbody id="about-ml"></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-h"><div class="card-title">Coffman 1971 — all four violated</div></div>
+      <table>
+        <thead><tr><th>Condition</th><th>How AutoDump violates it</th></tr></thead>
+        <tbody>
+          <tr><td class="k">Mutual exclusion</td><td>Bounded token capacity (finite count).</td></tr>
+          <tr><td class="k">Hold and wait</td><td>All-or-nothing acquisition before truck moves.</td></tr>
+          <tr><td class="k">No pre-emption</td><td>Supervisor revokes via heartbeat timeout.</td></tr>
+          <tr><td class="k">Circular wait</td><td>FIFO ordering inside each zone-queue.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">References</div></div>
+    <div style="font-size:12px;color:var(--txt2);line-height:1.7">
+      [1] Coffman, E. G. et al. (1971). System Deadlocks. ACM Computing Surveys.<br>
+      [2] Mnih, V. et al. (2015). Human-level control through deep reinforcement learning. Nature 518.<br>
+      [3] Choset, H. (2001). Coverage for Robotics — A Survey of Recent Results. AI Mathematics.<br>
+      [4] de Carvalho, F. F. (2021). Reinforcement Learning for Truck Allocation in Open-pit Mines.<br>
+      [5] Sutton, R. S. &amp; Barto, A. G. (2018). Reinforcement Learning: An Introduction (2nd ed). MIT Press.
+    </div>
+  </div>
+</div>
+`
+</script>
+
+<script>
+// ============================================================================
+//  EMBEDDED MODEL (trained Q-table + training history)
+// ============================================================================
+const EMBED = {"q_table": [[28.54313035770366, 30.70046940432455, 24.64126291231666], [-3.117916877480062, 0.647441229225441, 0.2953610255315758], [0.2783010274448099, 1.07859267570647, 0.38431734463680994], [0.0, 0.0, 0.0], [33.4715119979524, 28.347945121054767, 26.718247201161518], [23.886028344469576, 19.598585836601085, 22.256401963607313], [0.36774024420503276, 1.5407730575939094, 0.32404471411930824], [0.6560472920247009, 0.717650730455515, 0.42311842349797213], [19.686920105970017, 19.324171722960447, 25.85680721168434], [19.633604200886477, 17.776650106396286, 16.00296751130752], [0.5481271492702694, 2.029128069627202, 0.6075404508943641], [0.0, 0.0, 0.0], [10.68097473772358, 9.942599518436822, 9.340861946678615], [7.976375147161864, 11.053042795685208, 7.921215116762367], [1.8213242155933398, 0.5526340379542107, 0.5050192077734013], [0.29127388790598724, 1.4155042915806033, 0.285771796621622], [-0.3531704094491013, 1.215835942277522, 1.192145996244161], [-1.815449371108261, 15.406693131520615, 0.8897810288134866], [0.5658314541686174, 0.4917466834091352, 0.5599480751683169], [0.0, 0.0, 0.0], [43.03579204220587, 35.2502622473194, 17.963292132150887], [16.624811822340543, 4.204898052104255, 3.336344389251233], [-3.0028526801716655, 0.1577395023317973, 0.1847784542317089], [0.0, 0.0, 0.0], [48.587058454794374, 33.554792167204376, 19.457475099525105], [43.6991120475023, 35.417032281284165, 16.19434438859131], [0.41450195331146544, 0.4019199597213202, 0.38916248931648534], [0.3529532117398148, 0.4412956648099056, 0.45405878454408305], [37.14089786902461, 23.533881023380328, 17.73592325874781], [36.986663257381394, 22.149414422627697, 16.89625320608342], [1.329316562540199, 9.302816452826525, 1.3761492889074767], [0.46545393564441756, 0.48398178125663166, 0.4695298184883753], [17.43601580753456, 18.105913814291096, 15.217102265767114], [30.665716874324474, 18.132118528289354, 15.429286995406885], [0.3818239315026135, 4.087315210602794, 0.4124385444424117], [0.3758816682229601, 0.4853739940828442, 0.4422406071799406], [19.11177296019273, 14.094235267105958, 16.2411475238642], [22.429438820466473, 15.544980739456706, 15.069095202287789], [0.32329275769940924, 4.9170932226568, 11.97673229795867], [7.518788529069487, 5.865566192036286, 3.818779173481884], [16.584663438589786, 21.473868444866042, 1.3027914403169887], [0.7189110647936527, 4.461626872594087, 1.3915450109123615], [-3.5940660579203225, 0.21112351389722908, 0.3737232538815942], [-3.4876753282370827, 0.11232865714829729, 1.1725347811033333], [23.47991629049581, 18.676723086734135, 3.0535370901662535], [16.150606009898752, 9.084786762590102, 4.063113693410436], [15.308509923646534, 6.841202832990016, 4.732818899823845], [0.644503975360866, 0.728729089562575, 0.4414969729696301], [14.799146591361218, 14.461193901082897, 13.632532129773924], [12.50794979811214, 12.220971432629531, 6.500684184845783], [11.823649685666627, 8.539444636426454, 6.990605263206635], [0.7422899170817842, 1.0757889110774856, 0.4652025352177639], [13.589930954437405, 11.032794444351095, 6.107438498645194], [6.416295783293986, 6.921715852259554, 3.840105844658957], [6.823434511360121, 4.966020367352688, 2.0500333131702977], [0.37266620340847934, 1.705778912829723, 0.5682428532235114], [2.3431812053488805, 10.262898520577085, 4.012642807073454], [1.778560847540012, 1.8473214463030905, 0.7189996362893212], [-0.5478712578312305, 0.9428793399215877, 2.269265480332572], [-0.40030429146370444, 1.23686071334925, 0.33513601685393496]], "q_shape": [60, 3], "baseline_pct": 62.18, "baseline_dumps": 10, "baseline_dump_positions": [[10.5, 3.0], [17.0, 3.0], [4.0, 9.5], [10.5, 9.5], [17.0, 9.5], [23.5, 9.5], [4.0, 16.0], [10.5, 16.0], [17.0, 16.0], [23.5, 16.0]], "eval_pct": 74.84, "eval_dumps": 72.0, "improvement_pp": 12.66, "episodes": 1500, "elapsed_sec": 24.5, "state_space_size": 60, "alpha": 0.25, "gamma": 0.95, "eps_start": 1.0, "eps_end": 0.05, "rewards_ds": [-145.44, -135.92, -132.02, -130.72, -140.46, -148.78, -124.16, -120.62, -113.56, -96.6, -111.84, -56.72, -132.24, -85.74, -123.66, -89.02, -136.62, -33.32, -85.4, -55.1, -103.68, -80.98, -59.68, -59.96, -103.38, -57.48, -34.82, -88.7, -103.94, -68.64, -62.62, -18.54, -21.8, -82.04, -18.24, -46.84, 24.2, -47.36, -27.58, -31.32, -30.96, -41.46, -22.54, -40.1, -37.02, -47.88, 1.34, -70.12, -11.76, -55.98, 36.1, -49.16, 22.58, 1.86, -6.86, -54.28, 34.76, 29.5, -25.32, -11.78, -6.18, -10.5, -8.26, -3.82, 32.8, 0.0, 27.66, 37.94, 24.5, 12.84, 67.18, 24.6, 44.72, 36.82, 20.32, 8.9, 49.9, 20.46, 76.0, 18.36, 59.74, 45.46, 48.54, 49.4, 44.46, 60.0, 55.54, 52.0, 64.02, 65.12, 70.74, 77.4, 47.72, 61.26, 54.18, 60.14, 80.98, 74.72, 75.2, 79.24, 78.16, 61.16, 78.6, 73.34, 65.22, 79.38, 73.42, 65.3, 69.7, 69.3, 58.32, 66.52, 57.68, 71.08, 76.48, 80.14, 73.9, 68.82, 77.04, 69.24], "coverage_ds": [60.5, 70.0, 61.2, 60.7, 66.9, 77.9, 73.8, 72.9, 70.4, 73.7, 76.2, 71.3, 62.9, 75.4, 60.0, 73.5, 73.5, 76.9, 73.1, 74.7, 65.4, 75.7, 78.1, 77.3, 74.7, 74.7, 77.2, 75.0, 68.5, 74.0, 75.3, 78.6, 76.9, 76.2, 75.6, 79.4, 74.5, 79.7, 74.9, 72.1, 76.0, 74.4, 60.5, 73.1, 60.2, 71.2, 79.9, 73.5, 78.6, 63.2, 79.8, 73.3, 78.2, 70.9, 63.5, 74.7, 77.5, 77.9, 80.1, 77.9, 67.0, 73.7, 73.3, 66.0, 72.1, 72.9, 75.6, 74.1, 70.7, 73.3, 78.5, 75.3, 74.7, 73.4, 64.0, 75.0, 77.1, 75.4, 77.4, 58.4, 70.4, 74.3, 71.2, 72.6, 74.6, 72.6, 70.1, 70.2, 68.6, 69.6, 70.1, 74.5, 73.4, 67.9, 64.9, 69.6, 72.7, 72.6, 71.5, 72.8, 74.0, 73.0, 73.7, 71.7, 72.3, 75.3, 72.0, 69.9, 77.1, 76.6, 70.7, 76.8, 71.9, 72.9, 72.9, 75.4, 73.9, 76.0, 73.3, 74.6]};
+
+// ============================================================================
+//  CAT TRUCK SPECIFICATIONS (manufacturer data)
+// ============================================================================
+const TRUCK_MODELS = {
+  "Cat 785": { width: 6.4, dumpRadius: 2.6, payload: 136, color: "#9B6BFF" },
+  "Cat 793": { width: 7.6, dumpRadius: 3.2, payload: 240, color: "#FFC107" },
+  "Cat 797": { width: 9.7, dumpRadius: 3.8, payload: 363, color: "#00D26A" }
+};
+
+// ============================================================================
+//  GLOBAL APP STATE (5 stages)
+// ============================================================================
+const STATE = {
+  site: {
+    verts: [],          // polygon vertices [[x,y],...]
+    entries: [],        // entry gates [{x,y,name}]
+    exits: [],          // exit gates
+    nogo: [],           // no-go polygons [[[x,y],...]]
+    pathways: [],       // line segments [[ [x1,y1], [x2,y2] ], ...] — roads splitting field
+    pathwayTemp: null,  // first click of current pathway (waiting for second click)
+    buffer: 2.0,
+    realWidthM: 500,    // metres of real-world width represented by the canvas
+    closed: false,
+  },
+  fleet: {
+    trucks: []          // [{id, model, width, dumpRadius, shiftStart, shiftEnd, maint:[{from,to}]}]
+  },
+  plan: null,           // {zones, mask, inside, assignments, waypoints, projectedCov, totalDumps, etaMin}
+  ops: {
+    running: false, timer: null, t: 0, speedMul: 5,
+    trucks: [], tokens: [], events: [],
+    heatmap: null, filled: null, nFilled: 0,
+    coverageHistory: [],
+  },
+  report: null,
+  currentMode: "poly",
+  currentPage: "site",
+};
+
+const FIELD_W = 30, FIELD_H = 26;   // logical canvas units (metres)
+const GRID_RES = 0.5;
+const HW = Math.floor(FIELD_W / GRID_RES) + 2;
+const HH = Math.floor(FIELD_H / GRID_RES) + 2;
+
+// ============================================================================
+//  POLYGON UTILITIES
+// ============================================================================
+function pip(x, y, V) {
+  if (!V || V.length < 3) return false;
+  let inside = false;
+  let n = V.length;
+  if (Math.abs(V[0][0]-V[n-1][0])<1e-9 && Math.abs(V[0][1]-V[n-1][1])<1e-9) n--;
+  for (let i=0, j=n-1; i<n; j=i++) {
+    const xi=V[i][0], yi=V[i][1], xj=V[j][0], yj=V[j][1];
+    if (((yi>y)!=(yj>y)) && (x < (xj-xi)*(y-yi)/((yj-yi)+1e-12)+xi)) inside = !inside;
+  }
+  return inside;
+}
+
+function polyArea(V) {
+  if (!V || V.length < 3) return 0;
+  let n = V.length;
+  if (Math.abs(V[0][0]-V[n-1][0])<1e-9 && Math.abs(V[0][1]-V[n-1][1])<1e-9) n--;
+  let a = 0;
+  for (let i=0; i<n; i++) {
+    const j=(i+1)%n; a += V[i][0]*V[j][1] - V[j][0]*V[i][1];
+  }
+  return Math.abs(a)/2;
+}
+
+function polyPerim(V) {
+  if (!V || V.length < 2) return 0;
+  let n = V.length;
+  if (Math.abs(V[0][0]-V[n-1][0])<1e-9 && Math.abs(V[0][1]-V[n-1][1])<1e-9) n--;
+  let p = 0;
+  for (let i=0; i<n; i++) {
+    const j=(i+1)%n;
+    p += Math.hypot(V[i][0]-V[j][0], V[i][1]-V[j][1]);
+  }
+  return p;
+}
+
+function polyXRange(V, y0, y1) {
+  let xs = [];
+  for (let k=0; k<12; k++) {
+    const y = y0 + (y1-y0)*k/11;
+    let row = [];
+    for (let x=-1; x<=FIELD_W+1; x+=0.4) if (pip(x, y, V)) row.push(x);
+    if (row.length) xs.push(Math.min(...row), Math.max(...row));
+  }
+  if (!xs.length) {
+    const xmin = Math.min(...V.map(v=>v[0])), xmax = Math.max(...V.map(v=>v[0]));
+    return [xmin, xmax];
+  }
+  return [Math.min(...xs), Math.max(...xs)];
+}
+
+function buildMask(V) {
+  const m = new Uint8Array(HW * HH);
+  for (let gy=0; gy<HH; gy++)
+    for (let gx=0; gx<HW; gx++)
+      if (pip(gx*GRID_RES, gy*GRID_RES, V)) m[gy*HW + gx] = 1;
+  return m;
+}
+
+function maskInsideCount(m) {
+  let n = 0;
+  for (let i=0; i<m.length; i++) if (m[i]) n++;
+  return n;
+}
+
+// ============================================================================
+//  ZONE DECOMPOSITION (sweep-line, sliver-merge, multi-truck-width-aware)
+// ============================================================================
+// ============================================================================
+//  REAL-WORLD SCALE HELPERS
+// ============================================================================
+function getScale() {
+  // Returns: how many real metres are represented by 1 canvas logical unit.
+  // The canvas is FIELD_W (=30) logical units wide. realWidthM is the real
+  // mining-site width in metres the user has typed on the Site Setup page.
+  const w = (STATE && STATE.site && STATE.site.realWidthM) || 500;
+  return w / FIELD_W;
+}
+function logicalToMetres(d)   { return d * getScale(); }
+function metresToLogical(m)   { return m / getScale(); }
+function areaLogicalToM2(a)   { return a * Math.pow(getScale(), 2); }
+
+// ============================================================================
+//  POLYGON SPLITTING BY PATHWAYS (Sutherland-Hodgman, any angle)
+// ============================================================================
+// Given a polygon and a list of pathway line segments, return one or more
+// sub-polygons formed by cutting the polygon along each pathway's infinite
+// line. Each pathway acts as an arbitrarily-angled half-plane cutter.
+function splitPolygonByPathways(mainPoly, pathways) {
+  if (!Array.isArray(mainPoly) || mainPoly.length < 3) return [];
+  if (!pathways || pathways.length === 0) {
+    return [{ verts: mainPoly.slice(), id: 0, label: "Region A",
+              areaM2: areaLogicalToM2(polyArea(mainPoly)) }];
+  }
+  let regions = [mainPoly.slice()];
+  for (const [p1, p2] of pathways) {
+    const next = [];
+    for (const r of regions) {
+      const pieces = splitPolyByLine(r, p1, p2);
+      for (const pc of pieces) if (pc.length >= 3) next.push(pc);
+    }
+    regions = next;
+  }
+  return regions.map((verts, i) => ({
+    verts, id: i,
+    label: "Region " + String.fromCharCode(65 + (i % 26)) + (i < 26 ? "" : Math.floor(i/26)),
+    areaM2: areaLogicalToM2(polyArea(verts))
+  }));
+}
+
+function splitPolyByLine(poly, p1, p2) {
+  // Returns 1 or 2 sub-polygons depending on whether the line crosses `poly`.
+  const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
+  const sideOf = p => (p[0] - p1[0]) * dy - (p[1] - p1[1]) * dx;
+  const sides = poly.map(sideOf);
+  const hasPos = sides.some(s => s > 1e-6);
+  const hasNeg = sides.some(s => s < -1e-6);
+  if (!hasPos || !hasNeg) return [poly.slice()]; // line doesn't cross polygon
+  const pos = clipPolyHalfplane(poly, p1, p2, +1);
+  const neg = clipPolyHalfplane(poly, p1, p2, -1);
+  return [pos, neg];
+}
+
+function clipPolyHalfplane(poly, p1, p2, keepSign) {
+  // Sutherland-Hodgman: keep vertices on side `keepSign * sideOf >= 0`.
+  const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
+  const sideOf = p => (p[0] - p1[0]) * dy - (p[1] - p1[1]) * dx;
+  const out = [];
+  for (let i = 0; i < poly.length; i++) {
+    const curr = poly[i];
+    const prev = poly[(i - 1 + poly.length) % poly.length];
+    const sC = sideOf(curr);
+    const sP = sideOf(prev);
+    const inC = sC * keepSign >= 0;
+    const inP = sP * keepSign >= 0;
+    if (inC) {
+      if (!inP) {
+        const t = sP / (sP - sC);
+        out.push([prev[0] + t * (curr[0] - prev[0]),
+                  prev[1] + t * (curr[1] - prev[1])]);
+      }
+      out.push(curr.slice());
+    } else if (inP) {
+      const t = sP / (sP - sC);
+      out.push([prev[0] + t * (curr[0] - prev[0]),
+                prev[1] + t * (curr[1] - prev[1])]);
+    }
+  }
+  return out;
+}
+
+function buildZones(V, truckWidth) {
+  if (!V || V.length < 3) return [];
+  const ymin = Math.min(...V.map(v=>v[1]));
+  const ymax = Math.max(...V.map(v=>v[1]));
+  const SLIVER = truckWidth * 0.5;
+  const Z = []; let y = ymin, idx = 0;
+  while (y < ymax) {
+    const yt = Math.min(y + truckWidth, ymax);
+    const [xmin, xmax] = polyXRange(V, y, yt);
+    if (xmax - xmin > 0.1) {
+      Z.push({ id: idx, y_bot: y, y_top: yt,
+               x_min: xmin, x_max: xmax,
+               area: (xmax-xmin)*(yt-y), truckWidth });
+      idx++;
+    }
+    y = yt;
+  }
+  if (Z.length >= 2 && (Z[Z.length-1].y_top - Z[Z.length-1].y_bot) < SLIVER) {
+    const last = Z.pop(), prev = Z[Z.length-1];
+    prev.y_top = last.y_top;
+    prev.x_min = Math.min(prev.x_min, last.x_min);
+    prev.x_max = Math.max(prev.x_max, last.x_max);
+    prev.area += last.area;
+    prev.merged_sliver = true;
+    Z.forEach((z,i) => z.id = i);
+  }
+  return Z;
+}
+
+// ============================================================================
+//  LANE ROUTING — trucks reach zones only along the declared pathways
+// ============================================================================
+function _ld(a,b){ return Math.hypot(a[0]-b[0], a[1]-b[1]); }
+function _lkey(p){ return p[0].toFixed(3)+","+p[1].toFixed(3); }
+function _projSeg(P,A,B){
+  const dx=B[0]-A[0], dy=B[1]-A[1], L2=dx*dx+dy*dy||1e-9;
+  let t=((P[0]-A[0])*dx+(P[1]-A[1])*dy)/L2; t=Math.max(0,Math.min(1,t));
+  return [A[0]+t*dx, A[1]+t*dy];
+}
+function _segInt(p1,p2,p3,p4){
+  const d=(p2[0]-p1[0])*(p4[1]-p3[1])-(p2[1]-p1[1])*(p4[0]-p3[0]);
+  if(Math.abs(d)<1e-9) return null;
+  const t=((p3[0]-p1[0])*(p4[1]-p3[1])-(p3[1]-p1[1])*(p4[0]-p3[0]))/d;
+  const u=((p3[0]-p1[0])*(p2[1]-p1[1])-(p3[1]-p1[1])*(p2[0]-p1[0]))/d;
+  if(t<-1e-6||t>1+1e-6||u<-1e-6||u>1+1e-6) return null;
+  return [p1[0]+t*(p2[0]-p1[0]), p1[1]+t*(p2[1]-p1[1])];
+}
+// Shortest route from `from` to `to` constrained to the road network (+ short
+// straight on/off ramps). Returns an ordered polyline incl. endpoints. With no
+// roads it degrades to a straight segment so road-free demos still work.
+function laneRoute(pathways, from, to){
+  if(!pathways || !pathways.length) return [from.slice(), to.slice()];
+  const nodes=new Map();
+  const add=p=>{ const k=_lkey(p); if(!nodes.has(k)) nodes.set(k,p.slice()); return k; };
+  const seg=pathways.map(s=>[s[0].slice(), s[1].slice()]);
+  seg.forEach(s=>{ add(s[0]); add(s[1]); });
+  for(let i=0;i<seg.length;i++) for(let j=i+1;j<seg.length;j++){
+    const x=_segInt(seg[i][0],seg[i][1],seg[j][0],seg[j][1]); if(x) add(x);
+  }
+  const access=P=>{ let best=null,bd=Infinity; seg.forEach(s=>{ const q=_projSeg(P,s[0],s[1]); const d=_ld(P,q); if(d<bd){bd=d;best=q;} }); return add(best); };
+  const aFrom=access(from), aTo=access(to);
+  const adj=new Map();
+  const edge=(k1,k2)=>{ const w=_ld(nodes.get(k1),nodes.get(k2)); if(w<1e-9)return;
+    (adj.get(k1)||adj.set(k1,[]).get(k1)).push({k:k2,w});
+    (adj.get(k2)||adj.set(k2,[]).get(k2)).push({k:k1,w}); };
+  seg.forEach(s=>{
+    const on=[...nodes.entries()].filter(([k,p])=>_ld(p,_projSeg(p,s[0],s[1]))<1e-6).map(([k])=>k);
+    on.sort((k1,k2)=>_ld(s[0],nodes.get(k1))-_ld(s[0],nodes.get(k2)));
+    for(let i=1;i<on.length;i++) edge(on[i-1],on[i]);
+  });
+  const kFrom=add(from), kTo=add(to);
+  edge(kFrom,aFrom); edge(kTo,aTo);
+  const D=new Map(), prev=new Map(), seen=new Set();
+  nodes.forEach((_,k)=>D.set(k,Infinity)); D.set(kFrom,0);
+  while(true){
+    let u=null,ud=Infinity; D.forEach((d,k)=>{ if(!seen.has(k)&&d<ud){ud=d;u=k;} });
+    if(u===null||u===kTo) break; seen.add(u);
+    (adj.get(u)||[]).forEach(e=>{ const nd=ud+e.w; if(nd<D.get(e.k)){D.set(e.k,nd); prev.set(e.k,u);} });
+  }
+  if(D.get(kTo)===Infinity) return [from.slice(), to.slice()];
+  const path=[]; let c=kTo; while(c!==undefined){ path.unshift(nodes.get(c)); c=prev.get(c); }
+  return path;
+}
+
+// ============================================================================
+//  GREEDY CIRCLE PACKER (for ceiling + waypoint generation per zone)
+// ============================================================================
+function hexDumpsInZone(zone, mask, filled, dumpRadius) {
+  const poly = [
+    {x: zone.x_min, y: zone.y_bot},
+    {x: zone.x_max, y: zone.y_bot},
+    {x: zone.x_max, y: zone.y_top},
+    {x: zone.x_min, y: zone.y_top}
+  ];
+  const spots = buildHexSpots(poly, dumpRadius);
+  const dumps = [];
+  const rc = Math.ceil(dumpRadius / GRID_RES);
+
+  spots.forEach(s => {
+    const cgx = Math.floor(s.x / GRID_RES);
+    const cgy = Math.floor(s.y / GRID_RES);
+    let isFilled = false;
+    if (cgy >= 0 && cgy < HH && cgx >= 0 && cgx < HW) {
+      if (mask[cgy * HW + cgx] && filled[cgy * HW + cgx]) {
+        isFilled = true;
+      } else if (!mask[cgy * HW + cgx]) {
+        isFilled = true;
+      }
+    } else {
+      isFilled = true;
+    }
+
+    if (!isFilled) {
+      for (let dy = -rc; dy <= rc; dy++) {
+        const ny = cgy + dy; if (ny < 0 || ny >= HH) continue;
+        for (let dx = -rc; dx <= rc; dx++) {
+          const nx = cgx + dx; if (nx < 0 || nx >= HW) continue;
+          if (Math.hypot(dx, dy) * GRID_RES <= dumpRadius) {
+            const idx = ny * HW + nx;
+            if (mask[idx]) filled[idx] = 1;
+          }
+        }
+      }
+      dumps.push([s.x, s.y]);
+    }
+  });
+  return dumps;
+}
+
+// Sort dumps in a boustrophedon (zigzag) pattern per row so the truck route is smooth
+function boustrophedonOrder(dumps, zone) {
+  if (dumps.length === 0) return [];
+  const yRows = {};
+  const rowH = (zone.y_top - zone.y_bot) / 3;
+  dumps.forEach(d => {
+    const row = Math.floor((d[1] - zone.y_bot) / rowH);
+    (yRows[row] ||= []).push(d);
+  });
+  let out = [];
+  Object.keys(yRows).sort((a,b)=>+a-+b).forEach((r,i) => {
+    const sorted = yRows[r].sort((a,b) => i%2===0 ? a[0]-b[0] : b[0]-a[0]);
+    out = out.concat(sorted);
+  });
+  return out;
+}
+
+// ============================================================================
+//  NAVIGATION
+// ============================================================================
+function nav(page) {
+  document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+  document.querySelector(`.nav-item[data-page="${page}"]`).classList.add("active");
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.getElementById("page-"+page).classList.add("active");
+  STATE.currentPage = page;
+  onPageEnter(page);
+  // update top workflow strip
+  const stages = ["site","fleet","plan","ops","report"];
+  document.querySelectorAll(".wf-step").forEach(el => {
+    el.classList.remove("cur","done");
+    const i = stages.indexOf(el.dataset.wf);
+    const cur = stages.indexOf(page);
+    if (i === cur) el.classList.add("cur");
+    else if (i < cur) el.classList.add("done");
+  });
+}
+function onPageEnter(page) {
+  if (page === "site") drawSite();
+  if (page === "fleet") renderFleetTable();
+  if (page === "plan") renderPlanPage();
+  if (page === "ops") renderOpsPage();
+  if (page === "report") renderReportPage();
+  if (page === "about") renderAbout();
+}
+document.querySelectorAll(".nav-item").forEach(el => {
+  el.addEventListener("click", () => nav(el.dataset.page));
+});
+
+function setStatus(msg) { const el = document.getElementById("f-status"); if (el) el.textContent = msg; }
+function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+
+
+// ============================================================================
+//  CANVAS HELPERS
+// ============================================================================
+function fit(canvas) {
+  const w = canvas.width, h = canvas.height, pad = 30;
+  const s = Math.min((w-2*pad)/FIELD_W, (h-2*pad)/FIELD_H);
+  return { s,
+    px: x => (w-FIELD_W*s)/2 + x*s,
+    py: y => h - ((h-FIELD_H*s)/2 + y*s),
+    from: (cx, cy) => [(cx-(w-FIELD_W*s)/2)/s, (h-cy-(h-FIELD_H*s)/2)/s]
+  };
+}
+function clearC(ctx, color="#070C18") {
+  ctx.fillStyle = color; ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height);
+}
+function drawGrid(ctx, P) {
+  ctx.strokeStyle="#162035"; ctx.lineWidth=0.5;
+  for (let x=0; x<=FIELD_W; x+=2) { ctx.beginPath(); ctx.moveTo(P.px(x),P.py(0)); ctx.lineTo(P.px(x),P.py(FIELD_H)); ctx.stroke(); }
+  for (let y=0; y<=FIELD_H; y+=2) { ctx.beginPath(); ctx.moveTo(P.px(0),P.py(y)); ctx.lineTo(P.px(FIELD_W),P.py(y)); ctx.stroke(); }
+}
+
+// ============================================================================
+//  PAGE 1: SITE SETUP
+// ============================================================================
+let SITE_HOVER = null;
+function setMode(m) {
+  STATE.currentMode = m;
+  document.querySelectorAll(".mode-btn").forEach(b => b.classList.toggle("active", b.dataset.mode === m));
+  const hints = {
+    poly: ["Polygon mode:", "click to add vertices, double-click to close."],
+    pathway: ["Pathway mode:", "first click = road start, second click = road end. Pathways split the field into sub-regions during planning."],
+    entry: ["Entry-gate mode:", "click on the polygon boundary to add an entry gate."],
+    exit: ["Exit-gate mode:", "click on the polygon boundary to add an exit gate."],
+    nogo: ["No-go zone mode:", "click inside the polygon to place no-go markers."]
+  };
+  setText("mode-hint", hints[m][0]);
+  setText("mode-hint-body", hints[m][1]);
+  drawSite();
+}
+function siteCanvasInit() {
+  const c = document.getElementById("siteCanvas");
+  if (c.dataset.init) return;
+  c.dataset.init = "1";
+  c.addEventListener("click", siteOnClick);
+  c.addEventListener("dblclick", () => { if (STATE.currentMode==="poly") siteCloseLoop(); });
+  c.addEventListener("mousemove", e => {
+    const r = c.getBoundingClientRect();
+    const cx = (e.clientX-r.left)*(c.width/r.width);
+    const cy = (e.clientY-r.top)*(c.height/r.height);
+    SITE_HOVER = fit(c).from(cx, cy);
+    drawSite();
+  });
+  c.addEventListener("mouseleave", () => { SITE_HOVER=null; drawSite(); });
+}
+function siteOnClick(e) {
+  const c = e.currentTarget;
+  const r = c.getBoundingClientRect();
+  const cx = (e.clientX-r.left)*(c.width/r.width);
+  const cy = (e.clientY-r.top)*(c.height/r.height);
+  const [fx, fy] = fit(c).from(cx, cy);
+  if (fx<0||fx>FIELD_W||fy<0||fy>FIELD_H) return;
+  const M = STATE.currentMode;
+  if (M === "poly") {
+    if (STATE.site.closed) {
+      // Restart drawing
+      STATE.site.verts = []; STATE.site.closed = false;
+      STATE.site.entries = []; STATE.site.exits = []; STATE.site.nogo = [];
+    }
+    STATE.site.verts.push([+fx.toFixed(2), +fy.toFixed(2)]);
+  } else if (M === "entry") {
+    if (!STATE.site.closed) { siteFlash("Close the polygon first"); return; }
+    STATE.site.entries.push({x:+fx.toFixed(2), y:+fy.toFixed(2), name:`E${STATE.site.entries.length+1}`});
+  } else if (M === "exit") {
+    if (!STATE.site.closed) { siteFlash("Close the polygon first"); return; }
+    STATE.site.exits.push({x:+fx.toFixed(2), y:+fy.toFixed(2), name:`X${STATE.site.exits.length+1}`});
+  } else if (M === "nogo") {
+    if (!STATE.site.closed) { siteFlash("Close the polygon first"); return; }
+    STATE.site.nogo.push([+fx.toFixed(2), +fy.toFixed(2)]);
+  } else if (M === "pathway") {
+    if (!STATE.site.closed) { siteFlash("Close the polygon first"); return; }
+    const pt = [+fx.toFixed(2), +fy.toFixed(2)];
+    if (STATE.site.pathwayTemp) {
+      // Second click — complete the pathway segment
+      STATE.site.pathways.push([STATE.site.pathwayTemp, pt]);
+      STATE.site.pathwayTemp = null;
+      siteFlash(`Road R${STATE.site.pathways.length} placed`);
+    } else {
+      // First click — store start point
+      STATE.site.pathwayTemp = pt;
+      siteFlash("Road start placed — click the other end");
+    }
+  }
+  siteUpdateStats(); drawSite();
+}
+function siteCloseLoop() {
+  if (STATE.site.verts.length < 3) return;
+  STATE.site.closed = true;
+  setText("site-canvas-sub", `polygon closed · ${STATE.site.verts.length} vertices`);
+  siteUpdateStats(); drawSite();
+}
+function siteUndo() {
+  if (STATE.currentMode === "poly") {
+    if (STATE.site.closed && STATE.site.verts.length) {
+      // Re-open polygon
+      STATE.site.closed = false;
+      STATE.site.entries = []; STATE.site.exits = []; STATE.site.nogo = [];
+    } else if (STATE.site.verts.length) {
+      STATE.site.verts.pop();
+    }
+  } else if (STATE.currentMode === "entry") STATE.site.entries.pop();
+  else if (STATE.currentMode === "exit") STATE.site.exits.pop();
+  else if (STATE.currentMode === "nogo") STATE.site.nogo.pop();
+  else if (STATE.currentMode === "pathway") {
+    if (STATE.site.pathwayTemp) STATE.site.pathwayTemp = null;
+    else STATE.site.pathways.pop();
+  }
+  siteUpdateStats(); drawSite();
+}
+function siteClear() {
+  STATE.site = { verts:[], entries:[], exits:[], nogo:[], pathways:[], pathwayTemp:null,
+                  buffer:STATE.site.buffer, realWidthM:STATE.site.realWidthM || 500, closed:false };
+  setText("site-canvas-sub", "click to start drawing the polygon");
+  siteUpdateStats(); drawSite();
+}
+function sitePresetRect() {
+  STATE.site.verts = [[5,5],[25,5],[25,20],[5,20]];
+  STATE.site.closed = true;
+  STATE.site.entries = [{x:5, y:12, name:"E1"}];
+  STATE.site.exits = [{x:25, y:12, name:"X1"}];
+  STATE.site.nogo = [];
+  siteUpdateStats(); drawSite();
+}
+function sitePresetL() {
+  STATE.site.verts = [[3,3],[20,3],[20,12],[10,12],[10,22],[3,22]];
+  STATE.site.closed = true;
+  STATE.site.entries = [{x:3, y:6, name:"E1"}];
+  STATE.site.exits = [{x:3, y:18, name:"X1"}, {x:20, y:6, name:"X2"}];
+  STATE.site.nogo = [];
+  siteUpdateStats(); drawSite();
+}
+function loadPreset(name) {
+  if (name === "demo") {
+    STATE.site.verts = [[5,2],[18,1],[25,5],[28,10],[26,18],[22,22],[15,24],[8,23],[3,18],[2,12]];
+    STATE.site.closed = true;
+    STATE.site.entries = [{x:5,y:8,name:"E1"}, {x:25,y:5,name:"E2"}];
+    STATE.site.exits = [{x:15,y:24,name:"X1"}];
+    STATE.site.nogo = [];
+    siteUpdateStats(); drawSite();
+    siteFlash("Demo site loaded — matches the trained Q-table polygon");
+  }
+}
+function siteUpdateStats() {
+  const v = STATE.site.verts;
+  const wEl = document.getElementById("p-real-width");
+  if (wEl) STATE.site.realWidthM = parseFloat(wEl.value) || 500;
+  setText("s-verts", v.length);
+  if (STATE.site.closed) {
+    const aLogical = polyArea(v);
+    const aM2 = aLogical * Math.pow(getScale(), 2);
+    setText("s-area",    aM2.toFixed(0));
+    setText("s-area-ha", (aM2/10000).toFixed(2));
+    setText("s-area-ac", (aM2/4047).toFixed(2));
+  } else {
+    setText("s-area", "—"); setText("s-area-ha", "—"); setText("s-area-ac", "—");
+  }
+  setText("s-entries", STATE.site.entries.length);
+  setText("s-exits", STATE.site.exits.length);
+  setText("s-roads", STATE.site.pathways.length);
+  if (STATE.site.closed) {
+    try {
+      const regs = splitPolygonByPathways(v, STATE.site.pathways);
+      setText("s-regions", regs.length);
+    } catch (e) { setText("s-regions", "?"); }
+  } else setText("s-regions", "—");
+
+  const errs = [];
+  const warns = [];
+  if (v.length < 3) errs.push("Polygon needs at least 3 vertices.");
+  if (STATE.site.closed) {
+    const aM2 = polyArea(v) * Math.pow(getScale(), 2);
+    if (aM2 < 50) errs.push(`Area ${aM2.toFixed(0)} m² too small (min 50). Increase canvas width or draw a larger polygon.`);
+    const xs = v.map(p=>p[0]), ys = v.map(p=>p[1]);
+    if (Math.max(...xs)-Math.min(...xs) < 5) errs.push("Bounding box too narrow.");
+    if (STATE.site.entries.length === 0) warns.push("No entry gate placed — trucks enter at default location.");
+    if (STATE.site.exits.length === 0) warns.push("No exit gate placed — trucks loop back to entry.");
+    if (STATE.site.pathwayTemp) warns.push("Pathway start placed but end not yet clicked.");
+  }
+  const el = document.getElementById("site-validation");
+  if (!el) return;
+  if (!STATE.site.closed) el.innerHTML = `<div class="alert warn">Close the polygon (double-click) to validate.</div>`;
+  else if (errs.length) el.innerHTML = `<div class="alert err">${errs.join("<br>")}</div>`;
+  else if (warns.length) el.innerHTML = `<div class="alert warn">${warns.join("<br>")}</div><div class="alert ok" style="margin-top:6px">Site valid — ready for fleet config.</div>`;
+  else el.innerHTML = `<div class="alert ok">✓ Site valid and ready for fleet config.</div>`;
+}
+function siteFlash(msg) {
+  setText("site-canvas-sub", msg);
+  setTimeout(() => setText("site-canvas-sub", STATE.site.closed ? `polygon closed · ${STATE.site.verts.length} vertices` : "click to start drawing the polygon"), 2000);
+}
+function drawSite() {
+  const c = document.getElementById("siteCanvas");
+  if (!c) return;
+  siteCanvasInit();
+  const ctx = c.getContext("2d");
+  const P = fit(c);
+  clearC(ctx); drawGrid(ctx, P);
+  // polygon
+  if (STATE.site.verts.length > 0) {
+    ctx.strokeStyle = STATE.site.closed ? "#3DB5F7" : "#FFC107";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    STATE.site.verts.forEach((v,i) => {
+      const x = P.px(v[0]), y = P.py(v[1]);
+      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    if (STATE.site.closed) {
+      ctx.closePath();
+      ctx.fillStyle = "rgba(61,181,247,.06)"; ctx.fill();
+    } else if (SITE_HOVER) {
+      ctx.lineTo(P.px(SITE_HOVER[0]), P.py(SITE_HOVER[1]));
+    }
+    ctx.stroke();
+    // vertex dots
+    ctx.fillStyle = "#FFC107";
+    STATE.site.verts.forEach((v,i) => {
+      ctx.beginPath(); ctx.arc(P.px(v[0]), P.py(v[1]), 4, 0, 2*Math.PI); ctx.fill();
+      ctx.fillStyle = "#000"; ctx.font = "bold 9px monospace"; ctx.textAlign = "center";
+      ctx.fillText(String(i+1), P.px(v[0]), P.py(v[1])+3);
+      ctx.fillStyle = "#FFC107";
+    });
+  } else {
+    ctx.fillStyle = "#5A7099"; ctx.font = "15px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("Click anywhere to begin the field polygon.", c.width/2, c.height/2);
+    ctx.font = "11px sans-serif"; ctx.fillStyle = "#3D4A66";
+    ctx.fillText("Or use a preset → Rectangle, L-shape, or Load demo site.", c.width/2, c.height/2+22);
+  }
+  // gates
+  STATE.site.entries.forEach(g => drawGate(ctx, P, g, "#00D26A", "▶"));
+  STATE.site.exits.forEach(g => drawGate(ctx, P, g, "#FF4D5E", "◀"));
+  // no-go markers
+  STATE.site.nogo.forEach(p => {
+    const x = P.px(p[0]), y = P.py(p[1]);
+    ctx.fillStyle = "rgba(255,138,61,.25)"; ctx.beginPath();
+    ctx.arc(x, y, 14, 0, 2*Math.PI); ctx.fill();
+    ctx.strokeStyle = "#FF8A3D"; ctx.lineWidth = 1.5; ctx.setLineDash([3,2]); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = "#FF8A3D"; ctx.font="bold 12px monospace"; ctx.textAlign="center";
+    ctx.fillText("⊘", x, y+4);
+  });
+  // pathways (roads): purple dashed lines + R-label at midpoint
+  STATE.site.pathways.forEach((pw, i) => {
+    const x1 = P.px(pw[0][0]), y1 = P.py(pw[0][1]);
+    const x2 = P.px(pw[1][0]), y2 = P.py(pw[1][1]);
+    ctx.strokeStyle = "#9B6BFF"; ctx.lineWidth = 3; ctx.setLineDash([5,3]);
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    ctx.setLineDash([]);
+    // road endpoints
+    ctx.fillStyle = "#9B6BFF";
+    ctx.beginPath(); ctx.arc(x1, y1, 3, 0, 2*Math.PI); ctx.fill();
+    ctx.beginPath(); ctx.arc(x2, y2, 3, 0, 2*Math.PI); ctx.fill();
+    // label at midpoint
+    const mx = (x1+x2)/2, my = (y1+y2)/2;
+    ctx.fillStyle = "rgba(155,107,255,.85)";
+    ctx.fillRect(mx-12, my-7, 24, 14);
+    ctx.fillStyle = "#fff"; ctx.font = "bold 10px 'Share Tech Mono', monospace"; ctx.textAlign = "center";
+    ctx.fillText(`R${i+1}`, mx, my+3);
+  });
+  // pathway-in-progress preview
+  if (STATE.site.pathwayTemp && SITE_HOVER) {
+    const x1 = P.px(STATE.site.pathwayTemp[0]), y1 = P.py(STATE.site.pathwayTemp[1]);
+    const x2 = P.px(SITE_HOVER[0]),             y2 = P.py(SITE_HOVER[1]);
+    ctx.strokeStyle = "rgba(155,107,255,0.55)"; ctx.lineWidth = 2; ctx.setLineDash([3,4]);
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#9B6BFF";
+    ctx.beginPath(); ctx.arc(x1, y1, 3, 0, 2*Math.PI); ctx.fill();
+  }
+  drawScaleBar(ctx, P);
+}
+function drawGate(ctx, P, g, color, glyph) {
+  const x = P.px(g.x), y = P.py(g.y);
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(x, y, 7, 0, 2*Math.PI); ctx.fill();
+  ctx.fillStyle = "#000"; ctx.font="bold 10px monospace"; ctx.textAlign="center";
+  ctx.fillText(glyph, x, y+3.5);
+  ctx.fillStyle = color; ctx.font="bold 10px monospace";
+  ctx.fillText(g.name, x+14, y+4);
+}
+
+function finishSite() {
+  if (!STATE.site.closed || polyArea(STATE.site.verts) < 50) {
+    alert("Close a valid polygon (area ≥ 50 m²) first."); return;
+  }
+  document.querySelector('.nav-item[data-page="site"]').classList.add("done");
+  // make sure there's at least one truck row so users don't see an empty table
+  if (STATE.fleet.trucks.length === 0) loadFleetPreset();
+  nav("fleet");
+}
+
+
+// ============================================================================
+//  PAGE 2: FLEET CONFIGURATION
+// ============================================================================
+function fleetAddRow(spec) {
+  const id = `T${STATE.fleet.trucks.length + 1}`;
+  const model = spec?.model || "Cat 793";
+  const m = TRUCK_MODELS[model];
+  STATE.fleet.trucks.push({
+    id, model, width: m.width, dumpRadius: m.dumpRadius,
+    shiftStart: spec?.shiftStart || "06:00",
+    shiftEnd:   spec?.shiftEnd   || "18:00",
+    maint: spec?.maint || [],
+  });
+  renderFleetTable();
+}
+function fleetRemoveRow(idx) {
+  STATE.fleet.trucks.splice(idx, 1);
+  STATE.fleet.trucks.forEach((t,i) => t.id = `T${i+1}`);
+  renderFleetTable();
+}
+function fleetUpdate(idx, field, value) {
+  const t = STATE.fleet.trucks[idx];
+  if (field === "model") {
+    t.model = value;
+    const m = TRUCK_MODELS[value];
+    t.width = m.width; t.dumpRadius = m.dumpRadius;
+  } else t[field] = value;
+  renderFleetTable();
+}
+function fleetAddMaint(idx) {
+  const t = STATE.fleet.trucks[idx];
+  t.maint.push({ from: "12:00", to: "13:00" });
+  renderFleetTable();
+}
+function fleetRemoveMaint(truckIdx, mIdx) {
+  STATE.fleet.trucks[truckIdx].maint.splice(mIdx, 1);
+  renderFleetTable();
+}
+function fleetMaintUpdate(truckIdx, mIdx, field, value) {
+  STATE.fleet.trucks[truckIdx].maint[mIdx][field] = value;
+  renderFleetTable();
+}
+function loadFleetPreset() {
+  STATE.fleet.trucks = [];
+  fleetAddRow({ model: "Cat 793", shiftStart: "06:00", shiftEnd: "18:00", maint: [] });
+  fleetAddRow({ model: "Cat 793", shiftStart: "06:00", shiftEnd: "18:00", maint: [{from:"10:00",to:"10:30"}] });
+  fleetAddRow({ model: "Cat 797", shiftStart: "06:00", shiftEnd: "18:00", maint: [] });
+}
+function renderFleetTable() {
+  const tbody = document.getElementById("fleet-rows");
+  if (!tbody) return;
+  if (STATE.fleet.trucks.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--txt3);padding:24px;font-family:'Barlow Condensed',Arial">No trucks configured. Click <b style="color:var(--cat)">+ Add truck</b> or <b style="color:var(--cat)">📋 Load demo fleet</b> above.</td></tr>`;
+  } else {
+    tbody.innerHTML = STATE.fleet.trucks.map((t, i) => {
+      const opts = Object.keys(TRUCK_MODELS).map(m =>
+        `<option value="${m}" ${m===t.model?'selected':''}>${m}</option>`).join("");
+      const maintHTML = t.maint.length === 0
+        ? `<span style="color:var(--txt3);font-size:11px">none</span>`
+        : t.maint.map((m, mi) =>
+            `<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
+              <input class="cell" type="time" value="${m.from}" onchange="fleetMaintUpdate(${i},${mi},'from',this.value)" style="width:80px"/>
+              <span style="color:var(--txt3)">–</span>
+              <input class="cell" type="time" value="${m.to}" onchange="fleetMaintUpdate(${i},${mi},'to',this.value)" style="width:80px"/>
+              <button class="btn btn-sm" onclick="fleetRemoveMaint(${i},${mi})" style="padding:2px 7px">✕</button>
+            </div>`).join("");
+      return `<tr>
+        <td class="v">${t.id}</td>
+        <td><select class="cell" onchange="fleetUpdate(${i},'model',this.value)">${opts}</select></td>
+        <td>${t.width.toFixed(1)} m</td>
+        <td>${t.dumpRadius.toFixed(1)} m</td>
+        <td><input class="cell" type="time" value="${t.shiftStart}" onchange="fleetUpdate(${i},'shiftStart',this.value)"/></td>
+        <td><input class="cell" type="time" value="${t.shiftEnd}" onchange="fleetUpdate(${i},'shiftEnd',this.value)"/></td>
+        <td>${maintHTML}<button class="btn btn-sm" onclick="fleetAddMaint(${i})" style="margin-top:4px">+ window</button></td>
+        <td><button class="btn btn-sm danger" onclick="fleetRemoveRow(${i})">remove</button></td>
+      </tr>`;
+    }).join("");
+  }
+  setText("fleet-count-sub", `${STATE.fleet.trucks.length} truck${STATE.fleet.trucks.length===1?'':'s'}`);
+  renderGantt();
+}
+function timeToMin(s) { const [h,m]=s.split(":").map(Number); return h*60+m; }
+function renderGantt() {
+  const el = document.getElementById("gantt");
+  if (!el) return;
+  if (STATE.fleet.trucks.length === 0) { el.innerHTML = `<div style="color:var(--txt3);font-size:11px;padding:8px">Add trucks to see schedule.</div>`; return; }
+  // Header
+  let html = `<div class="gantt-row"><div class="gantt-label" style="color:var(--txt3);font-size:9px">24h</div><div style="position:relative;height:14px;border-bottom:1px solid var(--border)">`;
+  for (let h=0; h<=24; h+=4) {
+    const left = h/24*100;
+    html += `<div style="position:absolute;left:${left}%;top:0;font-size:9px;color:var(--txt3);font-family:'Share Tech Mono',monospace;transform:translateX(-50%)">${String(h).padStart(2,'0')}h</div>`;
+  }
+  html += `</div></div>`;
+  STATE.fleet.trucks.forEach(t => {
+    const start = timeToMin(t.shiftStart);
+    const end   = timeToMin(t.shiftEnd);
+    const segs = [];
+    if (start < end) segs.push({from: start, to: end, kind: "shift"});
+    else { segs.push({from: start, to: 1440, kind: "shift"}); segs.push({from: 0, to: end, kind: "shift"}); }
+    t.maint.forEach(m => segs.push({from: timeToMin(m.from), to: timeToMin(m.to), kind: "maint"}));
+    let bar = "";
+    segs.forEach(s => {
+      const left = (s.from/1440)*100;
+      const width = ((s.to-s.from)/1440)*100;
+      bar += `<div class="gantt-seg ${s.kind==='maint'?'maint':''}" style="left:${left}%;width:${width}%">${s.kind==='maint'?'M':''}</div>`;
+    });
+    html += `<div class="gantt-row"><div class="gantt-label">${t.id} · ${t.model.replace('Cat ','')}</div><div class="gantt-bar">${bar}</div></div>`;
+  });
+  el.innerHTML = html;
+}
+function finishFleet() {
+  if (STATE.fleet.trucks.length === 0) { alert("Add at least one truck."); return; }
+  document.querySelector('.nav-item[data-page="fleet"]').classList.add("done");
+  nav("plan");
+}
+
+
+// ============================================================================
+//  PAGE 3: PLAN GENERATION
+// ============================================================================
+function renderPlanPage() {
+  if (!STATE.plan) {
+    document.getElementById("plan-status").style.display = "none";
+    document.getElementById("plan-results").style.display = "none";
+  } else {
+    drawPlanPreview();
+  }
+}
+
+async function runPlan() {
+  if (!STATE.site.closed || STATE.site.verts.length < 3) {
+    alert("Complete site setup first."); nav("site"); return;
+  }
+  if (STATE.fleet.trucks.length === 0) {
+    alert("Add at least one truck."); nav("fleet"); return;
+  }
+  const statusCard = document.getElementById("plan-status");
+  statusCard.style.display = "block";
+  document.getElementById("plan-results").style.display = "none";
+  const stepsEl = document.getElementById("plan-steps");
+  document.getElementById("btn-export-plan").disabled = true;
+  const t0 = performance.now();
+  const steps = [
+    "Building field mask from polygon...",
+    "Splitting field by pathways into sub-regions...",
+    "Decomposing each region into truck-width zones...",
+    "Assigning zones to trucks via token broker + computing waypoints...",
+    "Routing trucks through entry/exit gates and tallying distances...",
+    "Estimating projected coverage and ETA..."
+  ];
+  stepsEl.innerHTML = steps.map(s => `<div style="color:var(--txt3);font-family:'Share Tech Mono',monospace;font-size:11px;padding:3px 0">⋯ ${s}</div>`).join("");
+
+  await new Promise(r => setTimeout(r, 50));
+  // Step 1: mask of the entire field
+  const mask = buildMask(STATE.site.verts);
+  const insideCells = maskInsideCount(mask);
+  markStep(0);
+  await new Promise(r => setTimeout(r, 50));
+
+  // Step 2: split polygon by pathways → sub-regions
+  const regions = splitPolygonByPathways(STATE.site.verts, STATE.site.pathways);
+  markStep(1);
+  await new Promise(r => setTimeout(r, 50));
+
+  // Step 3: for each region, decompose into zones.
+  //   - widestTW comes from the fleet (in METRES) and is converted to logical units
+  //   - small regions (<5000 m² real) become a single zone instead of a strip-stack
+  const widestTWMetres  = Math.max(...STATE.fleet.trucks.map(t => t.width));
+  const widestTWLogical = metresToLogical(widestTWMetres);
+  const ZONE_THRESHOLD_M2 = parseFloat(document.getElementById('p-zone-threshold')?.value) || 5000;
+  const MIN_ZONE_AREA_M2  = parseFloat(document.getElementById('p-min-zone-area')?.value)  || 500;
+  let zones = [];
+  let zoneCounter = 0;
+  regions.forEach((region, ri) => {
+    if (region.areaM2 < ZONE_THRESHOLD_M2 && region.verts.length >= 3) {
+      // small region — treat as a single zone using its bounding box
+      const xs = region.verts.map(v => v[0]), ys = region.verts.map(v => v[1]);
+      zones.push({
+        id: zoneCounter++,
+        regionId: ri,
+        regionLabel: region.label,
+        x_min: Math.min(...xs), x_max: Math.max(...xs),
+        y_bot: Math.min(...ys), y_top: Math.max(...ys),
+        area:  polyArea(region.verts),
+        isSingleZone: true,
+      });
+    } else {
+      // big region — strip decomposition
+      const strips = buildZones(region.verts, widestTWLogical);
+      strips.forEach(s => {
+        zones.push({ ...s, id: zoneCounter++, regionId: ri, regionLabel: region.label });
+      });
+    }
+  });
+
+  const m2PerLogical2 = getScale() * getScale();
+  zones = zones.filter(z => (z.area * m2PerLogical2) >= MIN_ZONE_AREA_M2);
+  zones.forEach((z, i) => z.id = i);   // re-index so token/assignment arrays stay contiguous
+
+  markStep(2);
+  await new Promise(r => setTimeout(r, 50));
+
+  // ── Step 4: BIG-FIRST assignment + path-constrained routing + small-truck gap-fill
+  const trucks = STATE.fleet.trucks;
+  const pathways = STATE.site.pathways || [];
+  const entry = STATE.site.entries[0] || { x: zones[0]?.x_min ?? 5, y: ((zones[0]?.y_bot ?? 0)+(zones[0]?.y_top ?? 0))/2, name:"E0" };
+  const exit  = STATE.site.exits[0]   || entry;
+  const entryXY = [entry.x, entry.y], exitXY = [exit.x, exit.y];
+
+  // rank by payload — biggest-capacity trucks are the primary "fill-first" workers
+  const payloadOf = t => (TRUCK_MODELS[t.model]?.payload) || t.width || 1;
+  const ranked = [...trucks].sort((a,b)=> payloadOf(b)-payloadOf(a));
+  const maxPay = payloadOf(ranked[0]);
+  let bigTrucks   = ranked.filter(t => payloadOf(t) >= maxPay*0.85);
+  let smallTrucks = ranked.filter(t => !bigTrucks.includes(t));
+  if (bigTrucks.length === 0) bigTrucks = ranked.slice();
+
+  const assignments = {};
+  const truckZones  = {};
+  trucks.forEach(t => truckZones[t.id] = []);
+
+  // big trucks fill first: biggest zones go to the least-loaded big truck, so when
+  // every big truck is busy the next free zone still lands on whichever big truck
+  // currently carries the least area ("next big truck gets assigned there").
+  const load = {}; bigTrucks.forEach(t => load[t.id] = 0);
+  [...zones].sort((a,b)=> b.area - a.area).forEach(z => {
+    const t = bigTrucks.reduce((best,tt)=> load[tt.id] < load[best.id] ? tt : best, bigTrucks[0]);
+    assignments[z.id] = t.id;
+    truckZones[t.id].push(z.id);
+    load[t.id] += z.area;
+  });
+
+  const filled = new Uint8Array(HW*HH);
+  const waypoints = {};
+  trucks.forEach(t => waypoints[t.id] = []);
+  let totalDumps = 0;
+  const allHexSpots = [];   // collect spots across all zones for ops visualisation
+
+  const zoneCentroid = z => [ (z.x_min+z.x_max)/2, (z.y_bot+z.y_top)/2 ];
+  const pushLane = (wp, cur, dest) => {
+    const poly = laneRoute(pathways, cur, dest);
+    for (let i=1;i<poly.length;i++) wp.push([+poly[i][0].toFixed(2), +poly[i][1].toFixed(2), "transit"]);
+    return dest;
+  };
+
+  // PASS 1 — big trucks lay the bulk pattern (coarse, large dump radius)
+  bigTrucks.forEach(t => {
+    const wp = waypoints[t.id];
+    const drLogical = metresToLogical(t.dumpRadius);
+    let cur = entryXY;
+    wp.push([entry.x, entry.y, "transit"]);
+    truckZones[t.id].forEach(zid => {
+      const z = zones.find(zz => zz.id === zid);
+      const access = zoneCentroid(z);
+      cur = pushLane(wp, cur, access);                       // drive in along roads
+      const rawSpots = hexDumpsInZone(z, mask, filled, drLogical);
+      rawSpots.forEach(d => allHexSpots.push({ x: d[0], y: d[1], r: drLogical * 0.8, zoneId: z.id, state: 'empty' }));
+      const dumps = boustrophedonOrder(rawSpots, z);
+      dumps.forEach(d => wp.push([d[0], d[1], "dump"]));
+      totalDumps += dumps.length;
+      cur = pushLane(wp, cur, access);                       // back out to the road
+    });
+    cur = pushLane(wp, cur, exitXY);
+    wp.push([exit.x, exit.y, "transit"]);
+  });
+
+  // PASS 2 — small trucks sweep the SAME zones; greedyDumpsInZone respects `filled`
+  // so it only returns dumps where the big trucks left gaps (missed density).
+  if (smallTrucks.length) {
+    let si = 0;
+    zones.forEach(z => {
+      const t = smallTrucks[si % smallTrucks.length];
+      const drLogical = metresToLogical(t.dumpRadius);
+      const rawGaps = hexDumpsInZone(z, mask, filled, drLogical);
+      rawGaps.forEach(d => allHexSpots.push({ x: d[0], y: d[1], r: drLogical * 0.8, zoneId: z.id, state: 'empty' }));
+      const gaps = boustrophedonOrder(rawGaps, z);
+      if (gaps.length === 0) return;                         // nothing missed here
+      si++;
+      const wp = waypoints[t.id];
+      if (wp.length === 0) wp.push([entry.x, entry.y, "transit"]);
+      let cur = [wp[wp.length-1][0], wp[wp.length-1][1]];
+      const access = zoneCentroid(z);
+      cur = pushLane(wp, cur, access);
+      gaps.forEach(d => wp.push([d[0], d[1], "dump"]));
+      totalDumps += gaps.length;
+      pushLane(wp, cur, access);
+      if (!truckZones[t.id].includes(z.id)) truckZones[t.id].push(z.id);
+    });
+    smallTrucks.forEach(t => {
+      const wp = waypoints[t.id];
+      if (wp.length) { pushLane(wp, [wp[wp.length-1][0], wp[wp.length-1][1]], exitXY); wp.push([exit.x, exit.y, "transit"]); }
+    });
+  }
+
+  markStep(3);
+  await new Promise(r => setTimeout(r, 50));
+
+  // Step 5: per-truck distance — real metres, then km
+  const scale = getScale();
+  const truckKm = {};
+  trucks.forEach(t => {
+    const wp = waypoints[t.id];
+    let d = 0;
+    for (let i=1; i<wp.length; i++) d += Math.hypot(wp[i][0]-wp[i-1][0], wp[i][1]-wp[i-1][1]);
+    truckKm[t.id] = (d * scale) / 1000;   // logical→m via scale, then →km
+  });
+  markStep(4);
+  await new Promise(r => setTimeout(r, 50));
+
+  // Step 6: projected coverage
+  let nFilled = 0;
+  for (let i=0; i<filled.length; i++) if (filled[i]) nFilled++;
+  const projectedCov = nFilled / Math.max(insideCells, 1);
+  const etaMin = Math.max(...trucks.map(t => {
+    const wp = waypoints[t.id];
+    const dumps = wp.filter(w => w[2]==="dump").length;
+    return dumps * 2.5 + (wp.length-dumps) * 0.5;
+  }));
+  markStep(5);
+
+  STATE.plan = {
+    zones, mask, insideCells, assignments, truckZones, waypoints,
+    truckKm, projectedCov, totalDumps, etaMin,
+    regions,                       // sub-regions list (for preview + report)
+    widestTW: widestTWMetres,      // store the METRES value
+    scaleMperUnit: scale,
+    hexSpots: allHexSpots,         // spot circles for ops visualisation
+  };
+
+  const elapsed = ((performance.now()-t0)/1000).toFixed(2);
+  setText("plan-status-elapsed", `pipeline finished in ${elapsed}s`);
+  document.getElementById("plan-results").style.display = "flex";
+  setText("p-zones", zones.length);
+  setText("p-waypoints", trucks.reduce((s,t)=>s+waypoints[t.id].length,0));
+  setText("p-coverage", (projectedCov*100).toFixed(1)+"%");
+  setText("p-eta", etaMin.toFixed(0));
+
+  // assignments table
+  document.getElementById("plan-assignments").innerHTML = trucks.map(t => {
+    const wp = waypoints[t.id];
+    const dumps = wp.filter(w => w[2]==="dump").length;
+    return `<tr>
+      <td class="v">${t.id}</td>
+      <td>${t.model}</td>
+      <td>${truckZones[t.id].map(zid=>"Z"+(zid+1)).join(", ") || "—"}</td>
+      <td>${dumps}</td>
+      <td>${truckKm[t.id].toFixed(2)}</td>
+    </tr>`;
+  }).join("");
+
+  document.getElementById("btn-export-plan").disabled = false;
+  drawPlanPreview();
+  document.querySelector('.nav-item[data-page="plan"]').classList.add("done");
+
+  function markStep(i) {
+    const items = stepsEl.children;
+    if (items[i]) {
+      items[i].innerHTML = `<span style="color:var(--green)">✓</span> ${steps[i]}`;
+      items[i].style.color = "var(--green)";
+    }
+  }
+}
+
+let planPreview = null;
+function drawPlanPreview() {
+  const c = document.getElementById("planCanvas");
+  if (!c || !STATE.plan) return;
+  const ctx = c.getContext("2d");
+  const P = fit(c); clearC(ctx); drawGrid(ctx, P);
+  // zones colored by assigned truck
+  STATE.plan.zones.forEach(z => {
+    const tId = STATE.plan.assignments[z.id];
+    const truck = STATE.fleet.trucks.find(tt => tt.id===tId);
+    const color = TRUCK_MODELS[truck.model].color;
+    ctx.fillStyle = color + "33";
+    ctx.fillRect(P.px(z.x_min), P.py(z.y_top), (z.x_max-z.x_min)*P.s, (z.y_top-z.y_bot)*P.s);
+    ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash([4,3]);
+    ctx.strokeRect(P.px(z.x_min), P.py(z.y_top), (z.x_max-z.x_min)*P.s, (z.y_top-z.y_bot)*P.s);
+    ctx.setLineDash([]);
+    ctx.fillStyle="#fff"; ctx.font="bold 12px monospace"; ctx.textAlign="center";
+    ctx.fillText(`Z${z.id+1} · ${tId}`, P.px((z.x_min+z.x_max)/2), P.py((z.y_bot+z.y_top)/2)+4);
+  });
+  // polygon
+  ctx.strokeStyle="#3DB5F7"; ctx.lineWidth=2.5; ctx.beginPath();
+  STATE.site.verts.forEach((v,i) => { const x=P.px(v[0]),y=P.py(v[1]); if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y); });
+  ctx.closePath(); ctx.stroke();
+  // pathways (purple dashed) over the zones
+  (STATE.site.pathways || []).forEach((pw, i) => {
+    const x1 = P.px(pw[0][0]), y1 = P.py(pw[0][1]);
+    const x2 = P.px(pw[1][0]), y2 = P.py(pw[1][1]);
+    ctx.strokeStyle = "#9B6BFF"; ctx.lineWidth = 3; ctx.setLineDash([5,3]);
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    ctx.setLineDash([]);
+    const mx = (x1+x2)/2, my = (y1+y2)/2;
+    ctx.fillStyle = "rgba(155,107,255,.85)";
+    ctx.fillRect(mx-12, my-7, 24, 14);
+    ctx.fillStyle = "#fff"; ctx.font = "bold 10px 'Share Tech Mono', monospace"; ctx.textAlign = "center";
+    ctx.fillText(`R${i+1}`, mx, my+3);
+  });
+  // routes
+  STATE.fleet.trucks.forEach(t => {
+    const wp = STATE.plan.waypoints[t.id];
+    const color = TRUCK_MODELS[t.model].color;
+    ctx.strokeStyle = color; ctx.lineWidth = 1.4; ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    wp.forEach((w,i) => { const x=P.px(w[0]),y=P.py(w[1]); if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y); });
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  });
+  // hex spot circles (like HexPackSim)
+  if (STATE.plan.hexSpots) {
+    STATE.plan.hexSpots.forEach(s => {
+      const sx = P.px(s.x), sy = P.py(s.y);
+      const sr = Math.max(2, s.r * P.s);
+      ctx.strokeStyle = 'rgba(160,190,220,0.5)';
+      ctx.lineWidth = 1.2; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.arc(sx, sy, sr, 0, 2*Math.PI); ctx.stroke();
+      ctx.setLineDash([]);
+    });
+  }
+  // gates
+  STATE.site.entries.forEach(g => drawGate(ctx, P, g, "#00D26A", "▶"));
+  STATE.site.exits.forEach(g => drawGate(ctx, P, g, "#FF4D5E", "◀"));
+  drawScaleBar(ctx, P);
+}
+
+function exportPlan() {
+  if (!STATE.plan) return;
+  const out = {
+    generated: new Date().toISOString(),
+    site: { polygon: STATE.site.verts, entries: STATE.site.entries, exits: STATE.site.exits },
+    fleet: STATE.fleet.trucks,
+    zones: STATE.plan.zones,
+    assignments: STATE.plan.assignments,
+    waypoints: STATE.plan.waypoints,
+    projected: { coverage_pct: +(STATE.plan.projectedCov*100).toFixed(2),
+                 total_dumps: STATE.plan.totalDumps,
+                 eta_min: +STATE.plan.etaMin.toFixed(0) },
+  };
+  downloadFile("autodump-plan.json", JSON.stringify(out, null, 2), "application/json");
+}
+
+function downloadFile(name, content, mime) {
+  const blob = new Blob([content], { type: mime });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 100);
+}
+
+
+// ============================================================================
+//  PAGE 4: LIVE OPERATIONS — multi-truck simulation
+// ============================================================================
+function renderOpsPage() {
+  if (!STATE.plan) {
+    document.querySelector("#page-ops").innerHTML = `
+      <div class="page-header"><div>
+        <span class="tag">step 4 of 5</span>
+        <div class="page-title">Live <span>Operations</span></div>
+        <div class="page-sub">Generate a plan in step 3 first.</div>
+      </div></div>
+      <div class="alert warn">No plan available — go to <b>Plan Generation</b> and click <code>⚙ Generate plan</code>.</div>`;
+    return;
+  }
+  if (!STATE.ops.heatmap) opsReset();
+  drawOps();
+}
+
+function opsReset() {
+  if (STATE.ops.timer) clearInterval(STATE.ops.timer);
+  STATE.ops.running = false;
+  STATE.ops.t = 0;
+  STATE.ops.timer = null;
+  STATE.ops.events = [];
+  STATE.ops.coverageHistory = [{t:0, cov:0}];
+  STATE.ops.heatmap = new Float32Array(HW*HH);
+  STATE.ops.filled = new Uint8Array(HW*HH);
+  STATE.ops.nFilled = 0;
+  // initialise truck runtime state from the plan
+  const entry = STATE.site.entries[0] || { x: STATE.plan.zones[0].x_min, y:(STATE.plan.zones[0].y_bot+STATE.plan.zones[0].y_top)/2 };
+  STATE.ops.trucks = STATE.fleet.trucks.map((t,i) => ({
+    id: t.id, model: t.model, width: t.width, dumpRadius: t.dumpRadius,
+    color: TRUCK_MODELS[t.model].color,
+    x: entry.x + (i*0.6), y: entry.y + (i*0.3),
+    wpIdx: 0,
+    state: "transit", dumpProgress: 0,
+    dumps: 0, km: 0, idleMin: 0,
+    finished: false,
+    waypoints: STATE.plan.waypoints[t.id] || [],
+  }));
+  STATE.ops.tokens = STATE.plan.zones.map(z => ({ zone: z.id, holder: null, queue: [] }));
+  const btn = document.getElementById("btn-ops-play");
+  if (btn) btn.textContent = "▶ Start";
+  drawOps();
+  renderTokens();
+  setText("kpi-time", "00:00");
+  setText("kpi-active", 0);
+  setText("kpi-cov", "0.0%");
+  setText("kpi-dumps", 0);
+  document.getElementById("ops-log").innerHTML = "";
+  document.getElementById("ops-pbar").style.width = "0%";
+  document.getElementById("ops-pbar-text").textContent = "0% complete";
+  opsLog("Simulation reset — ready", "amber");
+}
+
+function opsToggle() {
+  if (!STATE.plan) return;
+  if (!STATE.ops.heatmap) opsReset();
+  if (STATE.ops.running) {
+    STATE.ops.running = false; clearInterval(STATE.ops.timer); STATE.ops.timer = null;
+    document.getElementById("btn-ops-play").textContent = "▶ Resume";
+    opsLog("Simulation paused", "amber");
+  } else {
+    STATE.ops.running = true;
+    document.getElementById("btn-ops-play").textContent = "❚❚ Pause";
+    opsLog("Simulation started", "amber");
+    STATE.ops.timer = setInterval(() => opsTick(), 80);
+  }
+}
+
+function opsSpeed() {
+  STATE.ops.speedMul = +document.getElementById("ops-speed").value;
+}
+
+function opsLog(msg, cls) {
+  const log = document.getElementById("ops-log"); if (!log) return;
+  const min = Math.floor(STATE.ops.t), sec = Math.floor((STATE.ops.t - min) * 60);
+  const ts = `${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  const line = document.createElement("div"); line.className = "log-line " + (cls || "");
+  line.textContent = `[t=${ts}] ${msg}`;
+  log.insertBefore(line, log.firstChild);
+  while (log.children.length > 80) log.removeChild(log.lastChild);
+  STATE.ops.events.push({ t: STATE.ops.t, msg, cls });
+}
+
+// ── Step 4 helpers ──────────────────────────────────────────────────────────
+const TRUCK_RAD_LOGICAL = 0.75;          // half of the 1.5-logical body length
+const CAT793_TURN_M     = 11.5;          // Cat 793 turning radius (metres)
+
+// Collision avoidance: keep a 2.5×-radius gap. Lower-index truck has right of way;
+// the higher-index truck deflects around, or waits if it's right on top of it.
+function moveTruckWithAvoidance(tr, ops, target, step) {
+  const minGap = 2.5 * TRUCK_RAD_LOGICAL;
+  const myIdx  = ops.trucks.indexOf(tr);
+  let nearest = null, nearestD = Infinity;
+  for (const ot of ops.trucks) {
+    if (ot === tr || ot.finished) continue;
+    const d = Math.hypot(ot.x - tr.x, ot.y - tr.y);
+    if (d < nearestD) { nearestD = d; nearest = ot; }
+  }
+  let aim = [target[0], target[1]], wait = false;
+  if (nearest && nearestD < minGap) {
+    const ni = ops.trucks.indexOf(nearest);
+    const tx = target[0]-tr.x, ty = target[1]-tr.y, tl = Math.hypot(tx,ty) || 1;
+    const ox = nearest.x-tr.x,  oy = nearest.y-tr.y;
+    const ahead = (ox*tx + oy*ty) / tl;        // is the blocker in my path?
+    if (ahead > 0 && myIdx > ni) {             // I yield to the lower-index truck
+      if (nearestD < TRUCK_RAD_LOGICAL * 1.6) {
+        wait = true;                           // too close → stop and yield
+      } else {                                 // deflect perpendicular to go around
+        const px = -ty/tl, py = tx/tl;
+        const side = (ox*px + oy*py) > 0 ? -1 : 1;
+        aim = [tr.x + tx/tl*step*3 + px*side*minGap,
+               tr.y + ty/tl*step*3 + py*side*minGap];
+      }
+      if (tr.yieldingTo !== nearest.id) {      // log once per yield event
+        opsLog(`${tr.id} yielding to ${nearest.id}`, "amber");
+        tr.yieldingTo = nearest.id;
+      }
+    } else if (tr.yieldingTo) { tr.yieldingTo = null; }
+  } else if (tr.yieldingTo) { tr.yieldingTo = null; }
+  return { wait, aim };
+}
+
+// Turning radius: clamp heading change to step / turnRadiusLogical, move along heading.
+function moveTruckWithTurning(tr, aim, step) {
+  const desired = Math.atan2(aim[1]-tr.y, aim[0]-tr.x);   // logical-space heading
+  if (tr.heading === undefined) tr.heading = desired;
+  const turnRadiusLogical = Math.max(metresToLogical(CAT793_TURN_M), 1e-3);
+  const maxTurnRate = step / turnRadiusLogical;
+  let dH = desired - tr.heading;
+  while (dH >  Math.PI) dH -= 2*Math.PI;
+  while (dH < -Math.PI) dH += 2*Math.PI;
+  tr.heading += Math.max(-maxTurnRate, Math.min(maxTurnRate, dH));
+  tr.x += Math.cos(tr.heading) * step;
+  tr.y += Math.sin(tr.heading) * step;
+  if (!tr.trail) tr.trail = [];
+  tr.trail.push([tr.x, tr.y]);
+  if (tr.trail.length > 20) tr.trail.shift();
+}
+
+// Oriented truck: body + CAT-yellow cab at the front + direction arrow + trail + glow.
+function drawTruck(ctx, P, tr) {
+  const x = P.px(tr.x), y = P.py(tr.y);
+  const heading = (tr.heading !== undefined) ? tr.heading
+    : (tr.waypoints[tr.wpIdx]
+        ? Math.atan2(tr.waypoints[tr.wpIdx][1]-tr.y, tr.waypoints[tr.wpIdx][0]-tr.x) : 0);
+  // fading trail
+  if (tr.trail) for (let i=0;i<tr.trail.length;i++) {
+    const a = (i+1)/tr.trail.length;
+    ctx.fillStyle = `rgba(255,255,255,${a*0.22})`;
+    ctx.beginPath(); ctx.arc(P.px(tr.trail[i][0]), P.py(tr.trail[i][1]), 1.5, 0, 2*Math.PI); ctx.fill();
+  }
+  // active-zone glow (kept from original)
+  if (tr.state === "dumping") {
+    ctx.fillStyle = tr.color + "55";
+    ctx.beginPath(); ctx.arc(x, y, 10 + tr.dumpProgress*6, 0, 2*Math.PI); ctx.fill();
+  }
+  const L = 1.5 * P.s, W = 0.8 * P.s;     // logical → pixels
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(-heading);   // logical heading → screen (Y-down)
+  ctx.fillStyle = tr.color; ctx.strokeStyle = "#0c0c0c"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(-L/2, -W/2, L, W, 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#FFC72C";                    // Caterpillar yellow cab at front (+x)
+  ctx.fillRect(L/2 - L*0.28, -W/2, L*0.28, W);
+  ctx.strokeStyle = "#0c0c0c"; ctx.lineWidth = 1.2; ctx.beginPath();
+  ctx.moveTo(L*0.55, 0); ctx.lineTo(L*0.30, -W*0.32);
+  ctx.moveTo(L*0.55, 0); ctx.lineTo(L*0.30,  W*0.32); ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = "#fff"; ctx.font = "bold 8px monospace"; ctx.textAlign = "center";
+  ctx.fillText(tr.id, x, y - W - 2);
+}
+
+// Scale ruler + N compass (shared by ops, site, and plan canvases).
+function drawScaleBar(ctx, P) {
+  const cw = ctx.canvas.width, ch = ctx.canvas.height;
+  const pxPerM = P.s / getScale();              // P.s = px/logical, getScale() = m/logical
+  const maxBarPx = cw * 0.15;
+  const candidates = [10,20,50,100,200,500,1000,2000,5000,10000];
+  let metres = candidates[0];
+  for (const m of candidates) if (m * pxPerM <= maxBarPx) metres = m;
+  const barPx = metres * pxPerM, x0 = 20, y0 = ch - 20;
+  ctx.save();
+  ctx.strokeStyle = "#fff"; ctx.fillStyle = "#fff"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0+barPx, y0); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x0, y0-5); ctx.lineTo(x0, y0+5);
+  ctx.moveTo(x0+barPx, y0-5); ctx.lineTo(x0+barPx, y0+5); ctx.stroke();
+  ctx.font = "11px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+  ctx.fillText(`${metres} m`, x0 + barPx/2, y0 - 6);
+  const cx = cw - 30, cy = ch - 30;             // compass rose
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(cx, cy+10); ctx.lineTo(cx, cy-12); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy-14); ctx.lineTo(cx-4, cy-7); ctx.lineTo(cx+4, cy-7); ctx.closePath(); ctx.fill();
+  ctx.textBaseline = "alphabetic"; ctx.fillText("N", cx, cy-16);
+  ctx.restore();
+}
+
+function opsTick() {
+  const ops = STATE.ops;
+  ops.dumpAnims = ops.dumpAnims || [];
+  const dtMin = (0.08 * ops.speedMul) / 60;
+  ops.t += dtMin;
+  // arrival radius scales with turn radius so trucks don't orbit a point they can't reach
+  const ARRIVE = Math.max(0.4, 0.7 * metresToLogical(CAT793_TURN_M));
+  let active = 0;
+  ops.trucks.forEach(tr => {
+    if (tr.finished) return;
+    const fleetTr = STATE.fleet.trucks.find(x => x.id === tr.id);
+    const simMinOfDay = (6*60 + ops.t) % 1440;
+    const onShift = isOnShift(fleetTr, simMinOfDay);
+    if (!onShift) { tr.idleMin += dtMin; return; }
+    active++;
+    const wp = tr.waypoints;
+    if (tr.wpIdx >= wp.length) { tr.finished = true; opsLog(`${tr.id} finished route`, "blue"); return; }
+    const target = wp[tr.wpIdx];
+    const dx = target[0] - tr.x, dy = target[1] - tr.y;
+    const dist = Math.hypot(dx, dy);
+    if (tr.state === "dumping") {
+      tr.dumpProgress += dtMin / 2.5;
+      if (tr.dumpProgress >= 1) {
+        applyDump(tr.x, tr.y, tr.dumpRadius);
+        ops.dumpAnims.push({ x: tr.x, y: tr.y, r: tr.dumpRadius*0.4, maxR: tr.dumpRadius*2.2, alpha: 0.8 });
+        // mark nearest hex spot as filled for visualisation
+        if (STATE.plan.hexSpots) {
+          let best = null, bd = Infinity;
+          STATE.plan.hexSpots.forEach(s => {
+            if (s.state === 'filled') return;
+            const d = Math.hypot(s.x - tr.x, s.y - tr.y);
+            if (d < bd) { bd = d; best = s; }
+          });
+          if (best && bd < metresToLogical(tr.dumpRadius) * 3) best.state = 'filled';
+        }
+        tr.dumps++; tr.dumpProgress = 0; tr.state = "transit"; tr.wpIdx++;
+        if (tr.dumps % 5 === 0) opsLog(`${tr.id} placed ${tr.dumps} dumps`, "amber");
+      }
+      return;
+    }
+    if (dist < ARRIVE) {
+      if (target[2] === "dump") {
+        // mark nearest spot as active
+        if (STATE.plan.hexSpots) {
+          let best = null, bd = Infinity;
+          STATE.plan.hexSpots.forEach(s => {
+            if (s.state !== 'empty') return;
+            const d = Math.hypot(s.x - target[0], s.y - target[1]);
+            if (d < bd) { bd = d; best = s; }
+          });
+          if (best && bd < 2) best.state = 'active';
+        }
+        const zone = STATE.plan.zones.find(z => target[0] >= z.x_min && target[0] <= z.x_max && target[1] >= z.y_bot && target[1] <= z.y_top);
+        if (zone) {
+          const tok = ops.tokens[zone.id];
+          if (tok.holder === null || tok.holder === tr.id) {
+            tok.holder = tr.id;
+            tr.state = "dumping"; tr.dumpProgress = 0;
+            if (tok.holder !== tr.id) opsLog(`${tr.id} acquired Z${zone.id+1}`, "green");
+          } else {
+            if (!tok.queue.includes(tr.id)) {
+              tok.queue.push(tr.id);
+              opsLog(`${tr.id} queued for Z${zone.id+1} (held by ${tok.holder})`, "amber");
+            }
+          }
+          renderTokens();
+          return;
+        }
+        tr.state = "dumping"; tr.dumpProgress = 0;
+        return;
+      }
+      tr.wpIdx++;
+      const prevZone = STATE.plan.zones.find(z =>
+        tr.x >= z.x_min && tr.x <= z.x_max && tr.y >= z.y_bot && tr.y <= z.y_top);
+      if (prevZone) {
+        const tok = ops.tokens[prevZone.id];
+        if (tok.holder === tr.id) {
+          const remaining = wp.slice(tr.wpIdx).some(w =>
+            w[2]==="dump" && w[0] >= prevZone.x_min && w[0] <= prevZone.x_max && w[1] >= prevZone.y_bot && w[1] <= prevZone.y_top);
+          if (!remaining) {
+            tok.holder = null;
+            if (tok.queue.length) {
+              const next = tok.queue.shift();
+              tok.holder = next;
+              opsLog(`Z${prevZone.id+1} → ${next}`, "blue");
+            } else opsLog(`Z${prevZone.id+1} released`, "blue");
+            renderTokens();
+          }
+        }
+      }
+      return;
+    }
+    // ── movement: avoidance → turning ──────────────────────────────────────
+    const v = 6 * STATE.ops.speedMul * dtMin;
+    const step = Math.min(v, dist);
+    const avoid = moveTruckWithAvoidance(tr, ops, target, step);
+    if (avoid.wait) {
+      tr.idleMin += dtMin;
+    } else {
+      const bx = tr.x, by = tr.y;
+      moveTruckWithTurning(tr, avoid.aim, step);
+      tr.km += Math.hypot(tr.x-bx, tr.y-by) / 1000;
+    }
+  });
+  // advance + cull dump animations
+  ops.dumpAnims = ops.dumpAnims.filter(a => {
+    a.r += (a.maxR - a.r) * 0.18; a.alpha -= 0.06; return a.alpha > 0;
+  });
+  const cov = ops.nFilled / Math.max(STATE.plan.insideCells, 1);
+  ops.coverageHistory.push({t: ops.t, cov});
+  setText("kpi-time", fmtTime(ops.t));
+  setText("kpi-active", active);
+  setText("kpi-cov", (cov*100).toFixed(1)+"%");
+  setText("kpi-dumps", ops.trucks.reduce((s,t)=>s+t.dumps,0));
+  setText("ops-canvas-sub", `sim t=${fmtTime(ops.t)} · ${ops.trucks.reduce((s,t)=>s+t.dumps,0)} dumps · ${(cov*100).toFixed(1)}% coverage`);
+  const pct = STATE.plan.projectedCov > 0 ? Math.min(100, (cov / STATE.plan.projectedCov) * 100) : 0;
+  document.getElementById("ops-pbar").style.width = pct+"%";
+  document.getElementById("ops-pbar-text").textContent = pct.toFixed(0)+"% of projected";
+  drawOps();
+  if (ops.trucks.every(t => t.finished)) {
+    opsToggle();
+    opsLog("All trucks completed routes ✓", "green");
+    document.querySelector('.nav-item[data-page="ops"]').classList.add("done");
+    finalizeReport();
+  }
+}
+
+function isOnShift(t, minOfDay) {
+  const start = timeToMin(t.shiftStart), end = timeToMin(t.shiftEnd);
+  let on = (start < end) ? (minOfDay >= start && minOfDay <= end) : (minOfDay >= start || minOfDay <= end);
+  if (!on) return false;
+  return !t.maint.some(m => minOfDay >= timeToMin(m.from) && minOfDay <= timeToMin(m.to));
+}
+
+function fmtTime(min) {
+  const h = Math.floor(min/60), m = Math.floor(min%60);
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+function applyDump(x, y, dumpRadius) {
+  const rc = Math.ceil(dumpRadius / GRID_RES);
+  const gx = Math.floor(x/GRID_RES), gy = Math.floor(y/GRID_RES);
+  for (let dy=-rc; dy<=rc; dy++) {
+    const ny=gy+dy; if (ny<0||ny>=HH) continue;
+    for (let dx=-rc; dx<=rc; dx++) {
+      const nx=gx+dx; if (nx<0||nx>=HW) continue;
+      const d = Math.hypot(dx,dy)*GRID_RES;
+      if (d <= dumpRadius) {
+        const idx = ny*HW+nx;
+        const bump = Math.max(0, 0.85 - 0.18*d);
+        const nv = Math.min(1, STATE.ops.heatmap[idx] + bump);
+        if (nv > 0.15 && !STATE.ops.filled[idx] && STATE.plan.mask[idx]) {
+          STATE.ops.filled[idx] = 1; STATE.ops.nFilled++;
+        }
+        STATE.ops.heatmap[idx] = nv;
+      }
+    }
+  }
+}
+
+function drawOps() {
+  const c = document.getElementById("opsCanvas"); if (!c) return;
+  const ctx = c.getContext("2d");
+  const P = fit(c); clearC(ctx); drawGrid(ctx, P);
+  if (STATE.plan) {
+    // zone backgrounds
+    STATE.plan.zones.forEach(z => {
+      const tId = STATE.plan.assignments[z.id];
+      const truck = STATE.fleet.trucks.find(tt => tt.id===tId);
+      const color = TRUCK_MODELS[truck.model].color;
+      ctx.fillStyle = color + "18";
+      ctx.fillRect(P.px(z.x_min), P.py(z.y_top), (z.x_max-z.x_min)*P.s, (z.y_top-z.y_bot)*P.s);
+      ctx.strokeStyle = color + "55"; ctx.lineWidth = 1; ctx.setLineDash([4,3]);
+      ctx.strokeRect(P.px(z.x_min), P.py(z.y_top), (z.x_max-z.x_min)*P.s, (z.y_top-z.y_bot)*P.s);
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#fff"; ctx.font = "bold 10px monospace"; ctx.textAlign = "center";
+      ctx.fillText(`Z${z.id+1}`, P.px((z.x_min+z.x_max)/2), P.py((z.y_bot+z.y_top)/2)+4);
+    });
+    // hex spot circles (HexPackSim-style)
+    if (STATE.plan.hexSpots) {
+      STATE.plan.hexSpots.forEach(s => {
+        const sx = P.px(s.x), sy = P.py(s.y);
+        const sr = Math.max(2, s.r * P.s);
+        if (s.state === 'filled') {
+          ctx.fillStyle = 'rgba(0,210,106,0.55)';
+          ctx.strokeStyle = 'rgba(0,210,106,0.85)';
+          ctx.lineWidth = 1.2; ctx.setLineDash([]);
+          ctx.beginPath(); ctx.arc(sx, sy, sr, 0, 2*Math.PI); ctx.fill(); ctx.stroke();
+        } else if (s.state === 'active') {
+          ctx.fillStyle = 'rgba(245,166,35,0.35)';
+          ctx.strokeStyle = '#f5a623';
+          ctx.lineWidth = 1.5; ctx.setLineDash([]);
+          ctx.beginPath(); ctx.arc(sx, sy, sr, 0, 2*Math.PI); ctx.fill(); ctx.stroke();
+        } else {
+          ctx.strokeStyle = 'rgba(160,190,220,0.4)';
+          ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+          ctx.beginPath(); ctx.arc(sx, sy, sr, 0, 2*Math.PI); ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      });
+    }
+  }
+  // polygon
+  ctx.strokeStyle="#3DB5F7"; ctx.lineWidth=2; ctx.beginPath();
+  STATE.site.verts.forEach((v,i) => { const x=P.px(v[0]),y=P.py(v[1]); if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y); });
+  ctx.closePath(); ctx.stroke();
+  // dump animations (expanding fading rings)
+  (STATE.ops.dumpAnims || []).forEach(a => {
+    ctx.strokeStyle = `rgba(255,199,12,${a.alpha})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(P.px(a.x), P.py(a.y), a.r * P.s, 0, 2*Math.PI); ctx.stroke();
+  });
+  // gates
+  STATE.site.entries.forEach(g => drawGate(ctx, P, g, "#00D26A", "▶"));
+  STATE.site.exits.forEach(g => drawGate(ctx, P, g, "#FF4D5E", "◀"));
+  // trucks
+  STATE.ops.trucks.forEach(tr => drawTruck(ctx, P, tr));
+  // scale ruler + compass
+  drawScaleBar(ctx, P);
+}
+
+function renderTokens() {
+  const el = document.getElementById("ops-tokens"); if (!el || !STATE.plan) return;
+  el.innerHTML = STATE.plan.zones.map((z,i) => {
+    const tok = STATE.ops.tokens[i];
+    const h = tok.holder, q = tok.queue;
+    const color = h ? "var(--cat)" : "var(--green)";
+    const label = h ? `LOCKED · ${h}` : "FREE";
+    const qstr = q.length ? ` (queue: ${q.join(",")})` : "";
+    return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)">
+      <span style="color:var(--blue)">Z${i+1}</span>
+      <span style="color:${color};font-weight:700">●  ${label}${qstr}</span>
+    </div>`;
+  }).join("");
+}
+
+
+// ============================================================================
+//  PAGE 5: REPORT & EXPORT
+// ============================================================================
+function renderReportPage() {
+  if (!STATE.report) {
+    document.getElementById("report-empty").style.display = "block";
+    document.getElementById("report-body").style.display = "none";
+    document.getElementById("btn-export-csv").disabled = true;
+    document.getElementById("btn-export-json").disabled = true;
+    return;
+  }
+  document.getElementById("report-empty").style.display = "none";
+  document.getElementById("report-body").style.display = "flex";
+  document.getElementById("btn-export-csv").disabled = false;
+  document.getElementById("btn-export-json").disabled = false;
+  const r = STATE.report;
+  setText("rp-cov", (r.coverage*100).toFixed(2)+"%");
+  setText("rp-vs", (r.deltaVsBaseline >= 0 ? "+" : "") + r.deltaVsBaseline.toFixed(2) + " pp");
+  setText("rp-dumps", r.totalDumps);
+  setText("rp-time", fmtTime(r.duration));
+  document.getElementById("rp-trucks").innerHTML = r.perTruck.map(t => `<tr>
+    <td class="v">${t.id}</td><td>${t.dumps}</td><td>${t.km.toFixed(2)} km</td>
+    <td>${t.idleMin.toFixed(1)} min</td><td>${(t.efficiency*100).toFixed(0)}%</td></tr>`).join("");
+  drawReportChart();
+}
+
+function finalizeReport() {
+  const ops = STATE.ops;
+  const cov = ops.nFilled / Math.max(STATE.plan.insideCells, 1);
+  const perTruck = ops.trucks.map(t => ({
+    id: t.id, model: t.model,
+    dumps: t.dumps, km: t.km, idleMin: t.idleMin,
+    efficiency: (t.dumps + t.km) > 0 ? t.dumps / (t.dumps + t.idleMin/60 + t.km) : 0,
+  }));
+  // baseline coverage for our default polygon = 62.18%; for custom polygons compute via simple sampler
+  const baselineCov = EMBED.baseline_pct;
+  STATE.report = {
+    coverage: cov,
+    deltaVsBaseline: cov*100 - baselineCov,
+    totalDumps: ops.trucks.reduce((s,t)=>s+t.dumps,0),
+    duration: ops.t,
+    perTruck,
+    coverageHistory: ops.coverageHistory.slice(),
+    timestamp: new Date().toISOString(),
+  };
+  document.querySelector('.nav-item[data-page="report"]').classList.add("done");
+}
+
+function drawReportChart() {
+  const svg = document.getElementById("rp-chart"); if (!svg || !STATE.report) return;
+  svg.innerHTML = "";
+  const W = svg.clientWidth || 600, H = svg.clientHeight || 260;
+  const pad = {l:44, r:14, t:14, b:30};
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const data = STATE.report.coverageHistory;
+  if (data.length < 2) return;
+  const tMax = data[data.length-1].t || 1;
+  const px = t => pad.l + t / tMax * (W - pad.l - pad.r);
+  const py = c => H - pad.b - c * (H - pad.t - pad.b);
+  // gridlines
+  for (let v=0; v<=1; v+=0.25) {
+    const y = py(v);
+    svg.insertAdjacentHTML("beforeend",
+      `<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="#243958" stroke-width="0.5"/>` +
+      `<text x="${pad.l-6}" y="${y+4}" fill="#5A7099" text-anchor="end" font-size="10" font-family="monospace">${(v*100).toFixed(0)}%</text>`);
+  }
+  // baseline line
+  const yB = py(EMBED.baseline_pct/100);
+  svg.insertAdjacentHTML("beforeend",
+    `<line x1="${pad.l}" y1="${yB}" x2="${W-pad.r}" y2="${yB}" stroke="#FF4D5E" stroke-dasharray="4,3" stroke-width="1.2"/>` +
+    `<text x="${W-pad.r-2}" y="${yB-4}" fill="#FF4D5E" font-size="9" font-family="monospace" text-anchor="end">baseline ${EMBED.baseline_pct.toFixed(0)}%</text>`);
+  // line
+  let path = `M ${px(data[0].t)} ${py(data[0].cov)}`;
+  for (let i=1; i<data.length; i++) path += ` L ${px(data[i].t)} ${py(data[i].cov)}`;
+  svg.insertAdjacentHTML("beforeend",
+    `<path d="${path}" fill="none" stroke="#00D26A" stroke-width="2"/>` +
+    `<text x="${pad.l + (W-pad.l-pad.r)/2}" y="${H-6}" fill="#5A7099" text-anchor="middle" font-size="10" font-family="monospace">sim time (min)</text>`);
+}
+
+function exportWaypointsCSV() {
+  if (!STATE.plan) return;
+  let csv = "truck_id,truck_model,waypoint_index,action,x_m,y_m,sequence_local_meters\n";
+  STATE.fleet.trucks.forEach(t => {
+    const wp = STATE.plan.waypoints[t.id] || [];
+    let cum = 0; let prev = null;
+    wp.forEach((w, i) => {
+      if (prev) cum += Math.hypot(w[0]-prev[0], w[1]-prev[1]);
+      csv += `${t.id},${t.model},${i},${w[2]},${w[0].toFixed(2)},${w[1].toFixed(2)},${cum.toFixed(2)}\n`;
+      prev = w;
+    });
+  });
+  downloadFile("autodump-waypoints.csv", csv, "text/csv");
+}
+
+function exportSummaryJSON() {
+  if (!STATE.report) return;
+  const out = {
+    generated: new Date().toISOString(),
+    site: {
+      polygon: STATE.site.verts,
+      entries: STATE.site.entries,
+      exits: STATE.site.exits,
+      area_m2: +polyArea(STATE.site.verts).toFixed(1),
+    },
+    fleet: STATE.fleet.trucks,
+    plan: {
+      n_zones: STATE.plan.zones.length,
+      total_waypoints: STATE.fleet.trucks.reduce((s,t) => s + (STATE.plan.waypoints[t.id]||[]).length, 0),
+      assignments: STATE.plan.assignments,
+      projected_coverage_pct: +(STATE.plan.projectedCov*100).toFixed(2),
+    },
+    execution: {
+      duration_min: +STATE.report.duration.toFixed(1),
+      final_coverage_pct: +(STATE.report.coverage*100).toFixed(2),
+      delta_vs_baseline_pp: +STATE.report.deltaVsBaseline.toFixed(2),
+      total_dumps: STATE.report.totalDumps,
+      per_truck: STATE.report.perTruck.map(t => ({
+        ...t, km: +t.km.toFixed(2), idle_min: +t.idleMin.toFixed(1),
+        efficiency_pct: +(t.efficiency*100).toFixed(1)
+      })),
+    },
+    references: {
+      embedded_model_episodes: EMBED.episodes,
+      embedded_baseline_pct: EMBED.baseline_pct,
+      embedded_eval_pct: EMBED.eval_pct,
+    },
+  };
+  downloadFile("autodump-summary.json", JSON.stringify(out, null, 2), "application/json");
+}
+
+// ============================================================================
+//  ABOUT PAGE
+// ============================================================================
+function renderAbout() {
+  const ml = [
+    ["Algorithm", "Tabular ε-greedy Q-learning"],
+    ["Episodes trained", EMBED.episodes],
+    ["State space", `${EMBED.state_space_size} states (zone × lane × saturation)`],
+    ["Actions", "DUMP · ADVANCE · SKIP"],
+    ["Learning rate α", EMBED.alpha],
+    ["Discount γ", EMBED.gamma],
+    ["Training time", EMBED.elapsed_sec + " s"],
+    ["Baseline (rigid grid)", EMBED.baseline_pct.toFixed(2) + "%"],
+    ["Eval mean coverage", EMBED.eval_pct.toFixed(2) + "%"],
+    ["Improvement", "+" + EMBED.improvement_pp.toFixed(2) + " pp"],
+    ["Q-table size on disk", "480 bytes"],
+  ];
+  document.getElementById("about-ml").innerHTML = ml.map(r =>
+    `<tr><td class="k">${r[0]}</td><td class="v">${r[1]}</td></tr>`).join("");
+  initTiltDemo();
+}
+
+let tiltDemoBound = false;
+function drawTiltDemo(tiltDeg, fillPct) {
+  const canvas = document.getElementById("tiltCanvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#F5F5F5';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = 'rgba(0,212,255,0.06)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  const groundY = H - 60;
+  const spotCX = W / 2;
+  const spotR = 80;
+
+  ctx.fillStyle = '#E0E0E0';
+  ctx.fillRect(0, groundY, W, H - groundY);
+  ctx.strokeStyle = '#2a4060';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, groundY);
+  ctx.lineTo(W, groundY);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(0,212,255,0.4)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.arc(spotCX, groundY, spotR, Math.PI, 0);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(0,212,255,0.5)';
+  ctx.font = '11px Space Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('DUMP SPOT BOUNDARY', spotCX, groundY + 22);
+
+  const tiltRad = tiltDeg * Math.PI / 180;
+  const pileH = fillPct / 100 * (groundY - 40);
+  const pileBaseL = spotCX - spotR + 8;
+  const pileBaseR = spotCX + spotR - 8;
+  const peakOffset = -tiltDeg * 1.5;
+  const peakX = spotCX + peakOffset;
+  const peakY = groundY - pileH;
+
+  const grad = ctx.createLinearGradient(pileBaseL, groundY, peakX, peakY);
+  grad.addColorStop(0, '#5a7a9a');
+  grad.addColorStop(0.5, '#8aaa7a');
+  grad.addColorStop(1, '#c0aa70');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(pileBaseL, groundY);
+  ctx.quadraticCurveTo(pileBaseL + 20, peakY + 20, peakX, peakY);
+  ctx.quadraticCurveTo(pileBaseR - 20, peakY + 20, pileBaseR, groundY);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255,71,87,0.8)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(peakX - 60, peakY);
+  ctx.lineTo(peakX + 60, peakY);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(245,166,35,0.8)';
+  ctx.beginPath();
+  ctx.moveTo(pileBaseL, groundY - 10);
+  ctx.lineTo(pileBaseR, groundY - 10);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = '#ff4757';
+  ctx.font = '10px Space Mono, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('D_top', peakX + 64, peakY + 4);
+  ctx.fillStyle = '#f5a623';
+  ctx.textAlign = 'right';
+  ctx.fillText('D_bottom', pileBaseL - 4, groundY - 7);
+
+  if (Math.abs(tiltDeg) > 3) {
+    ctx.strokeStyle = 'rgba(0,212,255,0.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(peakX, groundY, 50, -Math.PI / 2 - tiltRad, -Math.PI / 2, tiltDeg < 0);
+    ctx.stroke();
+    ctx.fillStyle = '#00d4ff';
+    ctx.font = 'bold 12px Space Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`θ=${tiltDeg}°`, peakX + (tiltDeg < 0 ? -55 : 55), groundY - 55);
+  }
+
+  const correctedX = spotCX - peakOffset * 0.6;
+  const direction = tiltDeg < -10 ? 'DUMP RIGHT →' : tiltDeg > 10 ? '← DUMP LEFT' : '↓ DUMP CENTER';
+  const directionColor = tiltDeg < -10 || tiltDeg > 10 ? '#f5a623' : '#2ed573';
+  ctx.fillStyle = directionColor;
+  ctx.font = 'bold 11px Space Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(direction, correctedX, 38);
+  ctx.font = '10px DM Sans, sans-serif';
+  ctx.fillText('TRUCK CORRECTION', correctedX, 54);
+
+  const truckY = 66;
+  ctx.fillStyle = directionColor;
+  ctx.fillRect(correctedX - 20, truckY, 40, 16);
+  ctx.beginPath();
+  ctx.arc(correctedX - 12, truckY + 18, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(correctedX + 12, truckY + 18, 6, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function updateTiltDemo() {
+  const tiltSlider = document.getElementById("tiltSlider");
+  const fillSlider = document.getElementById("fillSlider");
+  if (!tiltSlider || !fillSlider) return;
+
+  const tilt = parseInt(tiltSlider.value, 10);
+  const fill = parseInt(fillSlider.value, 10);
+
+  document.getElementById("tiltVal").textContent = `${tilt}°`;
+  document.getElementById("fillVal").textContent = `${fill}%`;
+  document.getElementById("fillRatioDisplay").textContent = (fill / 100).toFixed(2);
+  document.getElementById("fillRatioBar").style.width = `${fill}%`;
+
+  const status = document.getElementById("spotStatus");
+  if (fill >= 90) {
+    status.textContent = "FULL — REASSIGNING";
+    status.style.color = "#ff4757";
+  } else if (fill >= 60) {
+    status.textContent = "FILLING";
+    status.style.color = "#f5a623";
+  } else {
+    status.textContent = "AVAILABLE";
+    status.style.color = "#2ed573";
+  }
+
+  drawTiltDemo(tilt, fill);
+}
+
+function initTiltDemo() {
+  const tiltSlider = document.getElementById("tiltSlider");
+  const fillSlider = document.getElementById("fillSlider");
+  if (!tiltSlider || !fillSlider) return;
+  if (!tiltDemoBound) {
+    tiltSlider.addEventListener("input", updateTiltDemo);
+    fillSlider.addEventListener("input", updateTiltDemo);
+    tiltDemoBound = true;
+  }
+  updateTiltDemo();
+}
+
+// ============================================================================
+//  BOOT
+// ============================================================================
+function boot() {
+  // Default to a fresh empty Site Setup page so the user follows the workflow
+  drawSite();
+  setStatus("ready · start at step 1");
+}
+window.addEventListener("DOMContentLoaded", boot);
+</script>
+<script src="hexpack_engine.js"></script>
+</body>
+</html>
