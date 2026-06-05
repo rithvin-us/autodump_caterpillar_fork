@@ -73,8 +73,5 @@ if (-not $staged -or $staged.Count -eq 0) {
 
 $trackedChanges = @($staged | Where-Object { $_ -notmatch '^(docs/CHANGELOG\.md|docs/TESTING\.md)$' })
 
-Add-ChangelogEntry -Path $changeLogPath -Summary $Message -Files $trackedChanges
-
-git -C $repoRoot add docs/CHANGELOG.md
-
+# Do not auto-update `docs/CHANGELOG.md` in this helper. Commit whatever is staged as-is.
 git -C $repoRoot commit -m $Message

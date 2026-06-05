@@ -9,6 +9,7 @@
 - Deployment/docs: updated `docs/DEPLOY.md` and GitHub Pages workflow to publish from `./site`.
 - Tilt simulator: integrated the interactive tilt pile simulator into the About/Method page (visual layer only).
 - Git hooks & automation: added hooks in `config/git-hooks/`, `config/setup-git-hooks.ps1`, and `config/sync-commit.ps1` with `git ccommit` alias.
+- Updated `config/sync-commit.ps1` to stop auto-editing `docs/CHANGELOG.md`; the helper now commits staged files as-is unless intentionally updated.
 - Verification: confirmed edits pass `git diff --check`.
 
 ## 2026-06-05
@@ -82,11 +83,8 @@
 - Added the `git ccommit` alias through `config/setup-git-hooks.ps1`.
 - Documented the wrapper so the repo has a single, repeatable commit path that keeps the changelog in sync.
 
+- Note: `config/sync-commit.ps1` was modified (2026-06-05) to no longer auto-edit `docs/CHANGELOG.md`; it will commit whatever is staged without forcing changelog updates.
+
 ### Verification
 - Confirmed the workspace root contains no files after the reorganization.
 - Confirmed the edited HTML and documentation files pass `git diff --check`.
-
-
-
-### Dummy change made
-
