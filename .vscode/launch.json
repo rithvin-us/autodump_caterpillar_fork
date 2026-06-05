@@ -6,10 +6,10 @@
     "configurations": [
         
         {
-            "type": "editor-browser",
+            "type": "chrome",
             "request": "launch",
             "name": "Open index.html",
-            "url": "file:///e%3A/caterpillar/caterpillar-dashboard-final/autodump_caterpillar/site/index.html"
+            "url": "file:///e%3A/caterpillar/caterpillar-dashboard-final/autodump_caterpillar/site/index v3.0.1.html"
         }
     ]
 }

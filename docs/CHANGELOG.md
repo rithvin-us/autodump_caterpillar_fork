@@ -1,5 +1,16 @@
 # Changelog
 
+## Summary (latest changes)
+
+- UI/Branding: switched to a light Caterpillar theme; replaced `Barlow Condensed` with `Arial`; updated logo, favicon, and tab title to "AutoDump".
+- Site entry: renamed main entry to `index.html` and moved deployable site into `site/`.
+- Layout/graphics: removed scanline background; converted the three-layer architecture SVG into a responsive HTML/CSS flex layout.
+- Workspace reorg: moved deploy files into `site/`, docs into `docs/`, and archived older assets into `archive/`.
+- Deployment/docs: updated `docs/DEPLOY.md` and GitHub Pages workflow to publish from `./site`.
+- Tilt simulator: integrated the interactive tilt pile simulator into the About/Method page (visual layer only).
+- Git hooks & automation: added hooks in `config/git-hooks/`, `config/setup-git-hooks.ps1`, and `config/sync-commit.ps1` with `git ccommit` alias.
+- Verification: confirmed edits pass `git diff --check`.
+
 ## 2026-06-05
 
 ### UI/Branding Redesign
