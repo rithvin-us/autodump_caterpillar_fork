@@ -12,6 +12,8 @@
 - Updated `config/sync-commit.ps1` to stop auto-editing `docs/CHANGELOG.md`; the helper now commits staged files as-is unless intentionally updated.
 - Verification: confirmed edits pass `git diff --check`.
 
+- Editorial: minor wording and formatting fixes to `CHANGELOG.md` to validate commit flow (test edit).
+
 ## 2026-06-05
 
 ### UI/Branding Redesign
@@ -23,6 +25,8 @@
 - Updated the site favicon from a yellow square to a Caterpillar-style isosceles yellow triangle.
 - Changed the browser tab title to simply "AutoDump".
 - Redesigned the "Three-layer architecture" SVG diagram into a modern, responsive HTML/CSS flexbox layout with clean borders and shadows.
+
+- Minor editorial fixes to changelog wording and formatting.
 
 #### `site/index.html` — file-level changes
 - Set page `<title>` to "AutoDump", added canonical, Open Graph and Twitter metadata for sharing and SEO.
