@@ -2,6 +2,7 @@
 
 ## Summary (latest changes)
 
+- README fix: repointed the deployed link to the GitHub Pages root so it opens the published app again.
 - Deployment fix: restored a `site/index.html` entry file so GitHub Pages opens the app from the repository root again.
 - UI/Branding: switched to a light Caterpillar theme; replaced `Barlow Condensed` with `Arial`; updated logo, favicon, and tab title to "AutoDump".
 - Site entry: renamed main entry to `index.html` and moved deployable site into `site/`.
@@ -114,3 +115,14 @@
 ### Verification
 - Confirmed the workspace root contains no files after the reorganization.
 - Confirmed the edited HTML and documentation files pass `git diff --check`.
+
+
+
+
+
+
+the given files are changes and the readme file is modified to make the link deployable. \
+- Note: `config/sync-commit.ps1` was modified (2026-06-05) to no longer auto-edit `docs/CHANGELOG.md`; it will commit whatever is staged without forcing changelog updates.
+
+
+
