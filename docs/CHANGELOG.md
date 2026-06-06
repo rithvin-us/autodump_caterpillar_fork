@@ -1,5 +1,17 @@
 # Changelog
 
+## Commit Description (for commit message)
+
+**Subject:** Update CHANGELOG for v3.0.3 release
+
+- Document v3.0.3: replaced greedy grid with hex-spot generation (`hexDumpsInZone` → `buildHexSpots`).
+- Restored Live Ops simulation and updated ops rendering (hex-spot states, zone labels); removed heatmap overlay.
+- UI/branding redesign: switched to light "AutoDump" theme and replaced font with Arial; updated logo, favicon, and tab title.
+- Deployment & site reorganization: moved deployable site into `site/`, renamed entry to `index.html`, and updated docs/workflow.
+- Integrated tilt simulator visuals and consolidated client-side modules into the deployable bundle.
+- Git tooling: added hooks and updated `config/sync-commit.ps1` to stop auto-editing the changelog.
+- Minor editorial and formatting fixes to documentation.
+
 ## Summary (latest changes)
 
 - README fix: repointed the deployed link to the GitHub Pages root so it opens the published app again.

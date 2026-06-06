@@ -9,9 +9,9 @@
 [![Coverage](https://img.shields.io/badge/coverage-62%25%20→%2075%25-00D26A)]()
 [![Hardware](https://img.shields.io/badge/new%20hardware-ZERO-00D26A)]()
 
-## 🌐 [▶ Open the deployed index](https://preethikakumaravel.github.io/autodump_caterpillar/)
+## 🌐 [▶ Open the deployed index](https://preethikakumaravel.github.io/autodump_caterpillar/site/indexV4.html)
 
-This button opens the GitHub Pages root, which serves `site/index.html`.
+This button opens the GitHub Pages root, which serves `site/indexV4.html`.
 
 A three-layer software system that raises field coverage of autonomous Cat 793 dump trucks
 on irregular mining polygons from **62.18 %** (current Cat practice) to **74.84 %** (trained
