@@ -98,6 +98,13 @@
 - Result: alias resolved to `!powershell -ExecutionPolicy Bypass -File E:\caterpillar\caterpillar-dashboard-final\autodump_caterpillar\config\sync-commit.ps1`
 - Status: PASS
 
+### T-013
+- Scope: GitHub Pages entry point
+- Action: restored `site/index.html` as the deploy root and repointed the public README link to the Pages root
+- Expected: clicking the deployed link opens the live AutoDump app in a browser
+- Result: the site now has a root entry file again, so Pages can resolve the published app without relying on a dead `/site/` path
+- Status: FIXED
+
 ## Notes
 
 - No application runtime tests were executed in this pass.

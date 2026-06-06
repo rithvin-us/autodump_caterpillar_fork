@@ -2,6 +2,7 @@
 
 ## Summary (latest changes)
 
+- Deployment fix: restored a `site/index.html` entry file so GitHub Pages opens the app from the repository root again.
 - UI/Branding: switched to a light Caterpillar theme; replaced `Barlow Condensed` with `Arial`; updated logo, favicon, and tab title to "AutoDump".
 - Site entry: renamed main entry to `index.html` and moved deployable site into `site/`.
 - Layout/graphics: removed scanline background; converted the three-layer architecture SVG into a responsive HTML/CSS flex layout.
