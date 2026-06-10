@@ -105,6 +105,37 @@
 - Result: the site now has a root entry file again, so Pages can resolve the published app without relying on a dead `/site/` path
 - Status: FIXED
 
+### T-014
+- Scope: `site/indexV4.html` inline JavaScript syntax (2026-06-11)
+- Command: extracted all 4 `<script>` blocks via Node regex, then `node --check` on each block
+- Expected: every script block parses without syntax errors
+- Result: all 4 blocks reported OK (`block0 OK` … `block3 OK`)
+- Status: PASS
+
+### T-015
+- Scope: Zone Decomposition rewrite validation — old (git HEAD) vs new (working tree) implementations of `buildZones`, `polyXRange`/`scanlineSpans`/`stripSpans`, `zoneInsideFrac`, `cleanPoly`, `splitPolygonByPathways`, `clipPolyHalfplane` (2026-06-11)
+- Command: `node tests/zone_decomp_validation.mjs`
+- Expected: each of the 6 tests reproduces the old bug on the HEAD implementation and confirms the fix on the new implementation
+- Result: `=== 18 passed, 0 failed ===`
+  - T1 U-shape: old produced 1 zone bridging the concave gap (probe point (12,10) outside polygon but inside zone); new produced 0 bridging zones and 2 zones per arm strip.
+  - T2 Triangle area: old sum of zone areas = 280 vs true 240 (16.7% over); new = 239.76 (0.1% error).
+  - T3 Thin chimney (0.26 wide, off the 0.4 sampling grid): old reported phantom 20-unit-wide zones via the bbox fallback; new reported 0.26-wide zones.
+  - T4 Sliver strips (height 2.4×truckWidth): old strips [4, 5.6] with `merged_sliver=true`, top zone claimed area 79.04 vs true 63 (25% over); new uniform strips [4.8, 4.8], top zone area 49.95 vs true 50.39 (0.9% error).
+  - T5 Degenerate pathway: old threw `".for is not iterable"` on a null pathway entry; new skipped it and still produced 2 regions. Corner-grazing cut: old kept a 5.0e-3-area micro-fragment region; new dropped it (1 region). Dirty polygon through new clipper: no duplicate/collinear vertices.
+  - T6 Ordering: old Region A centroid flipped (10,5)→(10,15) when the pathway direction was reversed; new stayed (10,5) in both directions.
+- Status: PASS
+
+### T-016
+- Scope: Truck assignment workload rebalance — Step 4 of `runPlan` in `site/indexV4.html` (2026-06-11)
+- Command: `node tests/assignment_balance_eval.mjs` (old vs new heuristic, real functions extracted from the page) and `node --check` on all 4 extracted `<script>` blocks after the edit
+- Expected: new heuristic (LPT on precomputed dump counts + locality tie-break + nearest-neighbour visit order + small-truck gap-dump balancing) reduces total distance and tightens per-truck dump spread without changing total dumps materially
+- Result:
+  - Scenario A (L-field + road, 2× Cat 797 + 2× Cat 785): total km 40.88 → 38.92 (−4.8%), dump CV 0.02 preserved, totalDumps 1808 both.
+  - Scenario B (L-field + road, 3× Cat 793): dumps 664/560/584 → 584/588/636 (CV 0.07 → 0.04), makespan 1700 → 1628.5 min (−4.2%), total km 42.30 → 39.51 (−6.6%).
+  - Scenario C (rectangle, 1 big + 3 small): total km 35.03 → 34.33 (−2.0%), everything else unchanged.
+  - Post-edit syntax check: `ALL SCRIPT BLOCKS OK`.
+- Status: PASS
+
 ## Notes
 
 - No application runtime tests were executed in this pass.

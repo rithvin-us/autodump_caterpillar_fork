@@ -891,19 +891,80 @@ function polyPerim(V) {
   return p;
 }
 
+// Exact x-intervals where the horizontal line at `y` lies inside polygon V.
+// Uses edge intersections (no grid sampling), so concave indentations and
+// holes between disjoint lobes are detected precisely.
+function scanlineSpans(V, y) {
+  if (!V || V.length < 3) return [];
+  let n = V.length;
+  if (Math.abs(V[0][0]-V[n-1][0])<1e-9 && Math.abs(V[0][1]-V[n-1][1])<1e-9) n--;
+  const xs = [];
+  for (let i=0, j=n-1; i<n; j=i++) {
+    const yi = V[i][1], yj = V[j][1];
+    if ((yi > y) !== (yj > y)) {
+      xs.push(V[i][0] + (y - yi) / (yj - yi) * (V[j][0] - V[i][0]));
+    }
+  }
+  xs.sort((a,b)=>a-b);
+  const spans = [];
+  for (let k=0; k+1 < xs.length; k+=2)
+    if (xs[k+1] - xs[k] > 1e-9) spans.push([xs[k], xs[k+1]]);
+  return spans;
+}
+
+// Disjoint x-projection intervals occupied by polygon V within strip [y0,y1].
+// Samples interior rows exactly and unions overlapping intervals, so a U-shaped
+// strip yields two separate spans instead of one rectangle bridging the gap.
+function stripSpans(V, y0, y1) {
+  const K = 7, all = [];
+  for (let k=1; k<=K; k++) {
+    all.push(...scanlineSpans(V, y0 + (y1-y0)*k/(K+1)));
+  }
+  if (!all.length) return [];
+  all.sort((a,b)=>a[0]-b[0]);
+  const merged = [all[0].slice()];
+  for (let i=1; i<all.length; i++) {
+    const last = merged[merged.length-1];
+    if (all[i][0] <= last[1] + 1e-6) last[1] = Math.max(last[1], all[i][1]);
+    else merged.push(all[i].slice());
+  }
+  return merged;
+}
+
 function polyXRange(V, y0, y1) {
-  let xs = [];
-  for (let k=0; k<12; k++) {
-    const y = y0 + (y1-y0)*k/11;
-    let row = [];
-    for (let x=-1; x<=FIELD_W+1; x+=0.4) if (pip(x, y, V)) row.push(x);
-    if (row.length) xs.push(Math.min(...row), Math.max(...row));
+  const spans = stripSpans(V, y0, y1);
+  if (!spans.length) return null;
+  return [spans[0][0], spans[spans.length-1][1]];
+}
+
+// Fraction of the axis-aligned rect [x0,x1]×[y0,y1] that lies inside polygon V.
+function zoneInsideFrac(V, x0, x1, y0, y1) {
+  const NX = 10, NY = 4; let n = 0;
+  for (let iy=0; iy<NY; iy++)
+    for (let ix=0; ix<NX; ix++)
+      if (pip(x0 + (x1-x0)*(ix+0.5)/NX, y0 + (y1-y0)*(iy+0.5)/NY, V)) n++;
+  return n / (NX * NY);
+}
+
+// Remove duplicate consecutive vertices, an explicit closing vertex, and
+// collinear points — clipping output frequently contains all three.
+function cleanPoly(V) {
+  if (!V || V.length < 3) return [];
+  const out = [];
+  for (const p of V) {
+    const q = out[out.length-1];
+    if (!q || Math.hypot(p[0]-q[0], p[1]-q[1]) > 1e-6) out.push([p[0], p[1]]);
   }
-  if (!xs.length) {
-    const xmin = Math.min(...V.map(v=>v[0])), xmax = Math.max(...V.map(v=>v[0]));
-    return [xmin, xmax];
+  while (out.length >= 2 &&
+         Math.hypot(out[0][0]-out[out.length-1][0], out[0][1]-out[out.length-1][1]) <= 1e-6) out.pop();
+  if (out.length < 3) return [];
+  const res = [];
+  for (let i=0; i<out.length; i++) {
+    const a = out[(i-1+out.length) % out.length], b = out[i], c = out[(i+1) % out.length];
+    const cr = (b[0]-a[0])*(c[1]-a[1]) - (b[1]-a[1])*(c[0]-a[0]);
+    if (Math.abs(cr) > 1e-9) res.push(b);
   }
-  return [Math.min(...xs), Math.max(...xs)];
+  return res.length >= 3 ? res : out;
 }
 
 function buildMask(V) {
@@ -945,19 +1006,37 @@ function areaLogicalToM2(a)   { return a * Math.pow(getScale(), 2); }
 // line. Each pathway acts as an arbitrarily-angled half-plane cutter.
 function splitPolygonByPathways(mainPoly, pathways) {
   if (!Array.isArray(mainPoly) || mainPoly.length < 3) return [];
-  if (!pathways || pathways.length === 0) {
-    return [{ verts: mainPoly.slice(), id: 0, label: "Region A",
-              areaM2: areaLogicalToM2(polyArea(mainPoly)) }];
-  }
-  let regions = [mainPoly.slice()];
-  for (const [p1, p2] of pathways) {
-    const next = [];
-    for (const r of regions) {
-      const pieces = splitPolyByLine(r, p1, p2);
-      for (const pc of pieces) if (pc.length >= 3) next.push(pc);
+  const base = cleanPoly(mainPoly);
+  if (base.length < 3) return [];
+  const totalArea = polyArea(base);
+  // sub-0.05%-of-field slivers are clipping noise, not workable regions
+  const MIN_FRAG = Math.max(1e-6, totalArea * 5e-4);
+  let regions = [base];
+  if (pathways && pathways.length) {
+    for (const seg of pathways) {
+      if (!seg || !seg[0] || !seg[1]) continue;
+      const [p1, p2] = seg;
+      if (Math.hypot(p2[0]-p1[0], p2[1]-p1[1]) < 1e-6) continue; // degenerate pathway
+      const next = [];
+      for (const r of regions) {
+        for (const pc of splitPolyByLine(r, p1, p2)) {
+          const cp = cleanPoly(pc);
+          if (cp.length >= 3 && polyArea(cp) > MIN_FRAG) next.push(cp);
+        }
+      }
+      if (next.length) regions = next;   // never lose the whole field to a bad cut
     }
-    regions = next;
   }
+  // dedupe identical regions (vertex-set key), then order top-to-bottom,
+  // left-to-right by centroid so region ids/labels are stable across runs
+  const seen = new Set();
+  regions = regions.filter(r => {
+    const k = r.map(v => v[0].toFixed(3)+","+v[1].toFixed(3)).sort().join("|");
+    if (seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+  const cen = r => r.reduce((a,v)=>[a[0]+v[0]/r.length, a[1]+v[1]/r.length], [0,0]);
+  regions.sort((a,b)=>{ const ca=cen(a), cb=cen(b); return (ca[1]-cb[1]) || (ca[0]-cb[0]); });
   return regions.map((verts, i) => ({
     verts, id: i,
     label: "Region " + String.fromCharCode(65 + (i % 26)) + (i < 26 ? "" : Math.floor(i/26)),
@@ -983,6 +1062,15 @@ function clipPolyHalfplane(poly, p1, p2, keepSign) {
   const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
   const sideOf = p => (p[0] - p1[0]) * dy - (p[1] - p1[1]) * dx;
   const out = [];
+  const push = p => {
+    const q = out[out.length-1];
+    if (!q || Math.hypot(p[0]-q[0], p[1]-q[1]) > 1e-9) out.push(p);
+  };
+  const cross = (a, b, sA, sB) => {
+    const denom = sA - sB;
+    const t = Math.abs(denom) < 1e-12 ? 0.5 : Math.max(0, Math.min(1, sA / denom));
+    return [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
+  };
   for (let i = 0; i < poly.length; i++) {
     const curr = poly[i];
     const prev = poly[(i - 1 + poly.length) % poly.length];
@@ -991,47 +1079,48 @@ function clipPolyHalfplane(poly, p1, p2, keepSign) {
     const inC = sC * keepSign >= 0;
     const inP = sP * keepSign >= 0;
     if (inC) {
-      if (!inP) {
-        const t = sP / (sP - sC);
-        out.push([prev[0] + t * (curr[0] - prev[0]),
-                  prev[1] + t * (curr[1] - prev[1])]);
-      }
-      out.push(curr.slice());
+      if (!inP) push(cross(prev, curr, sP, sC));
+      push(curr.slice());
     } else if (inP) {
-      const t = sP / (sP - sC);
-      out.push([prev[0] + t * (curr[0] - prev[0]),
-                prev[1] + t * (curr[1] - prev[1])]);
+      push(cross(prev, curr, sP, sC));
     }
   }
   return out;
 }
 
 function buildZones(V, truckWidth) {
-  if (!V || V.length < 3) return [];
-  const ymin = Math.min(...V.map(v=>v[1]));
-  const ymax = Math.max(...V.map(v=>v[1]));
-  const SLIVER = truckWidth * 0.5;
-  const Z = []; let y = ymin, idx = 0;
-  while (y < ymax) {
-    const yt = Math.min(y + truckWidth, ymax);
-    const [xmin, xmax] = polyXRange(V, y, yt);
-    if (xmax - xmin > 0.1) {
-      Z.push({ id: idx, y_bot: y, y_top: yt,
-               x_min: xmin, x_max: xmax,
-               area: (xmax-xmin)*(yt-y), truckWidth });
-      idx++;
+  if (!V || V.length < 3 || !(truckWidth > 0)) return [];
+  const P = cleanPoly(V);
+  if (P.length < 3) return [];
+  const ymin = Math.min(...P.map(v=>v[1]));
+  const ymax = Math.max(...P.map(v=>v[1]));
+  const span = ymax - ymin;
+  if (span <= 1e-9) return [];
+  // Distribute the height over equal strips close to truckWidth instead of
+  // fixed-width strips plus a leftover sliver — every strip stays between
+  // ~0.67× and 1.5× truckWidth, so no sliver-merge pass is needed.
+  const nStrips = Math.max(1, Math.round(span / truckWidth));
+  const stripH = span / nStrips;
+  const MIN_W = 0.1;
+  const Z = [];
+  for (let s=0; s<nStrips; s++) {
+    const y  = ymin + s * stripH;
+    const yt = (s === nStrips-1) ? ymax : ymin + (s+1) * stripH;
+    // one zone per disjoint x-span: concave gaps and disconnected lobes in
+    // this strip become separate zones instead of one rect bridging them
+    for (const [x0, x1] of stripSpans(P, y, yt)) {
+      if (x1 - x0 <= MIN_W) continue;
+      const frac = zoneInsideFrac(P, x0, x1, y, yt);
+      if (frac <= 0) continue;
+      Z.push({ id: 0, y_bot: y, y_top: yt, x_min: x0, x_max: x1,
+               area: (x1-x0) * (yt-y) * frac,        // effective in-polygon area
+               insideFrac: +frac.toFixed(3),
+               narrow: (x1 - x0) < truckWidth,
+               truckWidth });
     }
-    y = yt;
   }
-  if (Z.length >= 2 && (Z[Z.length-1].y_top - Z[Z.length-1].y_bot) < SLIVER) {
-    const last = Z.pop(), prev = Z[Z.length-1];
-    prev.y_top = last.y_top;
-    prev.x_min = Math.min(prev.x_min, last.x_min);
-    prev.x_max = Math.max(prev.x_max, last.x_max);
-    prev.area += last.area;
-    prev.merged_sliver = true;
-    Z.forEach((z,i) => z.id = i);
-  }
+  Z.sort((a,b)=> (a.y_bot - b.y_bot) || (a.x_min - b.x_min));
+  Z.forEach((z,i) => z.id = i);
   return Z;
 }
 
@@ -1734,6 +1823,7 @@ async function runPlan() {
         x_min: Math.min(...xs), x_max: Math.max(...xs),
         y_bot: Math.min(...ys), y_top: Math.max(...ys),
         area:  polyArea(region.verts),
+        truckWidth: widestTWLogical,
         isSingleZone: true,
       });
     } else {
@@ -1744,6 +1834,20 @@ async function runPlan() {
       });
     }
   });
+
+  // drop invalid/degenerate zones, dedupe identical bounds, and order
+  // deterministically (region, then bottom-to-top, left-to-right) so zone
+  // numbering is stable for the token broker, assignments, and reports
+  const zSeen = new Set();
+  zones = zones.filter(z =>
+    z.x_max - z.x_min > 1e-6 && z.y_top - z.y_bot > 1e-6 && (z.area || 0) > 0
+  ).filter(z => {
+    const k = [z.regionId, z.x_min.toFixed(2), z.x_max.toFixed(2),
+               z.y_bot.toFixed(2), z.y_top.toFixed(2)].join("|");
+    if (zSeen.has(k)) return false;
+    zSeen.add(k); return true;
+  });
+  zones.sort((a,b) => (a.regionId - b.regionId) || (a.y_bot - b.y_bot) || (a.x_min - b.x_min));
 
   const m2PerLogical2 = getScale() * getScale();
   zones = zones.filter(z => (z.area * m2PerLogical2) >= MIN_ZONE_AREA_M2);
@@ -1771,17 +1875,6 @@ async function runPlan() {
   const truckZones  = {};
   trucks.forEach(t => truckZones[t.id] = []);
 
-  // big trucks fill first: biggest zones go to the least-loaded big truck, so when
-  // every big truck is busy the next free zone still lands on whichever big truck
-  // currently carries the least area ("next big truck gets assigned there").
-  const load = {}; bigTrucks.forEach(t => load[t.id] = 0);
-  [...zones].sort((a,b)=> b.area - a.area).forEach(z => {
-    const t = bigTrucks.reduce((best,tt)=> load[tt.id] < load[best.id] ? tt : best, bigTrucks[0]);
-    assignments[z.id] = t.id;
-    truckZones[t.id].push(z.id);
-    load[t.id] += z.area;
-  });
-
   const filled = new Uint8Array(HW*HH);
   const waypoints = {};
   trucks.forEach(t => waypoints[t.id] = []);
@@ -1795,6 +1888,57 @@ async function runPlan() {
     return dest;
   };
 
+  // Precompute the actual dump spots of every zone up front (deterministic
+  // zone order, lead big truck's dump radius). Plan ETA is dominated by dump
+  // count (2.5 min/dump vs 0.5 min/transit waypoint), so balancing on real
+  // dump counts beats the old area proxy: area ignores how many hex spots a
+  // zone actually yields once neighbouring zones have claimed boundary cells.
+  const drBig = metresToLogical(bigTrucks[0].dumpRadius);
+  const zoneDumps = {};
+  zones.forEach(z => { zoneDumps[z.id] = hexDumpsInZone(z, mask, filled, drBig); });
+
+  // big trucks fill first: busiest zone goes to the big truck with the fewest
+  // dumps so far (LPT). Near-ties (within 8%) break toward the truck whose
+  // previously assigned zone is closest, keeping each truck's zones clustered
+  // so transit distance stays low and balanced.
+  const load = {}; bigTrucks.forEach(t => load[t.id] = 0);
+  const lastAt = {};
+  [...zones].sort((a,b)=> zoneDumps[b.id].length - zoneDumps[a.id].length).forEach(z => {
+    const c = zoneCentroid(z);
+    const minLoad = bigTrucks.reduce((m,tt)=> Math.min(m, load[tt.id]), Infinity);
+    const slack = Math.max(minLoad * 0.08, 1e-9);
+    let t = null, bestD = Infinity;
+    for (const tt of bigTrucks) {
+      if (load[tt.id] > minLoad + slack) continue;
+      const p = lastAt[tt.id] || entryXY;
+      const d = Math.hypot(c[0]-p[0], c[1]-p[1]);
+      if (d < bestD) { bestD = d; t = tt; }
+    }
+    assignments[z.id] = t.id;
+    truckZones[t.id].push(z.id);
+    load[t.id] += zoneDumps[z.id].length;
+    lastAt[t.id] = c;
+  });
+
+  // visit order: nearest-neighbour chain from the entry gate (was: biggest
+  // zone first) so transit legs between consecutive zones stay short
+  bigTrucks.forEach(t => {
+    const pool = truckZones[t.id].slice(), route = [];
+    let cur = entryXY;
+    while (pool.length) {
+      let bi = 0, bd = Infinity;
+      pool.forEach((zid, i) => {
+        const c = zoneCentroid(zones.find(zz => zz.id === zid));
+        const d = Math.hypot(c[0]-cur[0], c[1]-cur[1]);
+        if (d < bd) { bd = d; bi = i; }
+      });
+      route.push(pool[bi]);
+      cur = zoneCentroid(zones.find(zz => zz.id === pool[bi]));
+      pool.splice(bi, 1);
+    }
+    truckZones[t.id] = route;
+  });
+
   // PASS 1 — big trucks lay the bulk pattern (coarse, large dump radius)
   bigTrucks.forEach(t => {
     const wp = waypoints[t.id];
@@ -1805,7 +1949,7 @@ async function runPlan() {
       const z = zones.find(zz => zz.id === zid);
       const access = zoneCentroid(z);
       cur = pushLane(wp, cur, access);                       // drive in along roads
-      const rawSpots = hexDumpsInZone(z, mask, filled, drLogical);
+      const rawSpots = zoneDumps[zid];
       rawSpots.forEach(d => allHexSpots.push({ x: d[0], y: d[1], r: drLogical * 0.8, zoneId: z.id, state: 'empty' }));
       const dumps = boustrophedonOrder(rawSpots, z);
       dumps.forEach(d => wp.push([d[0], d[1], "dump"]));
@@ -1816,18 +1960,20 @@ async function runPlan() {
     wp.push([exit.x, exit.y, "transit"]);
   });
 
-  // PASS 2 — small trucks sweep the SAME zones; greedyDumpsInZone respects `filled`
+  // PASS 2 — small trucks sweep the SAME zones; hexDumpsInZone respects `filled`
   // so it only returns dumps where the big trucks left gaps (missed density).
+  // Each gap zone goes to the small truck with the fewest gap dumps so far,
+  // so dump workload (not just zone count) stays level across the small fleet.
   if (smallTrucks.length) {
-    let si = 0;
+    const gapLoad = {}; smallTrucks.forEach(t => gapLoad[t.id] = 0);
     zones.forEach(z => {
-      const t = smallTrucks[si % smallTrucks.length];
+      const t = smallTrucks.reduce((best,tt)=> gapLoad[tt.id] < gapLoad[best.id] ? tt : best, smallTrucks[0]);
       const drLogical = metresToLogical(t.dumpRadius);
       const rawGaps = hexDumpsInZone(z, mask, filled, drLogical);
       rawGaps.forEach(d => allHexSpots.push({ x: d[0], y: d[1], r: drLogical * 0.8, zoneId: z.id, state: 'empty' }));
       const gaps = boustrophedonOrder(rawGaps, z);
       if (gaps.length === 0) return;                         // nothing missed here
-      si++;
+      gapLoad[t.id] += gaps.length;
       const wp = waypoints[t.id];
       if (wp.length === 0) wp.push([entry.x, entry.y, "transit"]);
       let cur = [wp[wp.length-1][0], wp[wp.length-1][1]];

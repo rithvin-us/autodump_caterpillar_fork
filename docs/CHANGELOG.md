@@ -30,6 +30,63 @@
 
 - Editorial: minor wording and formatting fixes to `CHANGELOG.md` to validate commit flow (test edit).
 
+## 2026-06-11 — Zone Decomposition geometry rewrite (`site/indexV4.html`)
+
+### Exact scanline geometry (replaces grid sampling)
+- Added `scanlineSpans(V, y)`: exact polygon-edge intersections at a horizontal line, returning disjoint x-intervals — replaces the old 0.4-unit `pip()` grid sampling inside `polyXRange`.
+- Added `stripSpans(V, y0, y1)`: unions scanline spans across 7 interior rows of a strip, keeping disjoint lobes separate. `polyXRange` is now a thin wrapper over it.
+- Added `zoneInsideFrac(V, x0, x1, y0, y1)`: 10×4 sample estimate of how much of a zone rect is actually inside the polygon.
+- Added `cleanPoly(V)`: strips duplicate consecutive vertices, explicit closing vertex, and collinear points from clipping output.
+
+### `buildZones` rewrite
+- Equal-height strips via `nStrips = round(span / truckWidth)` instead of fixed-width strips plus a leftover sliver; the sliver-merge pass is gone.
+- One zone per disjoint x-span per strip: concave gaps (U-shapes) and disconnected lobes no longer get bridged by a single rectangle.
+- Zone `area` is now the effective in-polygon area (`rect × insideFrac`); zones also carry `insideFrac` and a `narrow` flag (span < truckWidth).
+- Deterministic zone ordering (bottom-to-top, left-to-right) and guard against non-positive `truckWidth`.
+
+### `splitPolygonByPathways` hardening
+- Skips null/zero-length pathway segments instead of crashing.
+- Drops clipping fragments below 0.05% of the field area (`MIN_FRAG`).
+- A cut that produces no valid pieces can no longer wipe out all regions (`if (next.length) regions = next`).
+- Dedupes identical regions and sorts by centroid so region ids/labels are stable across runs and pathway directions.
+
+### `clipPolyHalfplane` robustness
+- Dedup `push`, intersection parameter `t` clamped to [0,1], near-zero denominator guarded.
+
+### `runPlan` zone post-processing
+- Filters degenerate zones, dedupes identical bounds, sorts deterministically (region → bottom-to-top → left-to-right) before re-indexing; single-zone regions now carry `truckWidth`.
+
+### Validation
+- Added `tests/zone_decomp_validation.mjs` — Node harness comparing the old (git HEAD) and new implementations across 6 targeted scenarios (U-shape bridging, area inflation, thin features, sliver strips, degenerate pathways/noisy clipping, ordering stability). Result: 18/18 assertions pass; details in `docs/TESTING.md` (T-014, T-015).
+- All 4 inline `<script>` blocks in `site/indexV4.html` pass `node --check`.
+- Added `docs/fivedayplan.md` — plain-language summary of these changes.
+
+## 2026-06-11 — Truck assignment workload rebalance (`site/indexV4.html`, Step 4 of `runPlan`)
+
+### What was wrong
+- Big-truck balancing used **zone area** as the workload metric. Plan ETA is dominated by dump count (2.5 min per dump vs 0.5 min per transit waypoint), and a zone's real dump count diverges from its area because neighbouring zones claim boundary hex cells first — in a 3× Cat 793 test the trucks got 664/560/584 dumps (max/min 1.19) despite near-equal areas.
+- Zone visit order was "biggest zone first", so trucks criss-crossed the field between non-adjacent zones, inflating per-truck distance.
+- Small trucks were assigned gap zones round-robin by **zone count**, ignoring how many gap dumps each zone actually contains.
+
+### What changed (architecture preserved — same passes, broker, simulation, Q-table untouched)
+- Dump spots per zone are now precomputed once in deterministic zone order (`zoneDumps`), and big-truck assignment runs LPT on **actual dump counts**: busiest zone → big truck with fewest dumps so far.
+- Near-ties (within 8% load) break toward the truck whose previous zone is closest, keeping each truck's zones spatially clustered.
+- Each big truck now visits its zones in a nearest-neighbour chain from the entry gate instead of biggest-first.
+- Small-truck gap-fill now assigns each gap zone to the small truck with the fewest accumulated gap dumps (was: blind round-robin); stale `greedyDumpsInZone` comment fixed to `hexDumpsInZone`.
+
+### Measured results (`tests/assignment_balance_eval.mjs`, real functions extracted from the page)
+- L-field + road, 3× Cat 793: dumps 664/560/584 → 584/588/636 (CV 0.07 → 0.04), makespan 1700 → 1628.5 min (−4.2%), total distance 42.3 → 39.5 km (−6.6%).
+- L-field + road, 2× Cat 797 + 2× Cat 785: total distance 40.9 → 38.9 km (−4.8%); dump balance already tight (CV 0.02) and preserved.
+- Rectangle, single big truck: total distance −2.0% from the nearest-neighbour visit order; nothing else changes (only one big truck — nothing to balance).
+
+### What you can SEE in the UI (and why earlier changes looked invisible)
+The 2026-06-11 geometry + assignment changes only alter visuals when the input actually exercises them. On a plain rectangular field with the default 1-big-truck fleet, the output is intentionally near-identical. To see the differences:
+- **Draw a concave field** (U or L shape) on the Site/Custom Field page: zones now hug the shape — no zone rectangle bridges the concave gap, and no dump-spot circles appear outside the boundary (before, a strip could span the gap and place dumps outside the field).
+- **Zone strips are all equal height** within a region — previously the top strip could be up to 1.5× taller after the sliver merge.
+- **Plan preview, zone colours**: with 2+ same-model big trucks, each truck's colour now forms contiguous clusters instead of an interleaved patchwork, and routes criss-cross less.
+- **Truck assignments table**: per-truck Dumps and Distance (km) columns are visibly closer together for same-model trucks, and total distance/ETA drop a few percent.
+- **Stable labels**: re-running the plan (or drawing the same road in the opposite direction) keeps the same Region/Z numbering — before, labels could swap between runs.
+
 ## 2026-06-05 — v3.0.3 (Zone Decomposition + Hex-Spot Integration)
 
 ### Plan Generation (Step 3)
