@@ -26,6 +26,8 @@
 - Updated `config/sync-commit.ps1` to stop auto-editing `docs/CHANGELOG.md`; the helper now commits staged files as-is unless intentionally updated.
 - Verification: confirmed edits pass `git diff --check`.
 
+- Added `graphify-out/` cache directory (AST + semantic caches) to improve codebase search and analysis; installed graphify-out artifacts for faster workspace queries.
+
 - Editorial: minor wording and formatting fixes to `CHANGELOG.md` to validate commit flow (test edit).
 
 ## 2026-06-05 — v3.0.3 (Zone Decomposition + Hex-Spot Integration)

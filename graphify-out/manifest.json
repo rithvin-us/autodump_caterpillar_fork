@@ -1,0 +1,137 @@
+{
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\.vscode\\launch.json": {
+    "mtime": 1780635121.7594988,
+    "ast_hash": "6c6beab003506b19fe0a604c650e6d7c",
+    "semantic_hash": "6c6beab003506b19fe0a604c650e6d7c"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\config\\git-hooks\\post-commit": {
+    "mtime": 1780553680.8798883,
+    "ast_hash": "c46d234935a311b64fbcb56cb2519644",
+    "semantic_hash": "c46d234935a311b64fbcb56cb2519644"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\config\\git-hooks\\pre-commit": {
+    "mtime": 1780561789.595546,
+    "ast_hash": "8da047b01a94e434fcf7527d2b3d63d9",
+    "semantic_hash": "8da047b01a94e434fcf7527d2b3d63d9"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\config\\setup-git-hooks.ps1": {
+    "mtime": 1780553680.878467,
+    "ast_hash": "d3d1bb4ef0490b2e99b0b507fe249828",
+    "semantic_hash": "d3d1bb4ef0490b2e99b0b507fe249828"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\config\\sync-commit.ps1": {
+    "mtime": 1780650376.601991,
+    "ast_hash": "ae4913b3492b54375326746ac146613e",
+    "semantic_hash": "ae4913b3492b54375326746ac146613e"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\.github\\agents\\docs-maintainer.agent.md": {
+    "mtime": 1780553680.878467,
+    "ast_hash": "07494f61a654dde52be13ce09505818f",
+    "semantic_hash": "07494f61a654dde52be13ce09505818f"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\.github\\workflows\\pages.yml": {
+    "mtime": 1780552778.5805247,
+    "ast_hash": "3450fd7f7a240f52826efe72ca893250",
+    "semantic_hash": "3450fd7f7a240f52826efe72ca893250"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\README.md": {
+    "mtime": 1780776365.7363133,
+    "ast_hash": "97cea4d5c5b543c58852384d396ec80a",
+    "semantic_hash": "97cea4d5c5b543c58852384d396ec80a"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\config\\git-hooks\\README.md": {
+    "mtime": 1780561789.595546,
+    "ast_hash": "2d77719cba9f62452eeb9dcdbd4f63a4",
+    "semantic_hash": "2d77719cba9f62452eeb9dcdbd4f63a4"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\docs\\CHANGELOG.md": {
+    "mtime": 1780776771.9755008,
+    "ast_hash": "6dfd5e3798ce25df143b08f2a0cea736",
+    "semantic_hash": "6dfd5e3798ce25df143b08f2a0cea736"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\docs\\DEPLOY.md": {
+    "mtime": 1780561519.052936,
+    "ast_hash": "3af13df20b2c5cc22eba7e6591421cc9",
+    "semantic_hash": "3af13df20b2c5cc22eba7e6591421cc9"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\docs\\README.md": {
+    "mtime": 1780734719.6149209,
+    "ast_hash": "891fdcf8b1fe8bfceeb8bf1dd5141f98",
+    "semantic_hash": "891fdcf8b1fe8bfceeb8bf1dd5141f98"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\docs\\TESTING.md": {
+    "mtime": 1780734755.2260008,
+    "ast_hash": "0d96398b4a3db2c3dfae08f8009c67b2",
+    "semantic_hash": "0d96398b4a3db2c3dfae08f8009c67b2"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\docs\\patch reports\\PATCH__1.MD": {
+    "mtime": 1780563277.9039676,
+    "ast_hash": "1dfe3dca01013cdba5bc9d2c6aa60cee",
+    "semantic_hash": "1dfe3dca01013cdba5bc9d2c6aa60cee"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\older versions\\README.md": {
+    "mtime": 1780552778.5702007,
+    "ast_hash": "30b680f9777f169c9231ef99d0bfa15c",
+    "semantic_hash": "30b680f9777f169c9231ef99d0bfa15c"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\older versions\\index v1.html": {
+    "mtime": 1780633879.7688315,
+    "ast_hash": "358bf0120befc63a1ffeb004b94b7133",
+    "semantic_hash": "358bf0120befc63a1ffeb004b94b7133"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\older versions\\index v2.html": {
+    "mtime": 1780633879.771406,
+    "ast_hash": "46ad4e9b09fcb1bcb7cd3650b3eb8972",
+    "semantic_hash": "46ad4e9b09fcb1bcb7cd3650b3eb8972"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\older versions\\index v3.0.1.html": {
+    "mtime": 1780637457.9348125,
+    "ast_hash": "031a190c5b0051f9d1788e491ebcccef",
+    "semantic_hash": "031a190c5b0051f9d1788e491ebcccef"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\older versions\\index_v3.0.2.html": {
+    "mtime": 1780666374.75416,
+    "ast_hash": "ab79dafeebad75796be59cfe0e7ce52c",
+    "semantic_hash": "ab79dafeebad75796be59cfe0e7ce52c"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\older versions\\index_v3.0.3.html": {
+    "mtime": 1780670052.3954737,
+    "ast_hash": "7719c47ef66bcad482836c97900c2feb",
+    "semantic_hash": "7719c47ef66bcad482836c97900c2feb"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\references\\tilt_design.html": {
+    "mtime": 1780649679.7173333,
+    "ast_hash": "cc6cbdf24087bbde90d8a4d125373bb2",
+    "semantic_hash": "cc6cbdf24087bbde90d8a4d125373bb2"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\site\\404.html": {
+    "mtime": 1780550128.187213,
+    "ast_hash": "42cd05108bca4c1105f8180ad7f6b4fc",
+    "semantic_hash": "42cd05108bca4c1105f8180ad7f6b4fc"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\site\\indexV4.html": {
+    "mtime": 1780776175.9324315,
+    "ast_hash": "92c945e9449bdc8dc2c18bedcc7bd6e0",
+    "semantic_hash": "92c945e9449bdc8dc2c18bedcc7bd6e0"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\.offline-markdown-preview\\remote-images\\506f878bd1d9f99ed5060fff.svg": {
+    "mtime": 1780922741.2961478,
+    "ast_hash": "040fc936a31f72423e602a4f627c00eb",
+    "semantic_hash": "040fc936a31f72423e602a4f627c00eb"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\.offline-markdown-preview\\remote-images\\7b71558e484f6722f8275f77.svg": {
+    "mtime": 1780922744.3432634,
+    "ast_hash": "494be9ab9cd71c6fde31e19e4e75c917",
+    "semantic_hash": "494be9ab9cd71c6fde31e19e4e75c917"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\.offline-markdown-preview\\remote-images\\d0dd1cec4968b1f736f44f5d.svg": {
+    "mtime": 1780922736.358477,
+    "ast_hash": "8eafd77da3eaa5bea24d5368dd65471a",
+    "semantic_hash": "8eafd77da3eaa5bea24d5368dd65471a"
+  },
+  "E:\\caterpillar\\caterpillar-dashboard-final\\autodump_caterpillar\\.offline-markdown-preview\\remote-images\\da0d3331ecf4cc0310a36434.svg": {
+    "mtime": 1780922742.3503907,
+    "ast_hash": "5d57fb0eb9484cbaf7b4e9098c348a23",
+    "semantic_hash": "5d57fb0eb9484cbaf7b4e9098c348a23"
+  }
+}
