@@ -7,7 +7,7 @@ fi
 
 needs_update=0
 
-if git diff --cached --name-only | grep -v -E '^(docs/CHANGELOG\.md)$' | grep -q .; then
+if git diff --cached --name-only | grep -v -E '^(docs/CHANGELOG\.md|\.gitignore|config/git-hooks/.*)$' | grep -q .; then
   needs_update=1
 fi
 
