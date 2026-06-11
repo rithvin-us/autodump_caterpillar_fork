@@ -352,7 +352,7 @@ pre code{background:none;color:inherit;padding:0;border-radius:0}
   <nav id="sidebar">
     <div class="sb-label">WORKFLOW</div>
     <div class="nav-item active" role="button" tabindex="0" data-page="site"><span class="nav-num"><span>1</span></span>
-      <div class="nav-item-stack"><span>Site Setup</span><span class="nav-sub">polygon · main gate</span></div></div>
+      <div class="nav-item-stack"><span>Site Setup</span><span class="nav-sub">polygon · gates</span></div></div>
     <div class="nav-item" role="button" tabindex="0" data-page="fleet"><span class="nav-num"><span>2</span></span>
       <div class="nav-item-stack"><span>Fleet Config</span><span class="nav-sub">trucks · shifts</span></div></div>
     <div class="nav-item" role="button" tabindex="0" data-page="plan"><span class="nav-num"><span>3</span></span>
@@ -399,7 +399,7 @@ document.getElementById("content").innerHTML = `
     <div>
       <span class="tag">step 1 of 5</span>
       <div class="page-title">Site <span>Setup</span></div>
-      <div class="page-sub">Draw the mine boundary polygon, place the Main Gate (single entry and exit point), and mark no-go zones if needed. Haul roads and zone decomposition are generated automatically during plan generation — no manual region lines or separate entry/exit points required.</div>
+      <div class="page-sub">Draw the mine boundary polygon, place one or more Gates (each acts as an entry and exit point for the haul-road network), and mark no-go zones if needed. Haul roads and zone decomposition are generated automatically during plan generation — every gate participates in path planning.</div>
     </div>
     <div class="btn-row">
       <button class="btn" onclick="loadPreset('demo')">📋 Load demo site</button>
@@ -426,7 +426,7 @@ document.getElementById("content").innerHTML = `
             <span class="mb-i">⬢</span><span class="mb-l">Polygon</span>
           </div>
           <div class="mode-btn" role="button" tabindex="0" data-mode="gate" onclick="setMode('gate')">
-            <span class="mb-i" style="color:#FFCD11">◉</span><span class="mb-l">Main Gate</span>
+            <span class="mb-i" style="color:#FFCD11">◉</span><span class="mb-l">Gates</span>
           </div>
           <div class="mode-btn" role="button" tabindex="0" data-mode="nogo" onclick="setMode('nogo')">
             <span class="mb-i" style="color:#FF8A3D">⊘</span><span class="mb-l">No-go zone</span>
@@ -460,7 +460,12 @@ document.getElementById("content").innerHTML = `
           <input class="cell" type="number" id="p-buffer" value="2.0" step="0.1" min="0" max="10"/>
           <span style="color:var(--txt3);font-family:'Share Tech Mono',monospace;font-size:11px">m</span>
         </div>
-        <div style="font-size:10px;color:var(--txt3);margin-top:4px;line-height:1.4">Canvas width = how many metres the full canvas represents in real life. All areas, distances and truck-width strips scale from this.</div>
+        <div class="field-row">
+          <label>No-go radius</label>
+          <input class="cell" type="number" id="p-nogo-radius" value="30" step="5" min="5" max="200" onchange="drawSite()"/>
+          <span style="color:var(--txt3);font-family:'Share Tech Mono',monospace;font-size:11px">m</span>
+        </div>
+        <div style="font-size:10px;color:var(--txt3);margin-top:4px;line-height:1.4">Canvas width = how many metres the full canvas represents in real life. All areas, distances and truck-width strips scale from this. No-go radius applies to the next no-go marker you place.</div>
       </div>
 
       <div class="card">
@@ -470,7 +475,7 @@ document.getElementById("content").innerHTML = `
           <div class="kpi"><div class="kpi-v blue" id="s-area">—</div><div class="kpi-l">area (m²)</div></div>
           <div class="kpi"><div class="kpi-v" id="s-area-ha">—</div><div class="kpi-l">hectares</div></div>
           <div class="kpi"><div class="kpi-v" id="s-area-ac">—</div><div class="kpi-l">acres</div></div>
-          <div class="kpi" style="grid-column:span 2"><div class="kpi-v" style="color:#FFCD11;font-size:13px" id="s-gate">— not set</div><div class="kpi-l">main gate</div></div>
+          <div class="kpi" style="grid-column:span 2"><div class="kpi-v" style="color:#FFCD11;font-size:13px" id="s-gate">— not set</div><div class="kpi-l">gates</div></div>
         </div>
         <div id="site-validation" style="margin-top:10px"></div>
       </div>
@@ -538,7 +543,7 @@ document.getElementById("content").innerHTML = `
     <div>
       <span class="tag">step 3 of 5</span>
       <div class="page-title">Plan <span>Generation</span></div>
-      <div class="page-sub">AutoDump automatically decomposes the mine polygon into operational zones, generates a haul road network from the Main Gate to each zone, assigns trucks via the token broker, and computes boustrophedon dump waypoints. Zone count scales with fleet size and site area. The RL-trained policy informs packing density.</div>
+      <div class="page-sub">AutoDump automatically decomposes the mine polygon into operational zones, generates a haul road network connecting every gate to every zone, allocates zones equally across the mixed fleet (priority-weighted), and computes one boustrophedon dump path per zone. Zone count scales with fleet size and site area. The RL-trained policy informs packing density.</div>
     </div>
     <div class="btn-row">
       <button class="btn primary" onclick="runPlan()">⚙ Generate plan</button>
@@ -584,7 +589,7 @@ document.getElementById("content").innerHTML = `
       <div class="card">
         <div class="card-h"><div class="card-title">Truck assignments</div></div>
         <table>
-          <thead><tr><th>Truck</th><th>Model</th><th>Prio</th><th>Zones</th><th>Waypoints</th><th>Est. km</th></tr></thead>
+          <thead><tr><th>Truck</th><th>Model</th><th>Prio</th><th>Gate</th><th>Zones</th><th>Waypoints</th><th>Est. km</th></tr></thead>
           <tbody id="plan-assignments"></tbody>
         </table>
       </div>
@@ -670,19 +675,48 @@ document.getElementById("content").innerHTML = `
       <div class="stat"><div class="stat-v" id="rp-dumps">—</div><div class="stat-l">Total dumps</div></div>
       <div class="stat"><div class="stat-v" id="rp-time">—</div><div class="stat-l">Sim duration</div></div>
     </div>
+    <div class="grid-4">
+      <div class="stat"><div class="stat-v" id="rp-tonnes">—</div><div class="stat-l">Material moved (t)</div></div>
+      <div class="stat"><div class="stat-v blue" id="rp-cycles">—</div><div class="stat-l">Haul cycles</div></div>
+      <div class="stat"><div class="stat-v" id="rp-km">—</div><div class="stat-l">Fleet distance (km)</div></div>
+      <div class="stat"><div class="stat-v green" id="rp-tph">—</div><div class="stat-l">Throughput (t / sim-h)</div></div>
+    </div>
 
     <div class="grid-2">
       <div class="card">
-        <div class="card-h"><div class="card-title">Per-truck stats</div></div>
-        <table>
-          <thead><tr><th>Truck</th><th>Dumps</th><th>Distance</th><th>Idle</th><th>Efficiency</th></tr></thead>
-          <tbody id="rp-trucks"></tbody>
-        </table>
+        <div class="card-h"><div class="card-title">Session overview</div><div class="card-sub">this mining session</div></div>
+        <table><tbody id="rp-session"></tbody></table>
       </div>
       <div class="card">
         <div class="card-h"><div class="card-title">Coverage over time</div></div>
         <svg id="rp-chart" style="width:100%;height:260px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px"></svg>
       </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-h"><div class="card-title">Per-truck stats</div></div>
+        <table>
+          <thead><tr><th>Truck</th><th>Model</th><th>Dumps</th><th>Tonnes</th><th>Cycles</th><th>Distance</th><th>Idle</th><th>Util.</th></tr></thead>
+          <tbody id="rp-trucks"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">Zone completion</div><div class="card-sub">per-zone outcome</div></div>
+        <table>
+          <thead><tr><th>Zone</th><th>Truck</th><th>Planned</th><th>Placed</th><th>Status</th></tr></thead>
+          <tbody id="rp-zones"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><div class="card-title">Model parameters vs real-life mining reference</div><div class="card-sub">sim values currently in use · what they represent</div></div>
+      <table>
+        <thead><tr><th>Parameter</th><th>Sim value in use</th><th>Real-life reference</th></tr></thead>
+        <tbody id="rp-params"></tbody>
+      </table>
+      <div style="font-size:10px;color:var(--txt3);margin-top:8px;line-height:1.5">Sim time is compressed: dumping and loading run faster than the field cycle they represent, so the demo completes in minutes. All geometry (zones, haul roads, gates, no-go exclusions) and per-model payload/speed ratios match the listed reference values.</div>
     </div>
   </div>
 </div>
@@ -840,9 +874,9 @@ const EMBED = {"q_table": [[28.54313035770366, 30.70046940432455, 24.64126291231
 //  CAT TRUCK SPECIFICATIONS (manufacturer data)
 // ============================================================================
 const TRUCK_MODELS = {
-  "Cat 785": { width: 6.4, dumpRadius: 2.6, payload: 136, color: "#9B6BFF" },
-  "Cat 793": { width: 7.6, dumpRadius: 3.2, payload: 240, color: "#FFC107" },
-  "Cat 797": { width: 9.7, dumpRadius: 3.8, payload: 363, color: "#00D26A" }
+  "Cat 785": { width: 6.4, dumpRadius: 2.6, payload: 136, color: "#9B6BFF", speedF: 1.12, scale: 0.78 },
+  "Cat 793": { width: 7.6, dumpRadius: 3.2, payload: 240, color: "#FFC107", speedF: 1.00, scale: 0.90 },
+  "Cat 797": { width: 9.7, dumpRadius: 3.8, payload: 363, color: "#00D26A", speedF: 0.88, scale: 1.05 }
 };
 
 // Per-truck workload weight from the fleet table's Priority column. A truck with
@@ -856,7 +890,7 @@ function truckWeight(t) { return Math.min(10, Math.max(0.1, parseFloat(t.priorit
 const STATE = {
   site: {
     verts: [],          // polygon vertices [[x,y],...]
-    mainGate: null,     // {x, y} — single entry/exit gate; auto-placed if null at plan time
+    gates: [],          // [{x, y, name}] — entry/exit gates; one auto-placed if empty at plan time
     nogo: [],           // no-go polygons [[[x,y],...]]
     buffer: 2.0,
     realWidthM: 500,    // metres of real-world width represented by the canvas
@@ -997,11 +1031,27 @@ function cleanPoly(V) {
   return res.length >= 3 ? res : out;
 }
 
-function buildMask(V) {
+function buildMask(V, nogo) {
+  // Optional `nogo`: array of logical-space circles {x,y,r} carved OUT of the
+  // workable field — no dump spots land there and coverage ignores those cells.
+  // The blocking radius is inflated by half a cell diagonal so a hex spot whose
+  // exact position falls inside the circle can never slip through on a cell
+  // whose centre happens to sit just outside — conservative is correct for a
+  // hazard exclusion.
   const m = new Uint8Array(HW * HH);
+  const SAFE = GRID_RES * 0.7071;
+  const ex = (nogo || []).filter(c => c && c.r > 0)
+    .map(c => ({ x: c.x, y: c.y, r2: (c.r + SAFE) * (c.r + SAFE) }));
   for (let gy=0; gy<HH; gy++)
-    for (let gx=0; gx<HW; gx++)
-      if (pip(gx*GRID_RES, gy*GRID_RES, V)) m[gy*HW + gx] = 1;
+    for (let gx=0; gx<HW; gx++) {
+      const x = gx*GRID_RES, y = gy*GRID_RES;
+      if (!pip(x, y, V)) continue;
+      let blocked = false;
+      for (const c of ex) {
+        if ((x-c.x)*(x-c.x) + (y-c.y)*(y-c.y) <= c.r2) { blocked = true; break; }
+      }
+      if (!blocked) m[gy*HW + gx] = 1;
+    }
   return m;
 }
 
@@ -1199,15 +1249,27 @@ function autoDecomposeZones(polygon, nZones) {
 // ============================================================================
 //  HAUL ROAD GENERATION — spine + branch network from Main Gate to zones
 // ============================================================================
-// Returns the point on a zone's perimeter nearest to gateXY [x,y].
-// Tests four edge midpoints (bottom, top, left, right) as access candidates.
+// Returns the access point on a zone's perimeter nearest to gateXY [x,y].
+// For zones with a true clipped polygon the candidates are the midpoints of
+// the polygon's OWN edges — always on the real boundary, so concave zones
+// (U-shapes) never get an access point floating in the void the way the old
+// bbox-midpoint candidates could. Bbox midpoints remain the legacy fallback.
 function zoneEntryPoint(zone, gateXY) {
-  const candidates = [
-    [(zone.x_min + zone.x_max) / 2, zone.y_bot],   // bottom centre
-    [(zone.x_min + zone.x_max) / 2, zone.y_top],   // top centre
-    [zone.x_min, (zone.y_bot + zone.y_top) / 2],   // left centre
-    [zone.x_max, (zone.y_bot + zone.y_top) / 2],   // right centre
-  ];
+  let candidates;
+  if (zone.verts && zone.verts.length >= 3) {
+    const V = zone.verts;
+    candidates = V.map((v, i) => {
+      const w = V[(i + 1) % V.length];
+      return [(v[0] + w[0]) / 2, (v[1] + w[1]) / 2];
+    });
+  } else {
+    candidates = [
+      [(zone.x_min + zone.x_max) / 2, zone.y_bot],   // bottom centre
+      [(zone.x_min + zone.x_max) / 2, zone.y_top],   // top centre
+      [zone.x_min, (zone.y_bot + zone.y_top) / 2],   // left centre
+      [zone.x_max, (zone.y_bot + zone.y_top) / 2],   // right centre
+    ];
+  }
   let best = candidates[0], bd = Infinity;
   for (const c of candidates) {
     const d = Math.hypot(c[0] - gateXY[0], c[1] - gateXY[1]);
@@ -1216,23 +1278,44 @@ function zoneEntryPoint(zone, gateXY) {
   return best;
 }
 
-// Build haul road polylines: one spine from gate → polygon centroid, plus one
-// branch per zone from the nearest spine point to the zone's access point.
-// Sets z.accessPt on each zone. Returns an array of polylines [[p, p, ...], ...].
-function buildHaulRoads(gateXY, polygon, zones) {
-  if (!gateXY || !polygon || !zones.length) return [];
-  const g = [gateXY[0], gateXY[1]];
+// Build haul road polylines for one or many gates: one spine per gate to the
+// polygon centroid (all spines meet there, so the network is connected and
+// every gate can reach every zone), plus one branch per zone from the nearest
+// point on ANY spine to the zone's access point. The access point faces the
+// gate closest to the zone. Sets z.accessPt and z.gateIdx on each zone.
+// Accepts a single [x,y] gate (legacy) or an array of [x,y] gates.
+function buildHaulRoads(gatesXY, polygon, zones) {
+  if (!gatesXY || !gatesXY.length || !polygon || !zones.length) return [];
+  if (typeof gatesXY[0] === "number") gatesXY = [gatesXY];   // single-gate back-compat
   const cent = polyCentroid(polygon);
-  const dx = cent[0] - g[0], dy = cent[1] - g[1], spineL2 = dx * dx + dy * dy || 1;
-  const polylines = [[g.slice(), cent.slice()]]; // main spine
+  const polylines = [];
+  const spines = gatesXY.map(g => {
+    const s = [[g[0], g[1]], cent.slice()];
+    polylines.push([s[0].slice(), s[1].slice()]);
+    return s;
+  });
+  const proj = (p, A, B) => {
+    const dx = B[0]-A[0], dy = B[1]-A[1], L2 = dx*dx + dy*dy || 1;
+    const t = Math.max(0, Math.min(1, ((p[0]-A[0])*dx + (p[1]-A[1])*dy) / L2));
+    return [A[0] + t*dx, A[1] + t*dy];
+  };
   zones.forEach(z => {
-    const ep = zoneEntryPoint(z, g);
+    const c = [(z.x_min + z.x_max) / 2, (z.y_bot + z.y_top) / 2];
+    let gi = 0, gd = Infinity;
+    gatesXY.forEach((g, i) => {
+      const d = Math.hypot(c[0]-g[0], c[1]-g[1]);
+      if (d < gd) { gd = d; gi = i; }
+    });
+    const ep = zoneEntryPoint(z, gatesXY[gi]);
     z.accessPt = ep;
-    // Project ep onto spine to find the branch origin
-    const t = Math.max(0, Math.min(1, ((ep[0]-g[0])*dx + (ep[1]-g[1])*dy) / spineL2));
-    const sp = [g[0] + t * dx, g[1] + t * dy];
-    if (Math.hypot(sp[0]-ep[0], sp[1]-ep[1]) > 0.1)
-      polylines.push([sp.slice(), ep.slice()]);
+    z.gateIdx = gi;
+    let best = null, bd = Infinity;
+    spines.forEach(([A, B]) => {
+      const q = proj(ep, A, B);
+      const d = Math.hypot(q[0]-ep[0], q[1]-ep[1]);
+      if (d < bd) { bd = d; best = q; }
+    });
+    if (best && bd > 0.1) polylines.push([best, ep.slice()]);
   });
   return polylines;
 }
@@ -1247,9 +1330,9 @@ function haulRoadsToSegments(polylines) {
 }
 
 // ============================================================================
-//  MAIN GATE & HAUL ROAD CANVAS HELPERS
+//  GATE & HAUL ROAD CANVAS HELPERS
 // ============================================================================
-function drawMainGate(ctx, P, gate) {
+function drawMainGate(ctx, P, gate, label) {
   const x = P.px(gate.x), y = P.py(gate.y);
   ctx.save();
   ctx.fillStyle = "rgba(255,205,17,0.20)";
@@ -1261,8 +1344,38 @@ function drawMainGate(ctx, P, gate) {
   ctx.fillStyle = "#111"; ctx.font = "bold 9px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText("G", x, y);
   ctx.fillStyle = "#FFCD11"; ctx.font = "bold 10px monospace"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
-  ctx.fillText("GATE", x + 14, y);
+  ctx.fillText(label || gate.name || "GATE", x + 14, y);
   ctx.restore();
+}
+function drawGates(ctx, P, gates) {
+  (gates || []).forEach((g, i) => drawMainGate(ctx, P, g, g.name || `G${i+1}`));
+}
+
+// Normalise a no-go entry ({x,y,rM} or legacy [x,y]) to logical-space circle.
+function nogoCircle(n) {
+  const x = n.x ?? n[0], y = n.y ?? n[1];
+  return { x, y, r: metresToLogical(n.rM ?? 30) };
+}
+function drawNogo(ctx, P, nogos) {
+  (nogos || []).forEach(n => {
+    const c = nogoCircle(n);
+    const x = P.px(c.x), y = P.py(c.y), r = Math.max(6, c.r * P.s);
+    ctx.save();
+    ctx.fillStyle = "rgba(217,45,32,0.14)";
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 2*Math.PI); ctx.fill();
+    ctx.strokeStyle = "#FF6B5E"; ctx.lineWidth = 1.5; ctx.setLineDash([5,3]);
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 2*Math.PI); ctx.stroke();
+    ctx.setLineDash([]);
+    // hazard hatching
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 2*Math.PI); ctx.clip();
+    ctx.strokeStyle = "rgba(255,107,94,0.25)"; ctx.lineWidth = 1;
+    for (let hx = x - r; hx <= x + r; hx += 7) {
+      ctx.beginPath(); ctx.moveTo(hx - r, y + r); ctx.lineTo(hx + r, y - r); ctx.stroke();
+    }
+    ctx.restore();
+    ctx.fillStyle = "#FF6B5E"; ctx.font = "bold 11px monospace"; ctx.textAlign = "center";
+    ctx.fillText("⊘ NO-GO", x, y + 4);
+  });
 }
 
 function drawHaulRoads(ctx, P, haulPolylines) {
@@ -1393,14 +1506,19 @@ function pointInPoly(px, py, poly) {
 
 // uniform dense hex-spot field grid over the whole polygon (visual coverage layer,
 // matches the reference live-sim look). Spots are purely visual; coverage stats use `filled`.
-function buildFieldSpots(verts){
+function buildFieldSpots(verts, mask){
   if(!verts||verts.length<3) return [];
   const xs=verts.map(v=>v[0]), ys=verts.map(v=>v[1]);
   const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
   const S=0.5, dy=S*0.866, drawR=0.18, spots=[]; let row=0;
+  const inMask = (x,y) => {                      // optional mask filter (no-go carve-outs)
+    if (!mask) return true;
+    const gx = Math.floor(x/GRID_RES), gy = Math.floor(y/GRID_RES);
+    return gx >= 0 && gx < HW && gy >= 0 && gy < HH && !!mask[gy*HW+gx];
+  };
   for(let y=minY;y<=maxY;y+=dy,row++){
     const offX=(row%2)?S/2:0;
-    for(let x=minX+offX;x<=maxX;x+=S){ if(pip(x,y,verts)) spots.push({x:+x.toFixed(3),y:+y.toFixed(3),r:drawR,state:'empty'}); }
+    for(let x=minX+offX;x<=maxX;x+=S){ if(pip(x,y,verts)&&inMask(x,y)) spots.push({x:+x.toFixed(3),y:+y.toFixed(3),r:drawR,state:'empty'}); }
   }
   return spots;
 }
@@ -1412,12 +1530,17 @@ function _fillSpots(cx,cy,radius,state){
     const dx=s.x-cx,dy=s.y-cy; if(dx*dx+dy*dy<=r2){ if(state==='filled'||s.state==='empty') s.state=state; } }
 }
 function hexDumpsInZone(zone, mask, filled, dumpRadius) {
-  const poly = [
-    {x: zone.x_min, y: zone.y_bot},
-    {x: zone.x_max, y: zone.y_bot},
-    {x: zone.x_max, y: zone.y_top},
-    {x: zone.x_min, y: zone.y_top}
-  ];
+  // Pack the zone's TRUE clipped polygon when it has one so dump spots never
+  // leak outside a concave or sloped zone boundary; the bounding-box rect is
+  // kept only as a fallback for legacy zones without verts.
+  const poly = (zone.verts && zone.verts.length >= 3)
+    ? zone.verts.map(v => ({x: v[0], y: v[1]}))
+    : [
+      {x: zone.x_min, y: zone.y_bot},
+      {x: zone.x_max, y: zone.y_bot},
+      {x: zone.x_max, y: zone.y_top},
+      {x: zone.x_min, y: zone.y_top}
+    ];
   const spots = buildHexSpots(poly, dumpRadius);
   const dumps = [];
   const rc = Math.ceil(dumpRadius / GRID_RES);
@@ -1453,19 +1576,64 @@ function hexDumpsInZone(zone, mask, filled, dumpRadius) {
   return dumps;
 }
 
-// Sort dumps in a boustrophedon (zigzag) pattern per row so the truck route is smooth
+// Coverage completion pass: the hex lattice packs non-overlapping circles, so
+// interstitial grid cells between circles (and along the zone boundary) stay
+// uncovered — those are the "spots the algorithm never tried to fill". This
+// pass walks every still-uncovered workable cell inside the zone and emits an
+// extra dump spot on it (painting `filled` as it goes), so the zone's path
+// ends at ~100 % of its workable cells. Capped to keep planning bounded.
+function coverageGapSpots(zone, mask, filled, dumpRadius) {
+  const CAP = 800;
+  const inZone = (x, y) => (zone.verts && zone.verts.length >= 3)
+    ? pip(x, y, zone.verts)
+    : (x >= zone.x_min && x <= zone.x_max && y >= zone.y_bot && y <= zone.y_top);
+  const gx0 = Math.max(0, Math.floor(zone.x_min / GRID_RES) - 1);
+  const gx1 = Math.min(HW - 1, Math.ceil(zone.x_max / GRID_RES) + 1);
+  const gy0 = Math.max(0, Math.floor(zone.y_bot / GRID_RES) - 1);
+  const gy1 = Math.min(HH - 1, Math.ceil(zone.y_top / GRID_RES) + 1);
+  const rc = Math.ceil(dumpRadius / GRID_RES);
+  const out = [];
+  for (let gy = gy0; gy <= gy1 && out.length < CAP; gy++) {
+    for (let gx = gx0; gx <= gx1 && out.length < CAP; gx++) {
+      const idx = gy * HW + gx;
+      if (!mask[idx] || filled[idx]) continue;
+      const x = gx * GRID_RES, y = gy * GRID_RES;
+      if (!inZone(x, y)) continue;
+      // place a gap dump on this cell; paint its footprint like hexDumpsInZone
+      for (let dy = -rc; dy <= rc; dy++) {
+        const ny = gy + dy; if (ny < 0 || ny >= HH) continue;
+        for (let dx = -rc; dx <= rc; dx++) {
+          const nx = gx + dx; if (nx < 0 || nx >= HW) continue;
+          if (Math.hypot(dx, dy) * GRID_RES <= dumpRadius) {
+            const ni = ny * HW + nx;
+            if (mask[ni]) filled[ni] = 1;
+          }
+        }
+      }
+      out.push([+x.toFixed(3), +y.toFixed(3)]);
+    }
+  }
+  return out;
+}
+
+// True boustrophedon (lawn-mower) ordering over the exact hex-lattice rows:
+// every lattice row becomes one sweep, alternating left→right / right→left, so
+// the per-zone path is a clean serpentine instead of a coarse 3-band zigzag.
 function boustrophedonOrder(dumps, zone) {
   if (dumps.length === 0) return [];
-  const yRows = {};
-  const rowH = (zone.y_top - zone.y_bot) / 3;
+  const ys = [...new Set(dumps.map(d => +d[1].toFixed(3)))].sort((a,b)=>a-b);
+  const rowOf = new Map(ys.map((y,i)=>[y,i]));
+  const rows = [];
   dumps.forEach(d => {
-    const row = Math.floor((d[1] - zone.y_bot) / rowH);
-    (yRows[row] ||= []).push(d);
+    const r = rowOf.get(+d[1].toFixed(3));
+    (rows[r] ||= []).push(d);
   });
-  let out = [];
-  Object.keys(yRows).sort((a,b)=>+a-+b).forEach((r,i) => {
-    const sorted = yRows[r].sort((a,b) => i%2===0 ? a[0]-b[0] : b[0]-a[0]);
-    out = out.concat(sorted);
+  let out = [], dir = 1;
+  rows.forEach(row => {
+    if (!row || !row.length) return;
+    row.sort((a,b) => dir > 0 ? a[0]-b[0] : b[0]-a[0]);
+    out = out.concat(row);
+    dir = -dir;
   });
   return out;
 }
@@ -1475,17 +1643,26 @@ function zoneCentroidOf(z) { return [ (z.x_min+z.x_max)/2, (z.y_bot+z.y_top)/2 ]
 // Weighted LPT across the whole fleet: busiest zone first, each zone goes to the
 // truck with the lowest weight-normalised load; near-ties (8%) break toward the
 // truck whose previous zone is closest so each truck's zones stay clustered.
+// Equal-allocation cap: no truck may take more than its priority-weighted share
+// of the zone COUNT (ceil(nZones × w / Σw)), so a mixed fleet is spread across
+// all zones instead of pooling on the fastest truck. Σceil ≥ nZones, so every
+// zone always finds an eligible truck.
 function assignZonesWeighted(zones, trucks, costOf, weightOf, entryXY) {
   const assignments = {}, truckZones = {}, load = {}, lastAt = {};
   trucks.forEach(t => { truckZones[t.id] = []; load[t.id] = 0; });
+  const totW = trucks.reduce((s,t)=> s + weightOf(t), 0) || 1;
+  const capOf = {};
+  trucks.forEach(t => capOf[t.id] = Math.max(1, Math.ceil(zones.length * weightOf(t) / totW)));
   // cost order is truck-independent up to a constant factor, so rank by trucks[0]
   [...zones].sort((a,b)=> costOf(b, trucks[0]) - costOf(a, trucks[0])).forEach(z => {
+    const elig = trucks.filter(t => truckZones[t.id].length < capOf[t.id]);
+    const pool = elig.length ? elig : trucks;
     const norm = t => load[t.id] / weightOf(t);
-    const minLoad = trucks.reduce((m,tt)=> Math.min(m, norm(tt)), Infinity);
+    const minLoad = pool.reduce((m,tt)=> Math.min(m, norm(tt)), Infinity);
     const slack = Math.max(minLoad * 0.08, 1e-9);
     const c = zoneCentroidOf(z);
     let pick = null, bestD = Infinity;
-    for (const tt of trucks) {
+    for (const tt of pool) {
       if (norm(tt) > minLoad + slack) continue;
       const p = lastAt[tt.id] || entryXY;
       const d = Math.hypot(c[0]-p[0], c[1]-p[1]);
@@ -1585,8 +1762,8 @@ function setMode(m) {
   document.querySelectorAll(".mode-btn").forEach(b => b.classList.toggle("active", b.dataset.mode === m));
   const hints = {
     poly: ["Polygon mode:", "click to add vertices, double-click to close."],
-    gate: ["Main Gate mode:", "click anywhere on or near the polygon boundary to place the main haul-road gate. Acts as both entry and exit for all trucks."],
-    nogo: ["No-go zone mode:", "click inside the polygon to place no-go markers."]
+    gate: ["Gate mode:", "click on or near the polygon boundary to add gates (G1, G2, …). Each gate is an entry and exit; trucks are staged at the gate nearest their zones and haul roads connect every gate to every zone."],
+    nogo: ["No-go zone mode:", "click inside the polygon to place a circular exclusion (radius set under Physical parameters). The planner carves no-go cells out of the workable field: no dump spots inside, and coverage is measured against the remaining area only."]
   };
   setText("mode-hint", hints[m][0]);
   setText("mode-hint-body", hints[m][1]);
@@ -1619,16 +1796,19 @@ function siteOnClick(e) {
     if (STATE.site.closed) {
       // Restart drawing
       STATE.site.verts = []; STATE.site.closed = false;
-      STATE.site.mainGate = null; STATE.site.nogo = [];
+      STATE.site.gates = []; STATE.site.nogo = [];
     }
     STATE.site.verts.push([+fx.toFixed(2), +fy.toFixed(2)]);
   } else if (M === "gate") {
     if (!STATE.site.closed) { siteFlash("Close the polygon first"); return; }
-    STATE.site.mainGate = {x:+fx.toFixed(2), y:+fy.toFixed(2)};
-    siteFlash("Main Gate placed — trucks enter and exit here");
+    const n = STATE.site.gates.length + 1;
+    STATE.site.gates.push({x:+fx.toFixed(2), y:+fy.toFixed(2), name:`G${n}`});
+    siteFlash(`Gate G${n} placed — ${STATE.site.gates.length} gate${STATE.site.gates.length===1?'':'s'} total`);
   } else if (M === "nogo") {
     if (!STATE.site.closed) { siteFlash("Close the polygon first"); return; }
-    STATE.site.nogo.push([+fx.toFixed(2), +fy.toFixed(2)]);
+    const rM = parseFloat(document.getElementById("p-nogo-radius")?.value) || 30;
+    STATE.site.nogo.push({ x:+fx.toFixed(2), y:+fy.toFixed(2), rM });
+    siteFlash(`No-go zone placed (${rM} m radius) — excluded from dump planning`);
   }
   siteUpdateStats(); drawSite();
 }
@@ -1642,16 +1822,16 @@ function siteUndo() {
   if (STATE.currentMode === "poly") {
     if (STATE.site.closed && STATE.site.verts.length) {
       STATE.site.closed = false;
-      STATE.site.mainGate = null; STATE.site.nogo = [];
+      STATE.site.gates = []; STATE.site.nogo = [];
     } else if (STATE.site.verts.length) {
       STATE.site.verts.pop();
     }
-  } else if (STATE.currentMode === "gate") STATE.site.mainGate = null;
+  } else if (STATE.currentMode === "gate") STATE.site.gates.pop();
   else if (STATE.currentMode === "nogo") STATE.site.nogo.pop();
   siteUpdateStats(); drawSite();
 }
 function siteClear() {
-  STATE.site = { verts:[], mainGate:null, nogo:[],
+  STATE.site = { verts:[], gates:[], nogo:[],
                   buffer:STATE.site.buffer, realWidthM:STATE.site.realWidthM || 500, closed:false };
   setText("site-canvas-sub", "click to start drawing the polygon");
   siteUpdateStats(); drawSite();
@@ -1659,14 +1839,14 @@ function siteClear() {
 function sitePresetRect() {
   STATE.site.verts = [[5,5],[25,5],[25,20],[5,20]];
   STATE.site.closed = true;
-  STATE.site.mainGate = {x:5, y:12};
+  STATE.site.gates = [{x:5, y:12, name:"G1"}];
   STATE.site.nogo = [];
   siteUpdateStats(); drawSite();
 }
 function sitePresetL() {
   STATE.site.verts = [[3,3],[20,3],[20,12],[10,12],[10,22],[3,22]];
   STATE.site.closed = true;
-  STATE.site.mainGate = {x:3, y:6};
+  STATE.site.gates = [{x:3, y:6, name:"G1"}];
   STATE.site.nogo = [];
   siteUpdateStats(); drawSite();
 }
@@ -1674,10 +1854,10 @@ function loadPreset(name) {
   if (name === "demo") {
     STATE.site.verts = [[5,2],[18,1],[25,5],[28,10],[26,18],[22,22],[15,24],[8,23],[3,18],[2,12]];
     STATE.site.closed = true;
-    STATE.site.mainGate = {x:5, y:8};
+    STATE.site.gates = [{x:5, y:8, name:"G1"}, {x:26, y:17, name:"G2"}];
     STATE.site.nogo = [];
     siteUpdateStats(); drawSite();
-    siteFlash("Demo site loaded — Main Gate at south-west corner");
+    siteFlash("Demo site loaded — gates G1 (south-west) and G2 (east)");
   }
 }
 function siteUpdateStats() {
@@ -1694,8 +1874,8 @@ function siteUpdateStats() {
   } else {
     setText("s-area", "—"); setText("s-area-ha", "—"); setText("s-area-ac", "—");
   }
-  setText("s-gate", STATE.site.mainGate
-    ? `(${STATE.site.mainGate.x}, ${STATE.site.mainGate.y})`
+  setText("s-gate", STATE.site.gates.length
+    ? STATE.site.gates.map(g => `${g.name} (${g.x}, ${g.y})`).join(" · ")
     : "— auto-placed at plan time");
 
   const errs = [];
@@ -1706,7 +1886,7 @@ function siteUpdateStats() {
     if (aM2 < 50) errs.push(`Area ${aM2.toFixed(0)} m² too small (min 50). Increase canvas width or draw a larger polygon.`);
     const xs = v.map(p=>p[0]), ys = v.map(p=>p[1]);
     if (Math.max(...xs)-Math.min(...xs) < 5) errs.push("Bounding box too narrow.");
-    if (!STATE.site.mainGate) warns.push("No Main Gate placed — gate will be auto-placed at polygon boundary during plan generation.");
+    if (!STATE.site.gates.length) warns.push("No gates placed — one gate will be auto-placed at the polygon boundary during plan generation.");
   }
   const el = document.getElementById("site-validation");
   if (!el) return;
@@ -1756,17 +1936,10 @@ function drawSite() {
     ctx.font = "11px sans-serif"; ctx.fillStyle = "#3D4A66";
     ctx.fillText("Or use a preset → Rectangle, L-shape, or Load demo site.", c.width/2, c.height/2+22);
   }
-  // main gate
-  if (STATE.site.mainGate) drawMainGate(ctx, P, STATE.site.mainGate);
-  // no-go markers
-  STATE.site.nogo.forEach(p => {
-    const x = P.px(p[0]), y = P.py(p[1]);
-    ctx.fillStyle = "rgba(255,138,61,.25)"; ctx.beginPath();
-    ctx.arc(x, y, 14, 0, 2*Math.PI); ctx.fill();
-    ctx.strokeStyle = "#FF8A3D"; ctx.lineWidth = 1.5; ctx.setLineDash([3,2]); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = "#FF8A3D"; ctx.font="bold 12px monospace"; ctx.textAlign="center";
-    ctx.fillText("⊘", x, y+4);
-  });
+  // gates
+  drawGates(ctx, P, STATE.site.gates);
+  // no-go exclusion zones (true scaled radius)
+  drawNogo(ctx, P, STATE.site.nogo);
   drawScaleBar(ctx, P);
 }
 function drawGate(ctx, P, g, color, glyph) {
@@ -1846,9 +2019,11 @@ function fleetMaintUpdate(truckIdx, mIdx, field, value) {
   renderFleetTable();
 }
 function loadFleetPreset() {
+  // truly mixed demo fleet — one of each Cat model so the live demo shows
+  // three visually distinct trucks with different sizes and speeds
   STATE.fleet.trucks = [];
   fleetAddRow({ model: "Cat 793", shiftStart: "06:00", shiftEnd: "18:00", maint: [] });
-  fleetAddRow({ model: "Cat 793", shiftStart: "06:00", shiftEnd: "18:00", maint: [{from:"10:00",to:"10:30"}] });
+  fleetAddRow({ model: "Cat 785", shiftStart: "06:00", shiftEnd: "18:00", maint: [{from:"10:00",to:"10:30"}] });
   fleetAddRow({ model: "Cat 797", shiftStart: "06:00", shiftEnd: "18:00", maint: [] });
 }
 function renderFleetTable() {
@@ -1949,16 +2124,18 @@ async function runPlan() {
   const steps = [
     "Building field mask from polygon...",
     "Auto-decomposing polygon into balanced operational zones...",
-    "Generating haul road network from Main Gate to zones...",
-    "Assigning zones to trucks via token broker + computing waypoints...",
+    "Generating haul road network from every gate to every zone...",
+    "Assigning zones equally across the fleet + computing one path per zone...",
     "Routing trucks via haul roads and tallying distances...",
     "Estimating projected coverage and ETA..."
   ];
   stepsEl.innerHTML = steps.map(s => `<div style="color:var(--txt3);font-family:'Share Tech Mono',monospace;font-size:11px;padding:3px 0">⋯ ${s}</div>`).join("");
 
   await new Promise(r => setTimeout(r, 50));
-  // Step 1: mask of the entire field
-  const mask = buildMask(STATE.site.verts);
+  // Step 1: mask of the entire field, minus no-go exclusion circles — no dump
+  // spots inside no-go zones and coverage is measured on workable cells only
+  const nogoLogical = (STATE.site.nogo || []).map(nogoCircle);
+  const mask = buildMask(STATE.site.verts, nogoLogical);
   const insideCells = maskInsideCount(mask);
   markStep(0);
   await new Promise(r => setTimeout(r, 50));
@@ -1983,10 +2160,11 @@ async function runPlan() {
   markStep(1);
   await new Promise(r => setTimeout(r, 50));
 
-  // Step 3: generate haul road network from Main Gate → zone access points.
-  // If no gate was placed by the user, auto-place at the polygon vertex nearest
-  // to the bottom-centre of the bounding box (typical mine haul-road entry).
-  const mainGate = STATE.site.mainGate || (() => {
+  // Step 3: generate haul road network from every gate → zone access points.
+  // If no gate was placed by the user, auto-place one at the polygon vertex
+  // nearest the bottom-centre of the bounding box (typical mine haul-road entry).
+  let gates = (STATE.site.gates || []).map((g, i) => ({ x: g.x, y: g.y, name: g.name || `G${i+1}` }));
+  if (!gates.length) {
     const ys  = STATE.site.verts.map(v => v[1]);
     const bc  = [polyCentroid(STATE.site.verts)[0], Math.min(...ys)];
     let best  = {x:STATE.site.verts[0][0], y:STATE.site.verts[0][1]}, bd = Infinity;
@@ -1994,39 +2172,48 @@ async function runPlan() {
       const d = Math.hypot(v[0]-bc[0], v[1]-bc[1]);
       if (d < bd) { bd = d; best = {x:v[0], y:v[1]}; }
     });
-    return best;
-  })();
-  const gateXY      = [mainGate.x, mainGate.y];
-  const haulPolylines = buildHaulRoads(gateXY, STATE.site.verts, zones);
+    gates = [{ x: best.x, y: best.y, name: "G1" }];
+  }
+  const gatesXY = gates.map(g => [g.x, g.y]);
+  const haulPolylines = buildHaulRoads(gatesXY, STATE.site.verts, zones);
   const haulRoadSegs  = haulRoadsToSegments(haulPolylines);
+  const nearestGateIdx = p => {
+    let gi = 0, bd = Infinity;
+    gates.forEach((g, i) => {
+      const d = Math.hypot(g.x - p[0], g.y - p[1]);
+      if (d < bd) { bd = d; gi = i; }
+    });
+    return gi;
+  };
 
   markStep(2);
   await new Promise(r => setTimeout(r, 50));
 
-  // ── Step 4: weighted assignment + haul-road-constrained routing + gap-fill
-  // The Main Gate is both entry and exit; all transit legs run on the generated
-  // haul road network (laneRoute over haulRoadSegs), never across dump areas.
+  // ── Step 4: equal-allocation weighted assignment + one path per zone +
+  // haul-road-constrained routing. Every gate is both entry and exit; each
+  // truck stages at the gate nearest its zones and exits via the gate nearest
+  // its last zone. All transit legs run on the generated haul road network
+  // (laneRoute over haulRoadSegs), never across dump areas.
   const trucks = STATE.fleet.trucks;
   const pathways = haulRoadSegs;
-  const entry = { x: mainGate.x, y: mainGate.y, name: "GATE" };
-  const exit  = entry;
-  const entryXY = [entry.x, entry.y], exitXY = [exit.x, exit.y];
-
-  // Every truck takes part in the primary assignment (weighted LPT). The old
-  // big/small payload gate (payload >= 0.85 × max) could leave a single
-  // dominant truck holding EVERY zone while the rest idled — the reported
-  // "all zones on one truck" starvation. Finer-radius trucks additionally
-  // re-sweep zones in PASS 2 for density the coarse pattern missed.
-  const maxDR = Math.max(...trucks.map(t => t.dumpRadius));
-  const gapTrucks = trucks.filter(t => t.dumpRadius < maxDR);
+  // LPT locality tie-break seed: centroid of all gates
+  const entryXY = [
+    gates.reduce((s,g)=>s+g.x,0) / gates.length,
+    gates.reduce((s,g)=>s+g.y,0) / gates.length,
+  ];
 
   const filled = new Uint8Array(HW*HH);
   const waypoints = {};
   trucks.forEach(t => waypoints[t.id] = []);
   let totalDumps = 0;
 
+  // shuttle routing repeats the same gate↔access legs hundreds of times —
+  // memoise per endpoint pair so plan generation stays fast on big sites
+  const laneCache = new Map();
   const pushLane = (wp, cur, dest) => {
-    const poly = laneRoute(pathways, cur, dest);
+    const key = cur[0] + "," + cur[1] + ">" + dest[0] + "," + dest[1];
+    let poly = laneCache.get(key);
+    if (!poly) { poly = laneRoute(pathways, cur, dest); laneCache.set(key, poly); }
     for (let i=1;i<poly.length;i++) wp.push([+poly[i][0].toFixed(2), +poly[i][1].toFixed(2), "transit"]);
     return dest;
   };
@@ -2045,73 +2232,81 @@ async function runPlan() {
   });
   const costOf = (z, t) => estByRadius[t.dumpRadius][z.id];
 
+  // Every truck takes part, and the equal-allocation cap inside
+  // assignZonesWeighted guarantees zones are spread across the whole mixed
+  // fleet (no truck exceeds its priority-weighted share of the zone count).
   const { assignments, truckZones } =
     assignZonesWeighted(zones, trucks, costOf, truckWeight, entryXY);
+
+  // Home gate per truck = gate nearest its assigned zones; zone visit order is
+  // a nearest-neighbour chain FROM that gate so transit legs stay short.
+  const truckGate = {};
   trucks.forEach(t => {
-    truckZones[t.id] = orderZonesNearestNeighbour(truckZones[t.id], zones, entryXY);
+    const zids = truckZones[t.id];
+    if (!zids.length) { truckGate[t.id] = 0; return; }
+    let gi = 0, bd = Infinity;
+    gates.forEach((g, i) => {
+      const d = Math.min(...zids.map(zid => {
+        const z = zones.find(zz => zz.id === zid);
+        const c = zoneCentroidOf(z);
+        return Math.hypot(c[0]-g.x, c[1]-g.y);
+      }));
+      if (d < bd) { bd = d; gi = i; }
+    });
+    truckGate[t.id] = gi;
+    const home = gates[gi];
+    truckZones[t.id] = orderZonesNearestNeighbour(zids, zones, [home.x, home.y]);
   });
 
-  // Real dump spots per zone, generated in deterministic zone order with the
-  // assigned truck's own dump radius, sharing one `filled` grid so neighbouring
-  // zones never double-claim boundary cells.
-  const zoneSpots = {};
+  // ONE PATH PER ZONE — each zone's serpentine dump path is generated once,
+  // from the zone's true clipped polygon, with its assigned truck's own dump
+  // radius, on a shared `filled` grid so neighbouring zones never double-claim
+  // boundary cells. After the hex serpentine, a COVERAGE COMPLETION pass adds
+  // a dump on every still-uncovered workable cell in the zone (the interstices
+  // a circle packing can never reach), so no spot is left unfilled.
+  // zonePaths is the per-zone path artifact (also exported).
+  const zonePaths = {};
   zones.forEach(z => {
     const t = trucks.find(tt => tt.id === assignments[z.id]);
-    zoneSpots[z.id] = hexDumpsInZone(z, mask, filled, metresToLogical(t.dumpRadius));
+    const drL = metresToLogical(t.dumpRadius);
+    const spots = hexDumpsInZone(z, mask, filled, drL);
+    const gaps  = coverageGapSpots(z, mask, filled, drL);
+    zonePaths[z.id] = {
+      zone: z.id,
+      truck: t.id,
+      access: (z.accessPt || zoneCentroidOf(z)).map(v => +v.toFixed(2)),
+      dumps: boustrophedonOrder(spots, z).concat(boustrophedonOrder(gaps, z)),
+      gapDumps: gaps.length,
+    };
   });
 
-  // PASS 1 — every truck starts at the Main Gate, drives the haul road network
-  // to each assigned zone's access point, services the zone's boustrophedon
-  // strips, returns to the access point, and moves on.
+  // Route per truck — realistic LOAD-HAUL-DUMP shuttle cycle. A truck carries
+  // ONE load per trip: it enters the field through a gate, drives the haul
+  // roads to its zone's access point, places the load on the next spot of the
+  // zone's path, then leaves by the SHORTEST way out (the gate nearest that
+  // dump), reloads at the gate, and comes back in for the next spot. Every
+  // gate is usable; the exit gate of one trip is the entry gate of the next.
   trucks.forEach(t => {
     const wp = waypoints[t.id];
-    let cur = entryXY;
-    wp.push([entry.x, entry.y, "transit"]);
+    const home = gates[truckGate[t.id]];
+    let curGate = home;
+    wp.push([home.x, home.y, "transit"]);          // staged loaded at the home gate
     truckZones[t.id].forEach(zid => {
-      const z = zones.find(zz => zz.id === zid);
-      const spots = zoneSpots[zid];
-      if (!spots.length) return;                             // zone yielded no dumps
-      const access = z.accessPt || zoneCentroidOf(z);
-      cur = pushLane(wp, cur, access);                       // drive in along haul roads
-      const dumps = boustrophedonOrder(spots, z);
-      dumps.forEach(d => wp.push([d[0], d[1], "dump"]));
-      totalDumps += dumps.length;
-      wp.push([+access[0].toFixed(2), +access[1].toFixed(2), "transit"]);   // back to zone access
-      cur = access;
+      const zp = zonePaths[zid];
+      if (!zp || !zp.dumps.length) return;                   // zone yielded no dumps
+      zp.dumps.forEach(d => {
+        pushLane(wp, [curGate.x, curGate.y], zp.access);     // in along haul roads
+        wp.push([d[0], d[1], "dump"]);                       // place this trip's load
+        totalDumps++;
+        wp.push([zp.access[0], zp.access[1], "transit"]);    // back to zone access
+        const exitGate = gates[nearestGateIdx(d)];           // shortest way out
+        pushLane(wp, [zp.access[0], zp.access[1]], [exitGate.x, exitGate.y]);
+        wp[wp.length-1][2] = "load";                         // reload at the gate
+        curGate = exitGate;
+      });
     });
-  });
-
-  // PASS 2 — finer-radius trucks sweep the SAME zones; hexDumpsInZone respects
-  // `filled` so it only returns dumps where the coarse pattern left gaps. Each
-  // gap zone goes to the gap truck with the lowest weight-normalised gap load.
-  if (gapTrucks.length) {
-    const gapLoad = {}; gapTrucks.forEach(t => gapLoad[t.id] = 0);
-    zones.forEach(z => {
-      const t = gapTrucks.reduce((best,tt)=>
-        gapLoad[tt.id]/truckWeight(tt) < gapLoad[best.id]/truckWeight(best) ? tt : best, gapTrucks[0]);
-      const drLogical = metresToLogical(t.dumpRadius);
-      const rawGaps = hexDumpsInZone(z, mask, filled, drLogical);
-      const gaps = boustrophedonOrder(rawGaps, z);
-      if (gaps.length === 0) return;                         // nothing missed here
-      gapLoad[t.id] += gaps.length;
-      const wp = waypoints[t.id];
-      if (wp.length === 0) wp.push([entry.x, entry.y, "transit"]);
-      let cur = [wp[wp.length-1][0], wp[wp.length-1][1]];
-      const access = z.accessPt || zoneCentroidOf(z);
-      cur = pushLane(wp, cur, access);
-      gaps.forEach(d => wp.push([d[0], d[1], "dump"]));
-      totalDumps += gaps.length;
-      wp.push([+access[0].toFixed(2), +access[1].toFixed(2), "transit"]);
-      if (!truckZones[t.id].includes(z.id)) truckZones[t.id].push(z.id);
-    });
-  }
-
-  // exit bookend for every truck (after PASS 2 so gap legs append cleanly)
-  trucks.forEach(t => {
-    const wp = waypoints[t.id];
-    if (!wp.length) wp.push([entry.x, entry.y, "transit"]);
-    pushLane(wp, [wp[wp.length-1][0], wp[wp.length-1][1]], exitXY);
-    wp.push([exit.x, exit.y, "transit"]);
+    // the final gate arrival ends the shift — no reload there
+    if (wp.length > 1 && wp[wp.length-1][2] === "load") wp[wp.length-1][2] = "transit";
   });
 
   markStep(3);
@@ -2136,19 +2331,24 @@ async function runPlan() {
   const etaMin = Math.max(...trucks.map(t => {
     const wp = waypoints[t.id];
     const dumps = wp.filter(w => w[2]==="dump").length;
-    return dumps * 2.5 + (wp.length-dumps) * 0.5;
+    const loads = wp.filter(w => w[2]==="load").length;
+    return dumps * 2.5 + loads * LOAD_MIN + (wp.length - dumps - loads) * 0.5;
   }));
   markStep(5);
 
   STATE.plan = {
     zones, mask, insideCells, assignments, truckZones, waypoints,
     truckKm, projectedCov, totalDumps, etaMin,
-    mainGate,                      // single entry/exit gate (auto-placed if user skipped it)
+    gates,                         // all entry/exit gates (one auto-placed if user skipped)
+    mainGate: gates[0],            // legacy alias — first gate
+    truckGate,                     // truck id → index into gates (home/staging gate)
+    zonePaths,                     // per-zone path artifact {zone, truck, access, dumps[]}
     haulPolylines,                 // road polylines for drawing
     haulRoadSegs,                  // road segments for laneRoute during live ops
+    nogo: nogoLogical,             // logical-space exclusion circles carved from the mask
     widestTW: widestTWMetres,      // store the METRES value
     scaleMperUnit: scale,
-    hexSpots: buildFieldSpots(STATE.site.verts),         // spot circles for ops visualisation
+    hexSpots: buildFieldSpots(STATE.site.verts, mask),   // spot circles for ops visualisation
   };
 
   const elapsed = ((performance.now()-t0)/1000).toFixed(2);
@@ -2167,6 +2367,7 @@ async function runPlan() {
       <td class="v">${t.id}</td>
       <td>${t.model}</td>
       <td>${truckWeight(t).toFixed(1)}</td>
+      <td>${gates[truckGate[t.id]].name}</td>
       <td>${truckZones[t.id].map(zid=>"Z"+(zid+1)).join(", ") || "—"}</td>
       <td>${dumps}</td>
       <td>${truckKm[t.id].toFixed(2)}</td>
@@ -2217,13 +2418,17 @@ function drawPlanPreview() {
   ctx.closePath(); ctx.stroke();
   // generated haul roads over the zones
   drawHaulRoads(ctx, P, STATE.plan.haulPolylines);
-  // routes
-  STATE.fleet.trucks.forEach(t => {
-    const wp = STATE.plan.waypoints[t.id];
-    const color = TRUCK_MODELS[t.model].color;
-    ctx.strokeStyle = color; ctx.lineWidth = 1.4; ctx.globalAlpha = 0.55;
+  // one serpentine path per zone, in the assigned truck's colour (the full
+  // shuttle route repeats gate↔zone thousands of times — drawing it would
+  // bury the map, so the preview shows the per-zone dump path + access link)
+  Object.values(STATE.plan.zonePaths || {}).forEach(zp => {
+    if (!zp.dumps.length) return;
+    const truck = STATE.fleet.trucks.find(tt => tt.id === zp.truck);
+    const color = truck ? TRUCK_MODELS[truck.model].color : "#FFC107";
+    ctx.strokeStyle = color; ctx.lineWidth = 1.4; ctx.globalAlpha = 0.6;
     ctx.beginPath();
-    wp.forEach((w,i) => { const x=P.px(w[0]),y=P.py(w[1]); if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y); });
+    ctx.moveTo(P.px(zp.access[0]), P.py(zp.access[1]));
+    zp.dumps.forEach(d => ctx.lineTo(P.px(d[0]), P.py(d[1])));
     ctx.stroke();
     ctx.globalAlpha = 1;
   });
@@ -2238,8 +2443,19 @@ function drawPlanPreview() {
       ctx.setLineDash([]);
     });
   }
-  // main gate
-  if (STATE.plan.mainGate) drawMainGate(ctx, P, STATE.plan.mainGate);
+  // zone access points (where the haul-road branch meets each zone's path)
+  STATE.plan.zones.forEach(z => {
+    if (!z.accessPt) return;
+    const ax = P.px(z.accessPt[0]), ay = P.py(z.accessPt[1]);
+    ctx.save();
+    ctx.translate(ax, ay); ctx.rotate(Math.PI/4);
+    ctx.fillStyle = "#FFCD11"; ctx.strokeStyle = "#111"; ctx.lineWidth = 1;
+    ctx.fillRect(-3.5, -3.5, 7, 7); ctx.strokeRect(-3.5, -3.5, 7, 7);
+    ctx.restore();
+  });
+  // no-go exclusion zones + gates
+  drawNogo(ctx, P, STATE.site.nogo);
+  drawGates(ctx, P, STATE.plan.gates || (STATE.plan.mainGate ? [STATE.plan.mainGate] : []));
   drawScaleBar(ctx, P);
 }
 
@@ -2247,10 +2463,12 @@ function exportPlan() {
   if (!STATE.plan) return;
   const out = {
     generated: new Date().toISOString(),
-    site: { polygon: STATE.site.verts, mainGate: STATE.plan.mainGate },
+    site: { polygon: STATE.site.verts, gates: STATE.plan.gates },
     haulRoads: STATE.plan.haulPolylines,
     fleet: STATE.fleet.trucks,
+    truckGates: STATE.plan.truckGate,
     zones: STATE.plan.zones,
+    zonePaths: STATE.plan.zonePaths,
     assignments: STATE.plan.assignments,
     waypoints: STATE.plan.waypoints,
     projected: { coverage_pct: +(STATE.plan.projectedCov*100).toFixed(2),
@@ -2298,19 +2516,29 @@ function opsReset() {
   STATE.ops.dumpAnims = [];
   // fresh fill-in animation each run
   if (STATE.plan && STATE.plan.hexSpots) STATE.plan.hexSpots.forEach(s => { s.state = 'empty'; s.fillAnim = 0; s.owner = null; });
-  // initialise truck runtime state from the plan — all trucks stage at the Main Gate
-  const entry = STATE.plan.mainGate || { x: STATE.plan.zones[0].x_min, y:(STATE.plan.zones[0].y_bot+STATE.plan.zones[0].y_top)/2 };
-  STATE.ops.trucks = STATE.fleet.trucks.map((t,i) => ({
-    id: t.id, model: t.model, width: t.width, dumpRadius: t.dumpRadius,
-    color: TRUCK_MODELS[t.model].color,
-    x: entry.x + (i*0.6), y: entry.y + (i*0.3),
-    wpIdx: 0,
-    state: "transit", dumpProgress: 0,
-    loaded: true,                       // carrying material until it reaches a dump
-    dumps: 0, km: 0, idleMin: 0,
-    finished: false,
-    waypoints: STATE.plan.waypoints[t.id] || [],
-  }));
+  // initialise truck runtime state from the plan — each truck stages at its
+  // HOME gate (the gate nearest its assigned zones), fanned out slightly
+  const gatesArr = STATE.plan.gates || (STATE.plan.mainGate ? [STATE.plan.mainGate] : []);
+  const fallbackG = gatesArr[0] || { x: STATE.plan.zones[0].x_min, y:(STATE.plan.zones[0].y_bot+STATE.plan.zones[0].y_top)/2 };
+  STATE.ops.trucks = STATE.fleet.trucks.map((t,i) => {
+    const home = gatesArr[(STATE.plan.truckGate || {})[t.id] ?? 0] || fallbackG;
+    const spec = TRUCK_MODELS[t.model] || {};
+    return {
+      id: t.id, model: t.model, width: t.width, dumpRadius: t.dumpRadius,
+      color: spec.color || "#FFC107",
+      speedF: spec.speedF || 1,           // per-model cruise factor (785 nimble, 797 heavy)
+      vel: 0,                             // 0..1 throttle — ramps up/down for smooth motion
+      x: home.x + (i*0.6), y: home.y + (i*0.3),
+      wpIdx: 0,
+      state: "transit", dumpProgress: 0, loadProgress: 0,
+      loaded: true,                       // staged loaded — first trip needs no reload
+      dumps: 0, cycles: 0, km: 0, idleMin: 0,
+      finished: false,
+      waypoints: STATE.plan.waypoints[t.id] || [],
+    };
+  });
+  STATE.ops.telemetry = [];
+  STATE.ops._lastSample = null;
   STATE.ops.tokens = STATE.plan.zones.map(z => ({ zone: z.id, holder: null, queue: [], heartbeat: 0 }));
   // planned-work accounting drives the progress bar and zone-complete releases
   STATE.ops.totalPlannedDumps = 0;
@@ -2385,6 +2613,25 @@ const CAT793_TURN_M     = 11.5;          // Cat 793 turning radius (metres)
 const TOKEN_TTL_MIN       = 6;   // sim-min a held token may sit idle before the broker revokes it
 const STUCK_RECOVER_MIN   = 2;   // sim-min without progress before a truck pivots toward its waypoint
 const REBALANCE_MIN_DUMPS = 6;   // don't steal work from a truck with fewer remaining dumps than this
+const LOAD_MIN            = 1.2; // sim-min to reload at a gate between shuttle trips
+const DUMP_MIN            = 0.4; // sim-min to tip one load (compressed representation of ~1.5-2.5 real min)
+
+// Real-life reference values for the report: what the simulation parameters
+// REPRESENT. Sim time is compressed — dumping/loading in real mining is much
+// slower — so the report shows both the model values in use and the field
+// reference each one stands for. Sources: Cat 785/793/797 spec sheets
+// (payload, top speed, turning) and typical open-pit cycle-time studies.
+const REAL_MINING = {
+  models: {
+    "Cat 785": { payloadT: 136, topSpeedKmh: 54.8, grossWeightT: 249, bodyM3: 78  },
+    "Cat 793": { payloadT: 240, topSpeedKmh: 60.0, grossWeightT: 390, bodyM3: 129 },
+    "Cat 797": { payloadT: 363, topSpeedKmh: 67.6, grossWeightT: 624, bodyM3: 223 }
+  },
+  dumpCycleRealMin:  { lo: 1.5, hi: 2.5 },  // spot + raise body + tip + lower
+  loadCycleRealMin:  { lo: 2.5, hi: 4.0 },  // shovel passes at the loading face
+  turnRadiusM: 11.5,                        // Cat 793 reference turning radius
+  haulCycleNote: "load at face → haul in loaded → spot & dump → haul out empty → reload",
+};
 
 // Collision avoidance: keep a 2.5×-radius gap. Lower-index truck has right of way;
 // the higher-index truck deflects around, or waits if it's right on top of it.
@@ -2441,7 +2688,12 @@ function moveTruckWithTurning(tr, aim, step) {
 // ── Live-sim robustness helpers ─────────────────────────────────────────────
 function zoneAt(x, y) {
   if (!STATE.plan) return null;
-  return STATE.plan.zones.find(z =>
+  const Z = STATE.plan.zones;
+  // exact polygon test first (clipped zones); bbox fallback covers points that
+  // sit on shared slab boundaries and legacy zones without verts
+  const exact = Z.find(z => z.verts && z.verts.length >= 3 && pip(x, y, z.verts));
+  if (exact) return exact;
+  return Z.find(z =>
     x >= z.x_min && x <= z.x_max && y >= z.y_bot && y <= z.y_top) || null;
 }
 
@@ -2591,19 +2843,96 @@ function rebalanceIdleTruck(ops, tr) {
     if (remaining > victimRemaining) { victim = ot; victimBlocks = blocks; victimRemaining = remaining; }
   });
   if (!victim) return false;
-  const block = victimBlocks[victimBlocks.length - 1];   // farthest in the victim's route
-  const stolen = victim.waypoints.splice(block.startIdx, block.endIdx - block.startIdx);
-  const dumps = stolen.filter(w => w[2] === "dump");
+  // group pending blocks by zone and take over the zone with the most pending
+  // dumps — under the shuttle cycle every trip is its own 1-dump block, so
+  // stealing a single block would hand over just one load
+  const byZone = new Map();
+  victimBlocks.forEach(b => {
+    const g = byZone.get(b.zoneId) || { zoneId: b.zoneId, blocks: [], dumpCount: 0 };
+    g.blocks.push(b); g.dumpCount += b.dumpCount;
+    byZone.set(b.zoneId, g);
+  });
+  let block = null;
+  byZone.forEach(g => { if (!block || g.dumpCount > block.dumpCount) block = g; });
+  if (!block) return false;
+  // collect the stolen dumps in route order
+  const stolenIdx = new Set();
+  const dumps = [];
+  block.blocks.forEach(b => {
+    for (let i = b.startIdx; i < b.endIdx; i++) {
+      const w = victim.waypoints[i];
+      if (w[2] === "dump") { dumps.push([w[0], w[1], "dump"]); stolenIdx.add(i); }
+    }
+  });
   if (!dumps.length) return false;
+  // rebuild the victim's remaining route in ONE O(n) pass (the old descending
+  // splice storm froze a frame for ~100 ms on long shuttle routes) and drop
+  // trips left with no dump — otherwise the victim keeps driving empty
+  // gate→zone→gate reload loops for work it no longer owns
+  {
+    const vwp = victim.waypoints;
+    const keep = vwp.slice(0, victim.wpIdx);
+    let trip = [], tripHasDump = false;
+    for (let i = victim.wpIdx; i < vwp.length; i++) {
+      const w = vwp[i];
+      if (w[2] === "dump") {
+        if (stolenIdx.has(i)) continue;
+        tripHasDump = true; trip.push(w); continue;
+      }
+      trip.push(w);
+      if (w[2] === "load") {                  // trip boundary (shuttle routes)
+        if (tripHasDump) keep.push(...trip);
+        trip = []; tripHasDump = false;
+      }
+    }
+    if (trip.length) {
+      // tail without a trailing load: legacy serpentine routes land here whole
+      // (kept minus stolen dumps); empty shuttle tails keep only the terminal gate
+      if (tripHasDump) keep.push(...trip);
+      else keep.push(trip[trip.length - 1]);
+    }
+    victim.waypoints = keep;
+  }
   const pathways = STATE.plan.haulRoadSegs || [];
-  const exitG = STATE.plan.mainGate;
   const wp = tr.waypoints;
-  const inLeg = laneRoute(pathways, [tr.x, tr.y], [dumps[0][0], dumps[0][1]]);
-  for (let i = 1; i < inLeg.length - 1; i++) wp.push([+inLeg[i][0].toFixed(2), +inLeg[i][1].toFixed(2), "transit"]);
-  dumps.forEach(d => wp.push([d[0], d[1], "dump"]));
-  if (exitG) {
-    const outLeg = laneRoute(pathways, [dumps[dumps.length-1][0], dumps[dumps.length-1][1]], [exitG.x, exitG.y]);
-    for (let i = 1; i < outLeg.length; i++) wp.push([+outLeg[i][0].toFixed(2), +outLeg[i][1].toFixed(2), "transit"]);
+  const gatesArr = STATE.plan.gates || (STATE.plan.mainGate ? [STATE.plan.mainGate] : []);
+  const zObj = STATE.plan.zones.find(z => z.id === block.zoneId);
+  const access = zObj && zObj.accessPt ? zObj.accessPt : null;
+  if (gatesArr.length && access) {
+    // realistic takeover: the thief shuttles the stolen zone like any other —
+    // one load per trip, exit via the gate nearest the dump, reload, return
+    const nearestG = p => {
+      let best = gatesArr[0], bd = Infinity;
+      gatesArr.forEach(g => { const d = Math.hypot(g.x - p[0], g.y - p[1]); if (d < bd) { bd = d; best = g; } });
+      return best;
+    };
+    let curPos = [tr.x, tr.y];
+    dumps.forEach((d, k) => {
+      const inLeg = laneRoute(pathways, curPos, access);
+      for (let i = 1; i < inLeg.length; i++) wp.push([+inLeg[i][0].toFixed(2), +inLeg[i][1].toFixed(2), "transit"]);
+      wp.push([d[0], d[1], "dump"]);
+      wp.push([+access[0].toFixed(2), +access[1].toFixed(2), "transit"]);
+      const eg = nearestG(d);
+      const outLeg = laneRoute(pathways, access, [eg.x, eg.y]);
+      for (let i = 1; i < outLeg.length; i++) wp.push([+outLeg[i][0].toFixed(2), +outLeg[i][1].toFixed(2), "transit"]);
+      if (k < dumps.length - 1) wp[wp.length - 1][2] = "load";   // reload between trips
+      curPos = [eg.x, eg.y];
+    });
+  } else {
+    // legacy fallback (no gates/access in the plan): consecutive dumps as before
+    const inLeg = laneRoute(pathways, [tr.x, tr.y], [dumps[0][0], dumps[0][1]]);
+    for (let i = 1; i < inLeg.length - 1; i++) wp.push([+inLeg[i][0].toFixed(2), +inLeg[i][1].toFixed(2), "transit"]);
+    dumps.forEach(d => wp.push([d[0], d[1], "dump"]));
+    const lastD = dumps[dumps.length - 1];
+    let exitG = null, egd = Infinity;
+    gatesArr.forEach(g => {
+      const d = Math.hypot(g.x - lastD[0], g.y - lastD[1]);
+      if (d < egd) { egd = d; exitG = g; }
+    });
+    if (exitG) {
+      const outLeg = laneRoute(pathways, [lastD[0], lastD[1]], [exitG.x, exitG.y]);
+      for (let i = 1; i < outLeg.length; i++) wp.push([+outLeg[i][0].toFixed(2), +outLeg[i][1].toFixed(2), "transit"]);
+    }
   }
   if (block.zoneId >= 0) {
     STATE.plan.assignments[block.zoneId] = tr.id;
@@ -2618,31 +2947,53 @@ function rebalanceIdleTruck(ops, tr) {
   return true;
 }
 
-// Oriented truck: body + CAT-yellow cab at the front + direction arrow + trail + glow.
+// Oriented truck, visually distinct per Cat model: body scaled by the model's
+// physical size, model-coloured hull and trail, twin rear axles on the Cat 797,
+// CAT-yellow cab at the front, tipping-bed animation while dumping.
 function drawTruck(ctx, P, tr) {
   const x = P.px(tr.x), y = P.py(tr.y);
   const heading = (tr.heading !== undefined) ? tr.heading
     : (tr.waypoints[tr.wpIdx]
         ? Math.atan2(tr.waypoints[tr.wpIdx][1]-tr.y, tr.waypoints[tr.wpIdx][0]-tr.x) : 0);
-  // fading trail
+  const spec = TRUCK_MODELS[tr.model] || {};
+  const mScale = spec.scale || 0.9;
+  // fading trail, tinted with the model colour so routes read per-truck
   if (tr.trail) for (let i=0;i<tr.trail.length;i++) {
     const a = (i+1)/tr.trail.length;
-    ctx.fillStyle = `rgba(255,255,255,${a*0.22})`;
-    ctx.beginPath(); ctx.arc(P.px(tr.trail[i][0]), P.py(tr.trail[i][1]), 1.5, 0, 2*Math.PI); ctx.fill();
+    ctx.fillStyle = (tr.color || "#FFFFFF") + Math.round(a*56+12).toString(16).padStart(2,"0");
+    ctx.beginPath(); ctx.arc(P.px(tr.trail[i][0]), P.py(tr.trail[i][1]), 1.2 + a*0.8, 0, 2*Math.PI); ctx.fill();
   }
-  // active-zone glow (kept from original)
+  // service-state feedback — the dump/reload pauses are intentional cycle time,
+  // but without a progress ring they read as the sim freezing
   if (tr.state === "dumping") {
     ctx.fillStyle = tr.color + "55";
     ctx.beginPath(); ctx.arc(x, y, 10 + tr.dumpProgress*6, 0, 2*Math.PI); ctx.fill();
+    const p = Math.min(1, tr.dumpProgress || 0);
+    ctx.strokeStyle = "rgba(0,210,106,0.9)"; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(x, y, 13, -Math.PI/2, -Math.PI/2 + p*2*Math.PI); ctx.stroke();
+  } else if (tr.state === "loading") {
+    const p = Math.min(1, tr.loadProgress || 0);
+    ctx.strokeStyle = "rgba(255,205,17,0.30)"; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(x, y, 13, 0, 2*Math.PI); ctx.stroke();
+    ctx.strokeStyle = "#FFCD11"; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(x, y, 13, -Math.PI/2, -Math.PI/2 + p*2*Math.PI); ctx.stroke();
+    ctx.fillStyle = "#FFCD11"; ctx.font = "bold 7px monospace"; ctx.textAlign = "center";
+    ctx.fillText("RELOAD", x, y - 17);
   }
-  const L = 1.5 * P.s, W = 0.8 * P.s;     // logical → pixels
+  const L = 1.5 * mScale * P.s, W = 0.8 * mScale * P.s;     // logical → pixels, model-sized
+  const tip = (tr.state === "dumping") ? Math.min(1, tr.dumpProgress) : 0;
   ctx.save();
   ctx.translate(x, y); ctx.rotate(-heading);   // logical heading → screen (Y-down)
+  // material spilling out behind the raised bed while tipping
+  if (tip > 0.15) {
+    ctx.fillStyle = `rgba(107,88,54,${0.35 + 0.35*tip})`;
+    ctx.beginPath(); ctx.arc(-L*0.62, 0, W*0.30*(0.4 + 0.6*tip), 0, 2*Math.PI); ctx.fill();
+  }
   ctx.fillStyle = tr.color; ctx.strokeStyle = "#0c0c0c"; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.roundRect(-L/2, -W/2, L, W, 2); ctx.fill(); ctx.stroke();
-  // payload bed: dirt mound when loaded, empty outline after dumping
-  const bedX = -L/2 + L*0.08, bedW = L*0.58, bedH = W*0.66;
-  if (tr.loaded) {
+  // payload bed: dirt mound when loaded; tips rearward (slides -x, narrows) while dumping
+  const bedX = -L/2 + L*0.08 - tip*L*0.16, bedW = L*0.58*(1 - 0.25*tip), bedH = W*0.66;
+  if (tr.loaded || tip > 0) {
     ctx.fillStyle = "#6b5836";                  // material (overburden) colour
     ctx.beginPath(); ctx.roundRect(bedX, -bedH/2, bedW, bedH, 1.5); ctx.fill();
     ctx.strokeStyle = "#2a2118"; ctx.lineWidth = 0.7; ctx.stroke();
@@ -2650,6 +3001,12 @@ function drawTruck(ctx, P, tr) {
     ctx.strokeStyle = "rgba(0,0,0,0.5)"; ctx.lineWidth = 0.7;
     ctx.beginPath(); ctx.roundRect(bedX, -bedH/2, bedW, bedH, 1.5); ctx.stroke();
   }
+  // axle marks: Cat 797 reads as the twin-rear-axle ultra-class hauler
+  ctx.strokeStyle = "rgba(0,0,0,0.55)"; ctx.lineWidth = Math.max(1, W*0.10);
+  const axles = tr.model === "Cat 797" ? [-L*0.34, -L*0.16] : [-L*0.26];
+  axles.forEach(ax => {
+    ctx.beginPath(); ctx.moveTo(ax, -W/2 - 1.2); ctx.lineTo(ax, W/2 + 1.2); ctx.stroke();
+  });
   ctx.fillStyle = "#FFC72C";                    // Caterpillar yellow cab at front (+x)
   ctx.fillRect(L/2 - L*0.28, -W/2, L*0.28, W);
   ctx.strokeStyle = "#0c0c0c"; ctx.lineWidth = 1.2; ctx.beginPath();
@@ -2657,7 +3014,9 @@ function drawTruck(ctx, P, tr) {
   ctx.moveTo(L*0.55, 0); ctx.lineTo(L*0.30,  W*0.32); ctx.stroke();
   ctx.restore();
   ctx.fillStyle = "#fff"; ctx.font = "bold 8px monospace"; ctx.textAlign = "center";
-  ctx.fillText(tr.id, x, y - W - 2);
+  ctx.fillText(tr.id, x, y - W - 3);
+  ctx.fillStyle = tr.color; ctx.font = "7px monospace";
+  ctx.fillText((tr.model || "").replace("Cat ", ""), x, y + W + 8);
 }
 
 // Scale ruler + N compass (shared by ops, site, and plan canvases).
@@ -2718,26 +3077,54 @@ function opsTick(dt) {
       return;
     }
     const target = wp[tr.wpIdx];
-    tr.loaded = (target[2] === "dump");      // loaded while carrying material to a dump
+    // tr.loaded is event-driven now: set true when a gate reload completes,
+    // false when a dump completes — so the bed reads full on the whole haul-in
+    // leg and empty on the whole haul-out leg, matching the real cycle.
     const dx = target[0] - tr.x, dy = target[1] - tr.y;
     const dist = Math.hypot(dx, dy);
+    if (tr.state === "loading") {
+      // reloading at a gate between shuttle trips — bed refills, then the
+      // truck pulls away smoothly for its next run into the field
+      tr.loadProgress = (tr.loadProgress || 0) + dtMin / LOAD_MIN;
+      tr.loaded = false;
+      if (tr.loadProgress >= 1) {
+        tr.loaded = true;
+        tr.cycles = (tr.cycles || 0) + 1;
+        tr.loadProgress = 0;
+        tr.state = "transit";
+        tr.wpIdx++;
+        tr.vel = 0;
+      }
+      return;
+    }
     if (tr.state === "dumping") {
-      tr.dumpProgress += dtMin / 0.4;          // quick dump cycle (was 2.5 sim-min)
+      tr.dumpProgress += dtMin / DUMP_MIN;     // compressed dump cycle (represents ~1.5-2.5 real min)
       if (tr.dumpProgress >= 1) {
         tr.loaded = false;                   // material has been dropped — bed is empty
-        applyDump(tr.x, tr.y, tr.dumpRadius);
-        ops.dumpAnims.push({ x: tr.x, y: tr.y, r: tr.dumpRadius*0.4, maxR: tr.dumpRadius*2.2, alpha: 0.8 });
-        // mark nearest hex spot as filled for visualisation
+        // Material lands on the PLANNED spot (the dump waypoint), in LOGICAL
+        // units. Two former desync bugs lived here: (1) raw metres painted a
+        // ~17× oversized footprint → coverage hit 100 % at a few percent of
+        // the dumps; (2) painting at the truck's position (up to an arrival
+        // radius away from the spot) double-painted some cells and missed the
+        // planned ones → coverage could never reach 100 %.
+        const drA = metresToLogical(tr.dumpRadius);
+        const spotX = target[0], spotY = target[1];
+        applyDump(spotX, spotY, drA);
+        ops.dumpAnims.push({ x: spotX, y: spotY, r: drA, maxR: Math.max(drA*4, 1.2), alpha: 0.8 });
+        // paint every visual spot inside this dump's real footprint as filled —
+        // the old one-nearest-spot marking left interstitial spots looking
+        // uncovered even where material had actually been placed
         if (STATE.plan.hexSpots) {
-          let best = null, bd = Infinity;
+          const fr = Math.max(drA * 1.4, 0.42);
+          const fr2 = fr * fr;
           STATE.plan.hexSpots.forEach(s => {
             if (s.state === 'filled') return;
-            const d = Math.hypot(s.x - tr.x, s.y - tr.y);
-            if (d < bd) { bd = d; best = s; }
+            const sdx = s.x - spotX, sdy = s.y - spotY;
+            if (sdx*sdx + sdy*sdy <= fr2) { s.state = 'filled'; s.fillAnim = 0; s.owner = null; }
           });
-          if (best && bd < metresToLogical(tr.dumpRadius) * 3) { best.state = 'filled'; best.fillAnim = 0; }
         }
         tr.dumps++; tr.dumpProgress = 0; tr.state = "transit"; tr.wpIdx++;
+        tr.vel = 0;                          // pull away from the dump smoothly
         // productive dump: refresh the zone token's heartbeat and track
         // per-zone completion so a finished zone releases its lock instantly
         const zHere = zoneAt(tr.x, tr.y);
@@ -2791,14 +3178,28 @@ function opsTick(dt) {
         tr.state = "dumping"; tr.dumpProgress = 0;
         return;
       }
+      if (target[2] === "load") {            // arrived at a gate to reload
+        tr.state = "loading"; tr.loadProgress = 0;
+        return;
+      }
       tr.wpIdx++;
       const prevZone = STATE.plan.zones.find(z =>
         tr.x >= z.x_min && tr.x <= z.x_max && tr.y >= z.y_bot && tr.y <= z.y_top);
       if (prevZone) {
         const tok = ops.tokens[prevZone.id];
         if (tok.holder === tr.id) {
-          const remaining = wp.slice(tr.wpIdx).some(w =>
-            w[2]==="dump" && w[0] >= prevZone.x_min && w[0] <= prevZone.x_max && w[1] >= prevZone.y_bot && w[1] <= prevZone.y_top);
+          // keep the token only if another dump in THIS zone comes up BEFORE
+          // the route leaves the zone. A shuttle trip that exits to reload
+          // releases immediately, so other trucks can work the zone while
+          // this one is out at the gate — it re-acquires on return.
+          let remaining = false;
+          for (let i = tr.wpIdx; i < wp.length; i++) {
+            const w = wp[i];
+            const zi = zoneAt(w[0], w[1]);
+            const inz = zi && zi.id === prevZone.id;
+            if (!inz) break;
+            if (w[2] === "dump") { remaining = true; break; }
+          }
           if (!remaining) {
             tok.holder = null;
             if (tok.queue.length) {
@@ -2812,22 +3213,54 @@ function opsTick(dt) {
       }
       return;
     }
-    // ── movement: avoidance → turning ──────────────────────────────────────
-    // Delta-time velocity: distance this frame = speed * speedMul * dt. dt is tiny
-    // (~16 ms at 60 fps) so each step is small and the truck glides smoothly toward
-    // the next waypoint instead of snapping onto it.
+    // ── movement: avoidance → corner slowdown → throttle ramp → turning ────
+    // Distance this frame = cruise × throttle. Cruise carries the per-model
+    // speed factor (Cat 785 nimble, Cat 797 heavy); the throttle ramps toward
+    // a corner-aware target so trucks ease out of dumps and brake into sharp
+    // turns instead of snapping — the turning CIRCLE itself never changes.
     stuckWatchdog(tr, target, dist, dtMin);      // breaks turning-circle orbits
-    const v = 0.2 * STATE.ops.speedMul * dt;     // logical units this frame
-    const step = Math.min(v, dist, 1.2);         // safety cap for long frame gaps
-    const avoid = moveTruckWithAvoidance(tr, ops, target, step);
+    const cruise = 0.2 * (tr.speedF || 1) * STATE.ops.speedMul * dt;  // logical units this frame
+    const avoid = moveTruckWithAvoidance(tr, ops, target, Math.min(cruise, dist, 1.2));
     if (avoid.wait) {
+      tr.vel = 0;                                // hard yield — pull away smoothly after
       tr.idleMin += dtMin;
     } else {
+      let want = 1;
+      if (tr.heading !== undefined) {
+        let hErr = Math.atan2(avoid.aim[1]-tr.y, avoid.aim[0]-tr.x) - tr.heading;
+        while (hErr >  Math.PI) hErr -= 2*Math.PI;
+        while (hErr < -Math.PI) hErr += 2*Math.PI;
+        want = Math.max(0.35, Math.cos(Math.min(Math.abs(hErr), Math.PI/2)));
+      }
+      tr.vel = (tr.vel ?? 1) + (want - (tr.vel ?? 1)) * Math.min(1, dt * 3);
+      const step = Math.min(cruise * tr.vel, dist, 1.2);   // safety cap for long frame gaps
       const bx = tr.x, by = tr.y;
       moveTruckWithTurning(tr, avoid.aim, step);
-      tr.km += Math.hypot(tr.x-bx, tr.y-by) / 1000;
+      tr.km += Math.hypot(tr.x-bx, tr.y-by) * getScale() / 1000;   // REAL km (logical→m→km)
     }
   });
+  // Off-shift time-warp: if EVERY truck with pending work is merely off shift
+  // (not stopped, not e-stopped), advance the clock to the next shift start
+  // instead of freezing the simulation for hours of dead sim-time — this was
+  // the "stuck after a while" stagnation (a 06:00–18:00 fleet froze silently
+  // at sim t=720 min with thousands of shuttle minutes still to run).
+  if (active === 0 && !ops.estop) {
+    const pending = ops.trucks.filter(t => !t.finished && !t.stopped && t.wpIdx < t.waypoints.length);
+    if (pending.length) {
+      let jump = null;
+      for (let m = 1; m <= 1440 && jump == null; m++) {
+        const tod = (6*60 + ops.t + m) % 1440;
+        if (pending.some(tr => {
+          const ft = STATE.fleet.trucks.find(x => x.id === tr.id);
+          return ft && isOnShift(ft, tod);
+        })) jump = m;
+      }
+      if (jump != null) {
+        ops.t += jump;
+        opsLog(`All units off shift — clock advanced ${jump.toFixed(0)} sim-min to next shift start`, "amber");
+      }
+    }
+  }
   // advance + cull dump animations (dt-based so they look the same at any frame rate)
   ops.dumpAnims = ops.dumpAnims.filter(a => {
     a.r += (a.maxR - a.r) * Math.min(1, dt * 9); a.alpha -= dt * 3.2; return a.alpha > 0;
@@ -2840,7 +3273,25 @@ function opsTick(dt) {
   }
   brokerTick(ops);                              // revoke stale / orphaned zone tokens
   const cov = ops.nFilled / Math.max(STATE.plan.insideCells, 1);
-  ops.coverageHistory.push({t: ops.t, cov});
+  // sample the report curve at most twice per sim-minute — pushing every frame
+  // grew an unbounded array (60/s) whose GC pauses showed up as periodic hitches
+  if (ops._lastCovPush == null || ops.t - ops._lastCovPush >= 0.5) {
+    ops._lastCovPush = ops.t;
+    ops.coverageHistory.push({t: ops.t, cov});
+  }
+  // telemetry ring buffer: one sample per sim-minute feeds the Telemetry tab
+  // (coverage curve, throughput, per-truck speed/idle history)
+  ops.telemetry = ops.telemetry || [];
+  if (ops._lastSample == null || ops.t - ops._lastSample >= 1) {
+    ops._lastSample = ops.t;
+    ops.telemetry.push({
+      t: ops.t, cov,
+      dumps: ops.trucks.reduce((s,t)=>s+t.dumps,0),
+      km: ops.trucks.reduce((s,t)=>s+t.km,0),
+      perTruck: ops.trucks.map(t => ({ id: t.id, dumps: t.dumps, km: +t.km.toFixed(3), idle: +t.idleMin.toFixed(2) })),
+    });
+    if (ops.telemetry.length > 720) ops.telemetry.shift();
+  }
   const placed = ops.trucks.reduce((s,t)=>s+t.dumps,0);
   const totalPlanned = ops.totalPlannedDumps || 0;
   setText("kpi-time", fmtTime(ops.t));
@@ -2939,39 +3390,59 @@ function drawOps() {
       }
       ctx.setLineDash([]);
       ctx.fillStyle = "#fff"; ctx.font = "bold 10px monospace"; ctx.textAlign = "center";
-      ctx.fillText(`Z${z.id+1}`, P.px((z.x_min+z.x_max)/2), P.py((z.y_bot+z.y_top)/2)+4);
+      ctx.fillText(`Z${z.id+1} · ${tId}`, P.px((z.x_min+z.x_max)/2), P.py((z.y_bot+z.y_top)/2)+4);
     });
-    // hex spot circles (HexPackSim-style) with smooth bloom-in fill + active pulse
+    // hex spot circles (HexPackSim-style). Steady spots (thousands) are batched
+    // into THREE draw calls instead of one stroke/fill per circle — the old
+    // per-spot loop was the main source of frame hitches on large sites.
+    // Only blooming/active spots (a handful at a time) draw individually.
     if (STATE.plan.hexSpots) {
       const pulse = 0.5 + 0.5 * Math.sin((STATE.ops.pulse || 0) * 6);   // 0..1 breathing
-      STATE.plan.hexSpots.forEach(s => {
-        const sx = P.px(s.x), sy = P.py(s.y);
-        const sr = Math.max(2, s.r * P.s);
-        if (s.state === 'filled') {
-          const fa = (s.fillAnim == null) ? 1 : s.fillAnim;     // 0..1 bloom progress
-          const ease = 1 - Math.pow(1 - fa, 3);                 // ease-out cubic
+      const spots = STATE.plan.hexSpots;
+      // batch 1: empty spots — one dashed stroke pass
+      ctx.strokeStyle = 'rgba(160,190,220,0.4)';
+      ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+      ctx.beginPath();
+      for (const s of spots) {
+        if (s.state !== 'empty') continue;
+        const sx = P.px(s.x), sy = P.py(s.y), sr = Math.max(2, s.r * P.s);
+        ctx.moveTo(sx + sr, sy); ctx.arc(sx, sy, sr, 0, 2*Math.PI);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // batch 2: settled filled spots — one fill + one stroke pass
+      ctx.fillStyle = 'rgba(0,210,106,0.55)';
+      ctx.strokeStyle = 'rgba(0,210,106,0.85)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (const s of spots) {
+        if (s.state !== 'filled' || (s.fillAnim != null && s.fillAnim < 1)) continue;
+        const sx = P.px(s.x), sy = P.py(s.y), sr = Math.max(2, s.r * P.s);
+        ctx.moveTo(sx + sr, sy); ctx.arc(sx, sy, sr, 0, 2*Math.PI);
+      }
+      ctx.fill(); ctx.stroke();
+      // batch 3: animated spots only (bloom-in fills + active pulses)
+      for (const s of spots) {
+        const blooming = s.state === 'filled' && s.fillAnim != null && s.fillAnim < 1;
+        if (!blooming && s.state !== 'active') continue;
+        const sx = P.px(s.x), sy = P.py(s.y), sr = Math.max(2, s.r * P.s);
+        if (blooming) {
+          const ease = 1 - Math.pow(1 - s.fillAnim, 3);         // ease-out cubic
           const er = sr * (0.45 + 0.55 * ease);                 // grow from 45% → full
-          ctx.setLineDash([]);
-          ctx.shadowColor = 'rgba(0,210,106,0.7)'; ctx.shadowBlur = (fa < 1) ? 8 * ease : 0;
+          ctx.shadowColor = 'rgba(0,210,106,0.7)'; ctx.shadowBlur = 8 * ease;
           ctx.fillStyle = `rgba(0,210,106,${0.55 * ease})`;
           ctx.strokeStyle = `rgba(0,210,106,${0.85 * ease})`;
           ctx.lineWidth = 1.2;
           ctx.beginPath(); ctx.arc(sx, sy, er, 0, 2*Math.PI); ctx.fill(); ctx.stroke();
           ctx.shadowBlur = 0;
-        } else if (s.state === 'active') {
-          ctx.setLineDash([]);
+        } else {
           ctx.shadowColor = '#f5a623'; ctx.shadowBlur = 6 + 6 * pulse;
           ctx.fillStyle = `rgba(245,166,35,${0.25 + 0.20 * pulse})`;
           ctx.strokeStyle = '#f5a623'; ctx.lineWidth = 1.5;
           ctx.beginPath(); ctx.arc(sx, sy, sr * (1 + 0.10 * pulse), 0, 2*Math.PI); ctx.fill(); ctx.stroke();
           ctx.shadowBlur = 0;
-        } else {
-          ctx.strokeStyle = 'rgba(160,190,220,0.4)';
-          ctx.lineWidth = 1; ctx.setLineDash([3,3]);
-          ctx.beginPath(); ctx.arc(sx, sy, sr, 0, 2*Math.PI); ctx.stroke();
-          ctx.setLineDash([]);
         }
-      });
+      }
     }
   }
   // polygon
@@ -2983,10 +3454,11 @@ function drawOps() {
     ctx.strokeStyle = `rgba(255,199,12,${a.alpha})`; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(P.px(a.x), P.py(a.y), a.r * P.s, 0, 2*Math.PI); ctx.stroke();
   });
-  // haul roads + main gate
+  // haul roads + no-go zones + gates
   if (STATE.plan) {
     drawHaulRoads(ctx, P, STATE.plan.haulPolylines);
-    if (STATE.plan.mainGate) drawMainGate(ctx, P, STATE.plan.mainGate);
+    drawNogo(ctx, P, STATE.site.nogo);
+    drawGates(ctx, P, STATE.plan.gates || (STATE.plan.mainGate ? [STATE.plan.mainGate] : []));
   }
   // trucks
   STATE.ops.trucks.forEach(tr => drawTruck(ctx, P, tr));
@@ -3030,28 +3502,108 @@ function renderReportPage() {
   setText("rp-vs", (r.deltaVsBaseline >= 0 ? "+" : "") + r.deltaVsBaseline.toFixed(2) + " pp");
   setText("rp-dumps", r.totalDumps);
   setText("rp-time", fmtTime(r.duration));
+  setText("rp-tonnes", (r.tonnes || 0).toLocaleString());
+  setText("rp-cycles", r.cycles ?? "—");
+  setText("rp-km", (r.fleetKm ?? 0).toFixed(2));
+  setText("rp-tph", (r.throughputTPerH || 0).toLocaleString());
   document.getElementById("rp-trucks").innerHTML = r.perTruck.map(t => `<tr>
-    <td class="v">${t.id}</td><td>${t.dumps}</td><td>${t.km.toFixed(2)} km</td>
-    <td>${t.idleMin.toFixed(1)} min</td><td>${(t.efficiency*100).toFixed(0)}%</td></tr>`).join("");
+    <td class="v">${t.id}</td><td>${(t.model||"").replace("Cat ","")}</td><td>${t.dumps}</td>
+    <td>${(t.tonnes||0).toLocaleString()}</td><td>${t.cycles ?? t.dumps}</td><td>${t.km.toFixed(2)} km</td>
+    <td>${t.idleMin.toFixed(1)} min</td><td>${((t.utilization ?? 0)*100).toFixed(0)}%</td></tr>`).join("");
+  // session overview
+  const s = r.session || {};
+  const sess = [
+    ["Site area", `${(s.siteAreaM2||0).toLocaleString()} m²`],
+    ["Workable area (after no-go)", `${(s.workableAreaM2||0).toLocaleString()} m² · ${s.nogoCount||0} no-go zone${(s.nogoCount||0)===1?"":"s"}`],
+    ["Gates", (s.gates||[]).join(", ") || "—"],
+    ["Zones", s.nZones ?? "—"],
+    ["Fleet", (s.fleet||[]).join(" · ") || "—"],
+    ["Planned dumps", `${s.totalPlannedDumps||0} (${s.gapDumps||0} gap-fill)`],
+    ["Projected coverage", `${s.projectedCovPct||0}%`],
+    ["Completed", new Date(r.timestamp).toLocaleString()],
+  ];
+  const sessEl = document.getElementById("rp-session");
+  if (sessEl) sessEl.innerHTML = sess.map(row => `<tr><td class="k">${row[0]}</td><td class="v">${row[1]}</td></tr>`).join("");
+  // zone completion
+  const zEl = document.getElementById("rp-zones");
+  if (zEl) zEl.innerHTML = (r.zones||[]).map(z => `<tr>
+    <td class="v">Z${z.id+1}</td><td>${z.truck}</td><td>${z.planned}</td><td>${z.placed}</td>
+    <td style="color:${z.complete?'var(--green)':'var(--orange)'};font-weight:700">${z.complete?'✓ complete':'partial'}</td></tr>`).join("");
+  // model parameters vs real-life reference
+  const pEl = document.getElementById("rp-params");
+  if (pEl) {
+    const rm = r.realParams || REAL_MINING, sp = r.simParams || {};
+    const rows = [
+      ["Dump cycle", `${sp.dumpMin ?? DUMP_MIN} sim-min`, `${rm.dumpCycleRealMin.lo}–${rm.dumpCycleRealMin.hi} min (spot + raise + tip + lower)`],
+      ["Reload cycle at gate", `${sp.loadMin ?? LOAD_MIN} sim-min`, `${rm.loadCycleRealMin.lo}–${rm.loadCycleRealMin.hi} min (shovel passes at the face)`],
+      ["Haul cycle", "gate → dump → nearest gate → reload", rm.haulCycleNote],
+      ["Turning radius", `${sp.turnRadiusM ?? CAT793_TURN_M} m (all models)`, `${rm.turnRadiusM} m (Cat 793 reference)`],
+      ["Zone lock TTL", `${sp.tokenTtlMin ?? TOKEN_TTL_MIN} sim-min heartbeat`, "dispatcher supervision / FMS heartbeat"],
+    ];
+    Object.entries(rm.models).forEach(([m, v]) => {
+      const spec = TRUCK_MODELS[m] || {};
+      rows.push([m, `payload ${spec.payload} t · speed ×${spec.speedF}`,
+        `payload ${v.payloadT} t · top speed ${v.topSpeedKmh} km/h · GMW ${v.grossWeightT} t · body ${v.bodyM3} m³`]);
+    });
+    pEl.innerHTML = rows.map(row => `<tr><td class="k">${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td></tr>`).join("");
+  }
   drawReportChart();
 }
 
 function finalizeReport() {
   const ops = STATE.ops;
   const cov = ops.nFilled / Math.max(STATE.plan.insideCells, 1);
-  const perTruck = ops.trucks.map(t => ({
-    id: t.id, model: t.model,
-    dumps: t.dumps, km: t.km, idleMin: t.idleMin,
-    efficiency: (t.dumps + t.km) > 0 ? t.dumps / (t.dumps + t.idleMin/60 + t.km) : 0,
-  }));
+  const perTruck = ops.trucks.map(t => {
+    const payload = (TRUCK_MODELS[t.model] || {}).payload || 0;
+    return {
+      id: t.id, model: t.model,
+      dumps: t.dumps, cycles: t.cycles || t.dumps, km: t.km, idleMin: t.idleMin,
+      tonnes: t.dumps * payload,
+      utilization: ops.t > 0 ? Math.max(0, Math.min(1, 1 - t.idleMin / ops.t)) : 0,
+      efficiency: (t.dumps + t.km) > 0 ? t.dumps / (t.dumps + t.idleMin/60 + t.km) : 0,
+    };
+  });
+  // per-zone outcome: planned dumps from zonePaths, remaining from the live counter
+  const zones = (STATE.plan.zones || []).map(z => {
+    const zp = (STATE.plan.zonePaths || {})[z.id] || { dumps: [], truck: STATE.plan.assignments[z.id] };
+    const planned = zp.dumps ? zp.dumps.length : 0;
+    const remaining = Math.max(0, (ops.zoneRemaining || {})[z.id] || 0);
+    return {
+      id: z.id, truck: zp.truck || STATE.plan.assignments[z.id],
+      areaM2: +(z.area * Math.pow(getScale(), 2)).toFixed(0),
+      planned, placed: Math.max(0, planned - remaining),
+      gapDumps: zp.gapDumps || 0,
+      complete: remaining <= 0 && planned > 0,
+    };
+  });
+  const totalDumps = ops.trucks.reduce((s,t)=>s+t.dumps,0);
+  const tonnes = perTruck.reduce((s,t)=>s+t.tonnes,0);
   // baseline coverage for our default polygon = 62.18%; for custom polygons compute via simple sampler
   const baselineCov = EMBED.baseline_pct;
   STATE.report = {
     coverage: cov,
     deltaVsBaseline: cov*100 - baselineCov,
-    totalDumps: ops.trucks.reduce((s,t)=>s+t.dumps,0),
+    totalDumps,
+    tonnes,
+    cycles: perTruck.reduce((s,t)=>s+t.cycles,0),
+    fleetKm: +perTruck.reduce((s,t)=>s+t.km,0).toFixed(2),
+    throughputTPerH: ops.t > 0 ? +(tonnes / (ops.t/60)).toFixed(0) : 0,
     duration: ops.t,
     perTruck,
+    zones,
+    session: {
+      siteAreaM2: +areaLogicalToM2(polyArea(STATE.site.verts)).toFixed(0),
+      workableAreaM2: +(STATE.plan.insideCells * GRID_RES * GRID_RES * Math.pow(getScale(),2)).toFixed(0),
+      gates: (STATE.plan.gates || []).map(g => g.name),
+      nogoCount: (STATE.site.nogo || []).length,
+      nZones: (STATE.plan.zones || []).length,
+      fleet: STATE.fleet.trucks.map(t => `${t.id} ${t.model}`),
+      projectedCovPct: +(STATE.plan.projectedCov*100).toFixed(1),
+      totalPlannedDumps: ops.totalPlannedDumps || 0,
+      gapDumps: zones.reduce((s,z)=>s+z.gapDumps,0),
+    },
+    realParams: REAL_MINING,
+    simParams: { dumpMin: DUMP_MIN, loadMin: LOAD_MIN, tokenTtlMin: TOKEN_TTL_MIN, turnRadiusM: CAT793_TURN_M },
     coverageHistory: ops.coverageHistory.slice(),
     timestamp: new Date().toISOString(),
   };
@@ -3110,7 +3662,7 @@ function exportSummaryJSON() {
     generated: new Date().toISOString(),
     site: {
       polygon: STATE.site.verts,
-      mainGate: STATE.plan ? STATE.plan.mainGate : STATE.site.mainGate,
+      gates: STATE.plan ? STATE.plan.gates : STATE.site.gates,
       area_m2: +polyArea(STATE.site.verts).toFixed(1),
     },
     fleet: STATE.fleet.trucks,
@@ -3125,10 +3677,21 @@ function exportSummaryJSON() {
       final_coverage_pct: +(STATE.report.coverage*100).toFixed(2),
       delta_vs_baseline_pp: +STATE.report.deltaVsBaseline.toFixed(2),
       total_dumps: STATE.report.totalDumps,
+      material_moved_t: STATE.report.tonnes,
+      haul_cycles: STATE.report.cycles,
+      fleet_km: STATE.report.fleetKm,
+      throughput_t_per_sim_h: STATE.report.throughputTPerH,
       per_truck: STATE.report.perTruck.map(t => ({
         ...t, km: +t.km.toFixed(2), idle_min: +t.idleMin.toFixed(1),
+        utilization_pct: +((t.utilization ?? 0)*100).toFixed(1),
         efficiency_pct: +(t.efficiency*100).toFixed(1)
       })),
+      per_zone: STATE.report.zones,
+      session: STATE.report.session,
+    },
+    parameters: {
+      sim: STATE.report.simParams,
+      real_life_reference: STATE.report.realParams,
     },
     references: {
       embedded_model_episodes: EMBED.episodes,
@@ -3348,7 +3911,7 @@ function _dToken(id){ if(!STATE.ops||!STATE.ops.tokens) return '—'; const k=ST
 function _dCoord(t){ if(t.x==null) return '—'; const s=_dScale(); return Math.round(t.x*s)+', '+Math.round(t.y*s)+' m'; }
 function _dProg(t){ const n=(t.waypoints&&t.waypoints.length)||0; return n?Math.min(100,Math.round(t.wpIdx/n*100)):0; }
 function _dEstop(){ return !!(STATE.ops&&STATE.ops.estop); }
-function _dSCls(t){ if(t.stopped||_dEstop())return'stopped'; if(t.finished)return'idle'; if(t.state==='dumping'||t.state==='transit')return'active'; if(t.state==='config')return'maintenance'; return'idle'; }
+function _dSCls(t){ if(t.stopped||_dEstop())return'stopped'; if(t.finished)return'idle'; if(t.state==='dumping'||t.state==='transit'||t.state==='loading')return'active'; if(t.state==='config')return'maintenance'; return'idle'; }
 function _dSTxt(t){ if(t.stopped||_dEstop())return'stopped'; if(t.finished)return'done'; if(t.state==='config')return'configured'; return t.state||'idle'; }
 function _dSimT(){ return (STATE.ops&&STATE.ops.t)||0; }
 function _dCov(){ return (STATE.plan&&STATE.ops)?(STATE.ops.nFilled/Math.max(STATE.plan.insideCells,1)*100):0; }
@@ -3426,7 +3989,7 @@ function drawFleetMap(){
   if(STATE.site&&STATE.site.verts&&STATE.site.verts.length){ctx.strokeStyle="#3DB5F7";ctx.lineWidth=2;ctx.beginPath();STATE.site.verts.forEach((v,i)=>{const x=P.px(v[0]),y=P.py(v[1]);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.closePath();ctx.stroke();}
   if(STATE.plan&&STATE.plan.zones){STATE.plan.zones.forEach(z=>{ctx.strokeStyle="rgba(255,203,5,0.22)";ctx.setLineDash([4,3]);ctx.strokeRect(P.px(z.x_min),P.py(z.y_top),(z.x_max-z.x_min)*P.s,(z.y_top-z.y_bot)*P.s);ctx.setLineDash([]);});}
   if(STATE.plan&&STATE.plan.haulPolylines){drawHaulRoads(ctx,P,STATE.plan.haulPolylines);}
-  if(STATE.plan&&STATE.plan.mainGate){drawMainGate(ctx,P,STATE.plan.mainGate);}
+  if(STATE.plan){drawGates(ctx,P,STATE.plan.gates||(STATE.plan.mainGate?[STATE.plan.mainGate]:[]));}
   const ts=(STATE.ops&&STATE.ops.trucks)||[];
   ts.forEach(t=>{ if(t.x==null)return; const x=P.px(t.x),y=P.py(t.y);
     ctx.fillStyle=(t.stopped||_dEstop())?'#ef4444':(t.color||'#FFC107');
@@ -3436,110 +3999,275 @@ function drawFleetMap(){
   if(!ts.length||ts[0].x==null){ctx.fillStyle="#7c8aa0";ctx.font="13px monospace";ctx.textAlign="center";ctx.fillText("Run Live Operations to see trucks moving here",c.width/2,c.height/2);}
 }
 
-/* ===================== V2V COMMS ===================== */
-function _v2badge(cls){ return cls==='amber'?'warning':cls==='green'?'success':cls==='red'?'danger':'info'; }
-function _feedRow(e){ return `<div style="padding:8px 4px;border-bottom:1px solid var(--border-color);font-size:12px"><div style="display:flex;justify-content:space-between;gap:8px"><span style="color:var(--text-secondary)">${e.msg}</span><span class="card-badge ${_v2badge(e.cls)}">${fmtTime(e.t)}</span></div></div>`; }
-function _v2pairs(){ const ts=(STATE.ops&&STATE.ops.trucks)||[],s=_dScale(),pairs=[]; for(let i=0;i<ts.length;i++)for(let j=i+1;j<ts.length;j++){if(ts[i].x==null||ts[j].x==null)continue;const d=Math.hypot(ts[i].x-ts[j].x,ts[i].y-ts[j].y);if(d<6)pairs.push({a:ts[i].id,b:ts[j].id,m:Math.round(d*s)});} return pairs; }
-function _proxHTML(pairs){ return pairs.length?`<table class="data-table"><thead><tr><th>Unit A</th><th>Unit B</th><th>Separation</th><th>Status</th></tr></thead><tbody>${pairs.map(p=>`<tr><td style="font-family:var(--font-mono);color:var(--cat-yellow)">${p.a}</td><td style="font-family:var(--font-mono)">${p.b}</td><td>${p.m} m</td><td><span class="status-pill ${p.m<40?'stopped':'idle'}">${p.m<40?'close':'watch'}</span></td></tr>`).join('')}</tbody></table>`:'<div style="color:var(--text-muted);font-size:12px;padding:8px">No units within proximity range.</div>'; }
+/* ===================== V2V COMMS — radio mesh operations panel ===================== */
+const V2V_RANGE_L = 6;                 // logical comms range (~100 m at 500 m site width)
+let _v2Filter = 'ALL';
+function _v2cat(msg){
+  if(/REBALANCE/.test(msg)) return 'REBAL';
+  if(/queued for/.test(msg)) return 'QUEUE';
+  if(/deferred/.test(msg)) return 'DEFER';
+  if(/yielding/.test(msg)) return 'YIELD';
+  if(/stuck/.test(msg)) return 'STUCK';
+  if(/acquired|released|revoking|heartbeat|complete|→/.test(msg)) return 'TOKEN';
+  return 'SYS';
+}
+const _v2catColor = { TOKEN:'info', QUEUE:'warning', DEFER:'warning', REBAL:'success', YIELD:'warning', STUCK:'danger', SYS:'info' };
+function _v2rssi(dM){ return Math.round(-40 - 25 * Math.log10(Math.max(dM,1)/10)); }  // log-distance path-loss representation
+function _v2pairs(){
+  const ts=(STATE.ops&&STATE.ops.trucks)||[], s=_dScale(), pairs=[];
+  for(let i=0;i<ts.length;i++)for(let j=i+1;j<ts.length;j++){
+    if(ts[i].x==null||ts[j].x==null)continue;
+    const d=Math.hypot(ts[i].x-ts[j].x,ts[i].y-ts[j].y);
+    if(d<V2V_RANGE_L)pairs.push({a:ts[i].id,b:ts[j].id,m:Math.round(d*s)});
+  }
+  return pairs;
+}
+function _feedRow(e){
+  const cat=_v2cat(e.msg);
+  return `<div class="v2-feed-row" data-cat="${cat}" style="padding:7px 4px;border-bottom:1px solid var(--border-color);font-size:12px;display:flex;justify-content:space-between;gap:8px;align-items:center">
+    <span><span class="card-badge ${_v2catColor[cat]}" style="margin-right:8px">${cat}</span><span style="color:var(--text-secondary)">${e.msg}</span></span>
+    <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">${fmtTime(e.t)}</span></div>`;
+}
+function _v2counts(events){
+  const c={TOKEN:0,QUEUE:0,DEFER:0,REBAL:0,YIELD:0,STUCK:0,SYS:0};
+  events.forEach(e=>c[_v2cat(e.msg)]++);
+  return c;
+}
+function _linkTable(pairs){
+  return pairs.length?`<table class="data-table"><thead><tr><th>Link</th><th>Separation</th><th>Signal (est.)</th><th>Quality</th></tr></thead><tbody>${pairs.map(p=>{
+    const rssi=_v2rssi(p.m);
+    const q=rssi>-60?['strong','active']:rssi>-75?['good','idle']:['weak','stopped'];
+    return `<tr><td style="font-family:var(--font-mono);color:var(--cat-yellow)">${p.a} ⇄ ${p.b}</td><td>${p.m} m</td><td style="font-family:var(--font-mono)">${rssi} dBm</td><td><span class="status-pill ${q[1]}">${q[0]}</span></td></tr>`;}).join('')}</tbody></table>`
+  :'<div style="color:var(--text-muted);font-size:12px;padding:8px">No truck pairs within radio range. Links appear when units operate within ~'+Math.round(V2V_RANGE_L*_dScale())+' m of each other.</div>';
+}
+function dashV2Filter(cat){
+  _v2Filter=cat;
+  document.querySelectorAll('#v2-filters .btn').forEach(b=>b.classList.toggle('primary',b.dataset.cat===cat));
+  document.querySelectorAll('.v2-feed-row').forEach(r=>{ r.style.display=(cat==='ALL'||r.dataset.cat===cat)?'flex':'none'; });
+}
+function drawV2VMap(){
+  const c=document.getElementById('v2Map'); if(!c||typeof fit!=='function') return;
+  const ctx=c.getContext('2d'); const P=fit(c); clearC(ctx); drawGrid(ctx,P);
+  if(STATE.site&&STATE.site.verts&&STATE.site.verts.length){ctx.strokeStyle="#3DB5F7";ctx.lineWidth=1.5;ctx.beginPath();STATE.site.verts.forEach((v,i)=>{const x=P.px(v[0]),y=P.py(v[1]);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.closePath();ctx.stroke();}
+  if(STATE.plan&&STATE.plan.haulPolylines)drawHaulRoads(ctx,P,STATE.plan.haulPolylines);
+  if(STATE.plan)drawGates(ctx,P,STATE.plan.gates||[]);
+  const ts=(STATE.ops&&STATE.ops.trucks)||[], s=_dScale();
+  // dashed radio-range rings around live units
+  ts.forEach(t=>{ if(t.x==null)return; const x=P.px(t.x),y=P.py(t.y);
+    ctx.strokeStyle='rgba(255,205,17,0.10)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.arc(x,y,V2V_RANGE_L*P.s,0,2*Math.PI);ctx.stroke();ctx.setLineDash([]); });
+  // links between in-range pairs, coloured by separation
+  for(let i=0;i<ts.length;i++)for(let j=i+1;j<ts.length;j++){
+    if(ts[i].x==null||ts[j].x==null)continue;
+    const d=Math.hypot(ts[i].x-ts[j].x,ts[i].y-ts[j].y);
+    if(d>=V2V_RANGE_L)continue;
+    const q=d*s<40?'#FF7B72':d*s<70?'#FFCD11':'#3ED598';
+    ctx.strokeStyle=q;ctx.lineWidth=1.5;ctx.globalAlpha=0.85;
+    ctx.beginPath();ctx.moveTo(P.px(ts[i].x),P.py(ts[i].y));ctx.lineTo(P.px(ts[j].x),P.py(ts[j].y));ctx.stroke();
+    ctx.globalAlpha=1;
+    const mx=(P.px(ts[i].x)+P.px(ts[j].x))/2,my=(P.py(ts[i].y)+P.py(ts[j].y))/2;
+    ctx.fillStyle=q;ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText(Math.round(d*s)+'m',mx,my-4);
+  }
+  ts.forEach(t=>{ if(t.x==null)return; const x=P.px(t.x),y=P.py(t.y);
+    ctx.fillStyle=(t.stopped||_dEstop())?'#ef4444':(t.color||'#FFC107');
+    ctx.beginPath();ctx.arc(x,y,6,0,2*Math.PI);ctx.fill();ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText(t.id,x,y-9);});
+  if(!ts.length||ts[0].x==null){ctx.fillStyle='#7c8aa0';ctx.font='13px monospace';ctx.textAlign='center';ctx.fillText('Run Live Operations to bring the mesh up',c.width/2,c.height/2);}
+}
 function renderV2V(){
   const ts=(STATE.ops&&STATE.ops.trucks)||[], events=(STATE.ops&&STATE.ops.events)||[];
   const pairs=_v2pairs(), active=ts.filter(t=>!t.finished&&!t.stopped).length;
+  const counts=_v2counts(events);
+  const simt=_dSimT();
+  const rate=simt>0?(events.filter(e=>simt-e.t<=10).length/Math.min(10,Math.max(simt,1))).toFixed(1):'0.0';
   _feedN=events.length; _proxSig=JSON.stringify(pairs);
+  const maxC=Math.max(1,...Object.values(counts));
   return `
-  <h2 class="section-title"><i class="fas fa-tower-broadcast"></i> V2V Communications — Live</h2>
-  <div class="grid-3 mb-20">
+  <h2 class="section-title"><i class="fas fa-tower-broadcast"></i> V2V Communications — Radio Mesh</h2>
+  <div class="grid-4 mb-20">
     <div class="card stat-card"><div class="stat-icon green"><i class="fas fa-satellite-dish"></i></div><div><div class="stat-value" id="v2-k-active">${active}</div><div class="stat-label">Units broadcasting</div></div></div>
     <div class="card stat-card"><div class="stat-icon yellow"><i class="fas fa-arrows-left-right-to-line"></i></div><div><div class="stat-value" id="v2-k-links">${pairs.length}</div><div class="stat-label">In-range links</div></div></div>
     <div class="card stat-card"><div class="stat-icon blue"><i class="fas fa-envelope"></i></div><div><div class="stat-value" id="v2-k-msgs">${events.length}</div><div class="stat-label">Messages logged</div></div></div>
+    <div class="card stat-card"><div class="stat-icon blue"><i class="fas fa-gauge-high"></i></div><div><div class="stat-value" id="v2-k-rate">${rate}</div><div class="stat-label">Msg / sim-min (10 min)</div></div></div>
   </div>
   <div class="grid-2 mb-20">
     <div class="card">
-      <div class="card-header"><div class="card-title"><i class="fas fa-network-wired"></i> Mesh Topology</div><div class="card-badge ${active?'success':'warning'}" id="v2-badge">${active?'MESH ACTIVE':'IDLE'}</div></div>
-      <div style="position:relative;min-height:230px;display:flex;align-items:center;justify-content:center">
-        <div style="position:absolute;width:60%;height:60%;border:1px dashed rgba(255,203,5,0.15);border-radius:50%"></div>
-        ${ts.map((t,i)=>{const a=(i/Math.max(ts.length,1))*Math.PI*2;const x=50+34*Math.cos(a),y=50+34*Math.sin(a);return `<div class="comm-node ${(!t.finished&&!t.stopped)?'active':''}" id="v2-node-${t.id}" style="position:absolute;top:${y}%;left:${x}%;transform:translate(-50%,-50%)">${t.id}</div>`;}).join('')}
-        <div class="comm-node" style="border-color:var(--info);background:rgba(59,130,246,0.1);color:var(--info);z-index:2"><i class="fas fa-tower-broadcast"></i></div>
-      </div>
+      <div class="card-header"><div class="card-title"><i class="fas fa-map-location-dot"></i> Live Mesh Map</div><div class="card-badge ${active?'success':'warning'}" id="v2-badge">${active?'MESH ACTIVE':'IDLE'}</div></div>
+      <canvas id="v2Map" width="640" height="380" style="width:100%;border:1px solid var(--border-color);border-radius:8px;background:#070C18"></canvas>
+      <div style="margin-top:8px;color:var(--text-muted);font-size:11px">Real truck positions. Dashed ring = radio range (~${Math.round(V2V_RANGE_L*_dScale())} m). Link colour: green = clear, yellow = close, red = proximity alert.</div>
     </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title"><i class="fas fa-scroll"></i> Live Message Feed</div></div>
-      <div id="v2-feed" style="max-height:260px;overflow-y:auto">
-        ${events.length?events.slice().reverse().slice(0,40).map(_feedRow).join(''):'<div id="v2-feed-empty" style="color:var(--text-muted);font-size:12px;padding:12px">No comms yet — run Live Operations to generate token / proximity traffic.</div>'}
+    <div class="card" style="display:flex;flex-direction:column">
+      <div class="card-header"><div class="card-title"><i class="fas fa-scroll"></i> Channel Log</div></div>
+      <div id="v2-filters" class="btn-row" style="margin-bottom:10px">
+        ${['ALL','TOKEN','QUEUE','DEFER','REBAL','YIELD'].map(cat=>`<button class="btn btn-sm ${cat===_v2Filter?'primary':''}" data-cat="${cat}" onclick="dashV2Filter('${cat}')">${cat}</button>`).join('')}
+      </div>
+      <div id="v2-feed" style="max-height:330px;overflow-y:auto;flex:1">
+        ${events.length?events.slice().reverse().slice(0,60).map(_feedRow).join(''):'<div id="v2-feed-empty" style="color:var(--text-muted);font-size:12px;padding:12px">No traffic yet — run Live Operations to generate token / defer / rebalance / proximity messages.</div>'}
       </div>
     </div>
   </div>
-  <div class="card"><div class="card-header"><div class="card-title"><i class="fas fa-arrows-to-circle"></i> Proximity (live)</div></div>
-    <div id="v2-prox">${_proxHTML(pairs)}</div>
+  <div class="grid-2">
+    <div class="card"><div class="card-header"><div class="card-title"><i class="fas fa-chart-simple"></i> Message Mix</div></div>
+      <div id="v2-cats">${Object.entries(counts).map(([cat,n])=>`
+        <div style="display:grid;grid-template-columns:64px 1fr 44px;gap:10px;align-items:center;margin-bottom:8px">
+          <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">${cat}</span>
+          <div class="progress-bar" style="margin-top:0"><div class="progress-fill ${cat==='STUCK'?'red':cat==='REBAL'?'green':cat==='TOKEN'?'blue':'yellow'}" id="v2-cb-${cat}" style="width:${(n/maxC*100).toFixed(1)}%"></div></div>
+          <span style="font-family:var(--font-mono);font-size:11px;text-align:right" id="v2-cn-${cat}">${n}</span>
+        </div>`).join('')}</div>
+    </div>
+    <div class="card"><div class="card-header"><div class="card-title"><i class="fas fa-arrows-to-circle"></i> Link Budget (live)</div></div>
+      <div id="v2-prox">${_linkTable(pairs)}</div>
+    </div>
   </div>`;
 }
 function updateV2V(){
   const ts=(STATE.ops&&STATE.ops.trucks)||[], events=(STATE.ops&&STATE.ops.events)||[];
   const pairs=_v2pairs(), active=ts.filter(t=>!t.finished&&!t.stopped).length;
   _T('v2-k-active',active); _T('v2-k-links',pairs.length); _T('v2-k-msgs',events.length);
+  const simt=_dSimT();
+  _T('v2-k-rate', simt>0?(events.filter(e=>simt-e.t<=10).length/Math.min(10,Math.max(simt,1))).toFixed(1):'0.0');
   _C('v2-badge','card-badge '+(active?'success':'warning')); _T('v2-badge',active?'MESH ACTIVE':'IDLE');
-  ts.forEach(t=>_C('v2-node-'+t.id,'comm-node '+((!t.finished&&!t.stopped)?'active':'')));
-  // feed: append only NEW events (prepend, newest on top), trim to 40
+  // feed: append only NEW events (newest on top), trim, respect the filter
   const feed=document.getElementById('v2-feed');
   if(feed){
-    if(events.length<_feedN){ feed.innerHTML=events.slice().reverse().slice(0,40).map(_feedRow).join(''); }
+    if(events.length<_feedN){ feed.innerHTML=events.slice().reverse().slice(0,60).map(_feedRow).join(''); }
     else if(events.length>_feedN){
       const emp=document.getElementById('v2-feed-empty'); if(emp) emp.remove();
-      for(let k=_feedN;k<events.length;k++){ const div=document.createElement('div'); div.innerHTML=_feedRow(events[k]); feed.insertBefore(div.firstChild,feed.firstChild); }
-      while(feed.children.length>40) feed.removeChild(feed.lastChild);
+      for(let k=_feedN;k<events.length;k++){
+        const div=document.createElement('div'); div.innerHTML=_feedRow(events[k]);
+        const row=div.firstChild;
+        if(_v2Filter!=='ALL'&&row.dataset.cat!==_v2Filter) row.style.display='none';
+        feed.insertBefore(row,feed.firstChild);
+      }
+      while(feed.children.length>60) feed.removeChild(feed.lastChild);
     }
     _feedN=events.length;
   }
-  // proximity: rebuild only if the set changed
+  // message mix bars in place
+  const counts=_v2counts(events); const maxC=Math.max(1,...Object.values(counts));
+  Object.entries(counts).forEach(([cat,n])=>{ _W('v2-cb-'+cat,(n/maxC*100).toFixed(1)); _T('v2-cn-'+cat,n); });
+  // link budget: rebuild only if the pair set changed
   const sig=JSON.stringify(pairs);
-  if(sig!==_proxSig){ const px=document.getElementById('v2-prox'); if(px) px.innerHTML=_proxHTML(pairs); _proxSig=sig; }
+  if(sig!==_proxSig){ const px=document.getElementById('v2-prox'); if(px) px.innerHTML=_linkTable(pairs); _proxSig=sig; }
+  drawV2VMap();
 }
 
-/* ===================== TELEMETRY ===================== */
-function _covBar(h){ return `<div class="chart-bar" style="height:${Math.max(2,h.cov*100)}%;background:linear-gradient(180deg,var(--success),rgba(34,197,94,0.2))" data-value="${(h.cov*100).toFixed(0)}%"></div>`; }
+/* ===================== TELEMETRY — production analytics board ===================== */
+let _tmN = -1;
+function _tmStats(){
+  const ts=(STATE.ops&&STATE.ops.trucks)||[], simt=_dSimT();
+  const dumps=ts.reduce((s,t)=>s+(t.dumps||0),0);
+  const km=ts.reduce((s,t)=>s+(t.km||0),0);
+  const tonnes=ts.reduce((s,t)=>s+(t.dumps||0)*(((typeof TRUCK_MODELS!=='undefined'&&TRUCK_MODELS[t.model])||{}).payload||0),0);
+  const util=ts.length&&simt>0?ts.reduce((s,t)=>s+Math.max(0,1-(t.idleMin||0)/simt),0)/ts.length*100:0;
+  const dph=simt>0?dumps/(simt/60):0;
+  return {ts,simt,dumps,km,tonnes,util,dph,cov:_dCov()};
+}
+function _tmChartSVG(){
+  const hist=(STATE.ops&&STATE.ops.telemetry)||[];
+  const W=560,H=210,pad={l:40,r:12,t:12,b:24};
+  let inner='';
+  for(let v=0;v<=1;v+=0.25){const y=H-pad.b-v*(H-pad.t-pad.b);
+    inner+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="#E4E7EC" stroke-width="1"/><text x="${pad.l-5}" y="${y+3}" fill="#98A2B3" text-anchor="end" font-size="9" font-family="monospace">${v*100}%</text>`;}
+  const proj=(STATE.plan&&STATE.plan.projectedCov)||0;
+  if(proj>0){const y=H-pad.b-proj*(H-pad.t-pad.b);
+    inner+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="#0E9F6E" stroke-dasharray="5,3" stroke-width="1"/><text x="${W-pad.r-2}" y="${y-3}" fill="#0E9F6E" font-size="8" font-family="monospace" text-anchor="end">plan target ${(proj*100).toFixed(0)}%</text>`;}
+  if(hist.length>=2){
+    const tMax=Math.max(hist[hist.length-1].t,1);
+    const px=t=>pad.l+t/tMax*(W-pad.l-pad.r), py=c=>H-pad.b-c*(H-pad.t-pad.b);
+    let d=`M ${px(hist[0].t).toFixed(1)} ${py(hist[0].cov).toFixed(1)}`;
+    hist.forEach(h=>{d+=` L ${px(h.t).toFixed(1)} ${py(h.cov).toFixed(1)}`;});
+    inner+=`<path d="${d} L ${px(hist[hist.length-1].t).toFixed(1)} ${H-pad.b} L ${pad.l} ${H-pad.b} Z" fill="rgba(255,205,17,0.10)" stroke="none"/>`;
+    inner+=`<path d="${d}" fill="none" stroke="#FFCD11" stroke-width="2"/>`;
+  } else {
+    inner+=`<text x="${W/2}" y="${H/2}" fill="#98A2B3" text-anchor="middle" font-size="11">Run Live Operations to record telemetry</text>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:210px">${inner}</svg>`;
+}
+function _tmZoneRows(){
+  const plan=STATE.plan; if(!plan||!plan.zonePaths) return '<div style="color:var(--text-muted);font-size:12px;padding:8px">Generate a plan to see zone progress.</div>';
+  const rem=(STATE.ops&&STATE.ops.zoneRemaining)||{};
+  return Object.values(plan.zonePaths).map(zp=>{
+    const planned=zp.dumps.length, left=Math.max(0,rem[zp.zone]??planned), done=planned-left;
+    const pct=planned?Math.round(done/planned*100):0;
+    return `<div style="display:grid;grid-template-columns:44px 44px 1fr 84px;gap:10px;align-items:center;margin-bottom:9px">
+      <span style="font-family:var(--font-mono);font-size:11px;color:#9E7C00;font-weight:700">Z${zp.zone+1}</span>
+      <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">${zp.truck}</span>
+      <div class="progress-bar" style="margin-top:0"><div class="progress-fill ${pct>=100?'green':'yellow'}" id="tm-zb-${zp.zone}" style="width:${pct}%"></div></div>
+      <span style="font-family:var(--font-mono);font-size:11px;text-align:right" id="tm-zl-${zp.zone}">${done}/${planned}</span>
+    </div>`;}).join('');
+}
+function _tmTruckRows(){
+  const st=_tmStats();
+  return st.ts.map(t=>{
+    const spec=(typeof TRUCK_MODELS!=='undefined'&&TRUCK_MODELS[t.model])||{};
+    const tonnes=(t.dumps||0)*(spec.payload||0);
+    const activeH=Math.max(st.simt-(t.idleMin||0),0.01)/60;
+    const speed=activeH>0?(t.km||0)/activeH:0;
+    const util=st.simt>0?Math.max(0,Math.min(100,(1-(t.idleMin||0)/st.simt)*100)):0;
+    return `<tr><td style="font-family:var(--font-mono);color:#9E7C00;font-weight:700">${t.id}</td>
+      <td>${(t.model||'').replace('Cat ','')}</td>
+      <td id="tm-d-${t.id}">${t.dumps||0}</td>
+      <td id="tm-t-${t.id}">${tonnes.toLocaleString()}</td>
+      <td id="tm-k-${t.id}">${(t.km||0).toFixed(2)}</td>
+      <td id="tm-s-${t.id}">${speed.toFixed(1)}</td>
+      <td id="tm-i-${t.id}">${(t.idleMin||0).toFixed(1)}</td>
+      <td style="min-width:90px"><div class="progress-bar" style="margin-top:0"><div class="progress-fill ${util>60?'green':util>30?'yellow':'red'}" id="tm-u-${t.id}" style="width:${util}%"></div></div></td></tr>`;
+  }).join('');
+}
 function renderTelemetry(){
-  const ts=(STATE.ops&&STATE.ops.trucks)||[], hist=(STATE.ops&&STATE.ops.coverageHistory)||[];
-  const dumps=ts.reduce((s,t)=>s+(t.dumps||0),0), km=ts.reduce((s,t)=>s+(t.km||0),0), cov=_dCov(), simt=_dSimT();
-  const covBars=hist.slice(-40); _covN=hist.length;
-  const maxDump=Math.max(1,...ts.map(t=>t.dumps||0)), maxKm=Math.max(0.001,...ts.map(t=>t.km||0));
+  const st=_tmStats();
+  _tmN=((STATE.ops&&STATE.ops.telemetry)||[]).length;
   return `
-  <h2 class="section-title"><i class="fas fa-chart-line"></i> Telemetry & Analytics — Live</h2>
+  <h2 class="section-title"><i class="fas fa-chart-line"></i> Telemetry & Production Analytics</h2>
   <div class="grid-4 mb-20">
-    <div class="card stat-card"><div class="stat-icon yellow"><i class="fas fa-cubes-stacked"></i></div><div><div class="stat-value" id="tm-k-dumps">${dumps}</div><div class="stat-label">Total dumps</div></div></div>
-    <div class="card stat-card"><div class="stat-icon green"><i class="fas fa-chart-area"></i></div><div><div class="stat-value" id="tm-k-cov">${cov.toFixed(1)}%</div><div class="stat-label">Coverage</div></div></div>
-    <div class="card stat-card"><div class="stat-icon blue"><i class="fas fa-route"></i></div><div><div class="stat-value" id="tm-k-km">${km.toFixed(2)}</div><div class="stat-label">Fleet km</div></div></div>
-    <div class="card stat-card"><div class="stat-icon yellow"><i class="fas fa-clock"></i></div><div><div class="stat-value" id="tm-k-time">${fmtTime(simt)}</div><div class="stat-label">Sim time</div></div></div>
+    <div class="card stat-card"><div class="stat-icon yellow"><i class="fas fa-weight-hanging"></i></div><div><div class="stat-value" id="tm-k-tonnes">${st.tonnes.toLocaleString()}</div><div class="stat-label">Material moved (t)</div></div></div>
+    <div class="card stat-card"><div class="stat-icon green"><i class="fas fa-gauge-high"></i></div><div><div class="stat-value" id="tm-k-dph">${st.dph.toFixed(0)}</div><div class="stat-label">Dumps / sim-hour</div></div></div>
+    <div class="card stat-card"><div class="stat-icon blue"><i class="fas fa-percent"></i></div><div><div class="stat-value" id="tm-k-util">${st.util.toFixed(0)}%</div><div class="stat-label">Fleet utilization</div></div></div>
+    <div class="card stat-card"><div class="stat-icon yellow"><i class="fas fa-chart-area"></i></div><div><div class="stat-value" id="tm-k-cov">${st.cov.toFixed(1)}%</div><div class="stat-label">Coverage · <span id="tm-k-time">${fmtTime(st.simt)}</span></div></div></div>
   </div>
   <div class="grid-2 mb-20">
-    <div class="card"><div class="card-header"><div class="card-title"><i class="fas fa-chart-area"></i> Coverage over time</div></div>
-      <div class="chart-area"><div class="chart-bar-group" id="tm-cov">${covBars.length?covBars.map(_covBar).join(''):'<div id="tm-cov-empty" style="color:var(--text-muted);font-size:12px;margin:auto">No data — run Live Operations.</div>'}</div></div>
+    <div class="card"><div class="card-header"><div class="card-title"><i class="fas fa-chart-area"></i> Coverage vs plan target</div></div>
+      <div id="tm-chart-wrap">${_tmChartSVG()}</div>
     </div>
-    <div class="card"><div class="card-header"><div class="card-title"><i class="fas fa-chart-column"></i> Dumps per truck</div></div>
-      <div class="chart-area"><div class="chart-bar-group" id="tm-dumps">${ts.length?ts.map(t=>`<div class="chart-bar" id="tm-du-${t.id}" style="height:${Math.max(2,(t.dumps||0)/maxDump*100)}%;background:linear-gradient(180deg,var(--cat-yellow),rgba(255,203,5,0.2))" data-value="${t.id}:${t.dumps||0}"></div>`).join(''):'<div style="color:var(--text-muted);font-size:12px;margin:auto">No trucks.</div>'}</div></div>
+    <div class="card"><div class="card-header"><div class="card-title"><i class="fas fa-layer-group"></i> Zone burn-down</div><div class="card-badge info">live</div></div>
+      <div id="tm-zones" style="max-height:220px;overflow-y:auto">${_tmZoneRows()}</div>
     </div>
   </div>
-  <div class="card"><div class="card-header"><div class="card-title"><i class="fas fa-road"></i> Distance per truck (km)</div></div>
-    <div class="chart-area" style="height:160px"><div class="chart-bar-group" id="tm-kmbars">${ts.length?ts.map(t=>`<div class="chart-bar" id="tm-km-${t.id}" style="height:${Math.max(2,(t.km||0)/maxKm*100)}%;background:linear-gradient(180deg,var(--info),rgba(59,130,246,0.2))" data-value="${t.id}:${(t.km||0).toFixed(2)}"></div>`).join(''):''}</div></div>
+  <div class="card"><div class="card-header"><div class="card-title"><i class="fas fa-truck"></i> Per-truck performance</div></div>
+    <table class="data-table"><thead><tr><th>Truck</th><th>Model</th><th>Dumps</th><th>Tonnes</th><th>km</th><th>Avg km/h</th><th>Idle min</th><th>Utilization</th></tr></thead>
+    <tbody id="tm-trucks">${_tmTruckRows()}</tbody></table>
   </div>`;
 }
 function updateTelemetry(){
-  const ts=(STATE.ops&&STATE.ops.trucks)||[], hist=(STATE.ops&&STATE.ops.coverageHistory)||[];
-  const dumps=ts.reduce((s,t)=>s+(t.dumps||0),0), km=ts.reduce((s,t)=>s+(t.km||0),0), cov=_dCov(), simt=_dSimT();
-  _T('tm-k-dumps',dumps); _T('tm-k-cov',cov.toFixed(1)+'%'); _T('tm-k-km',km.toFixed(2)); _T('tm-k-time',fmtTime(simt));
-  // coverage strip-chart: append new points, trim to 40
-  const cc=document.getElementById('tm-cov');
-  if(cc){
-    if(hist.length<_covN){ cc.innerHTML=hist.slice(-40).map(_covBar).join(''); }
-    else if(hist.length>_covN){
-      const emp=document.getElementById('tm-cov-empty'); if(emp) emp.remove();
-      for(let k=_covN;k<hist.length;k++){ const d=document.createElement('div'); d.innerHTML=_covBar(hist[k]); cc.appendChild(d.firstChild); }
-      while(cc.children.length>40) cc.removeChild(cc.firstChild);
-    }
-    _covN=hist.length;
-  }
-  // per-truck bars: rescale + update in place
-  const maxDump=Math.max(1,...ts.map(t=>t.dumps||0)), maxKm=Math.max(0.001,...ts.map(t=>t.km||0));
-  ts.forEach(t=>{ _H('tm-du-'+t.id,Math.max(2,(t.dumps||0)/maxDump*100)); _A('tm-du-'+t.id,'data-value',t.id+':'+(t.dumps||0));
-                  _H('tm-km-'+t.id,Math.max(2,(t.km||0)/maxKm*100)); _A('tm-km-'+t.id,'data-value',t.id+':'+(t.km||0).toFixed(2)); });
+  const st=_tmStats();
+  _T('tm-k-tonnes',st.tonnes.toLocaleString()); _T('tm-k-dph',st.dph.toFixed(0));
+  _T('tm-k-util',st.util.toFixed(0)+'%'); _T('tm-k-cov',st.cov.toFixed(1)+'%'); _T('tm-k-time',fmtTime(st.simt));
+  // coverage chart: rebuild only when a new telemetry sample landed (1/sim-min)
+  const n=((STATE.ops&&STATE.ops.telemetry)||[]).length;
+  if(n!==_tmN){ const wrap=document.getElementById('tm-chart-wrap'); if(wrap) wrap.innerHTML=_tmChartSVG(); _tmN=n; }
+  // zone burn-down bars in place
+  const plan=STATE.plan, rem=(STATE.ops&&STATE.ops.zoneRemaining)||{};
+  if(plan&&plan.zonePaths) Object.values(plan.zonePaths).forEach(zp=>{
+    const planned=zp.dumps.length, left=Math.max(0,rem[zp.zone]??planned), done=planned-left;
+    const pct=planned?Math.round(done/planned*100):0;
+    _W('tm-zb-'+zp.zone,pct); _T('tm-zl-'+zp.zone,done+'/'+planned);
+    const bar=document.getElementById('tm-zb-'+zp.zone);
+    if(bar){const want='progress-fill '+(pct>=100?'green':'yellow'); if(bar.className!==want)bar.className=want;}
+  });
+  // per-truck rows in place
+  st.ts.forEach(t=>{
+    const spec=(typeof TRUCK_MODELS!=='undefined'&&TRUCK_MODELS[t.model])||{};
+    const activeH=Math.max(st.simt-(t.idleMin||0),0.01)/60;
+    const util=st.simt>0?Math.max(0,Math.min(100,(1-(t.idleMin||0)/st.simt)*100)):0;
+    _T('tm-d-'+t.id,t.dumps||0);
+    _T('tm-t-'+t.id,((t.dumps||0)*(spec.payload||0)).toLocaleString());
+    _T('tm-k-'+t.id,(t.km||0).toFixed(2));
+    _T('tm-s-'+t.id,(activeH>0?(t.km||0)/activeH:0).toFixed(1));
+    _T('tm-i-'+t.id,(t.idleMin||0).toFixed(1));
+    const u=document.getElementById('tm-u-'+t.id);
+    if(u){_W('tm-u-'+t.id,util); const want='progress-fill '+(util>60?'green':util>30?'yellow':'red'); if(u.className!==want)u.className=want;}
+  });
 }
 
 /* ===================== SUPERVISION ===================== */
@@ -3622,7 +4350,7 @@ function dashToggleTruckStop(id){
 function dashRender(page){
   const el=document.getElementById("dash-"+page); if(!el) return;
   if(page==="fleetmon"){ el.innerHTML=renderFleetMon(); drawFleetMap(); }
-  else if(page==="v2v") el.innerHTML=renderV2V();
+  else if(page==="v2v"){ el.innerHTML=renderV2V(); drawV2VMap(); }
   else if(page==="telemetry") el.innerHTML=renderTelemetry();
   else if(page==="supervision") el.innerHTML=renderSupervision();
   else if(page==="killswitch") el.innerHTML=renderKillSwitch();

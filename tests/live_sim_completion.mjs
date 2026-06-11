@@ -63,6 +63,7 @@ const CONSTS = [
   "FIELD_W", "GRID_RES", "HW", "HH",
   "TRUCK_RAD_LOGICAL", "CAT793_TURN_M",
   "TOKEN_TTL_MIN", "STUCK_RECOVER_MIN", "REBALANCE_MIN_DUMPS",
+  "LOAD_MIN", "DUMP_MIN",
 ];
 const modelsMatch = /const TRUCK_MODELS = \{[\s\S]*?\};/.exec(html);
 if (!modelsMatch) throw new Error("TRUCK_MODELS not found");

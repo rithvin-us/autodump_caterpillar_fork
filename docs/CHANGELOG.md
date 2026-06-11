@@ -14,6 +14,207 @@
 
 ## Summary (latest changes)
 
+### 2026-06-12 — Live Operations de-stagnation: shift time-warp, coverage/KPI sync, render batching, rebalance O(n) (`site/indexV4.html`)
+
+Fixes the reported Live Simulation problems: frozen "stuck after a particular
+time", momentary stalls every few seconds, and the coverage bar reading 100 %
+while dumps were still running.
+
+**Root causes found and fixed**
+
+1. **Silent off-shift freeze (the "stuck after a while" deadlock-alike).** The
+   demo fleet's 06:00–18:00 shift gives a 720 sim-min budget; shuttle routes
+   need thousands of sim-minutes, so at sim t=720 every truck went off shift and
+   `opsTick` idled them all — at 60× that froze the screen ~7 real minutes with
+   no explanation, looking like a permanent deadlock. New **off-shift
+   time-warp**: when every truck with pending work is merely off shift (not
+   stopped, not e-stopped), the clock jumps to the next shift start and logs
+   "All units off shift — clock advanced N sim-min". Headless suites never saw
+   it because they use 00:00–23:59 shifts — new H5 scenario forces it.
+2. **Coverage 100 % while dumps still running (KPI desync).** `applyDump`
+   received the dump radius in METRES (3.2) where LOGICAL units (~0.19) were
+   expected — every sim dump painted a ~17× oversized footprint, so the
+   coverage KPI saturated after a few percent of the dumps. Second half of the
+   same bug: painting at the TRUCK's position (up to an arrival-radius away
+   from the spot) instead of the planned dump waypoint double-painted some
+   cells and missed others, capping real coverage at ~70 %. Both fixed: dumps
+   paint `metresToLogical(dumpRadius)` at the target waypoint — the coverage
+   KPI now tracks the dump progress bar 1:1 (50.0 % coverage at 50.0 % dumps in
+   H5) and both reach 100 % together at completion.
+3. **Momentary stalls every few seconds.** Three contributors:
+   - The intentional dump/reload service pauses had zero visual feedback —
+     added progress rings (green dump arc, yellow reload arc + "RELOAD" tag) so
+     the pauses read as cycle time, not freezes; `loading` also counts as
+     `active` in the Fleet-Command status pills.
+   - `drawOps` stroked/filled ~2,000 hex-spot arcs individually every frame —
+     steady empty/filled spots are now batched into three draw calls; only the
+     handful of blooming/active spots draw individually.
+   - `ops.coverageHistory` grew unbounded at 60 entries/second (GC hitches on
+     long runs) — now sampled at most twice per sim-minute.
+4. **Rebalance splice storm + zombie trips.** Stealing a zone under the shuttle
+   cycle did hundreds of `splice` calls on ~5,000-entry waypoint arrays in one
+   frame (a visible ~100 ms hitch) and left the victim with empty
+   gate→zone→gate reload loops for work it no longer owned. Rewritten as a
+   single O(n) route rebuild that also drops dump-less trips; the thief now
+   shuttles the stolen zone realistically (one load per trip, nearest exit
+   gate) with the legacy consecutive-dump fallback kept for plans without
+   gates/access points (older test harnesses).
+
+**Validation:** `tests/hard_path_planning.mjs` extended with H5 (1-hour-shift
+fleet must complete via time-warp; mid-run coverage must equal dump progress
+±10 pp; final coverage ≥ 99 %; coverageHistory throttled) — **24/24 pass**
+(H5: 1,056/1,056 dumps, 84 time-warps, midCov 50.0 % @ 50.0 % dumps, final
+100.00 %). Re-runs: `multigate_path_check` 16/16, `live_sim_completion` 14/14
+(T5 exercises the new rebalance rebuild), `zone_decomp_validation` 18/18,
+`haulroad_zone_check` OK, all 3 inline script blocks parse. See
+`docs/TESTING.md` T-023.
+
+### 2026-06-12 — Realistic load-haul-dump shuttle cycle, full-coverage gap fill, working no-go zones, session report with real-life values, V2V + Telemetry redesigns (`site/indexV4.html`)
+
+**Truck workflow now replicates real dumping.** A truck carries ONE load per trip:
+enter the field through a gate → haul roads to the zone access → place the load on
+the next spot of the zone's path → leave by the SHORTEST way out (the gate nearest
+that dump) → reload at the gate (`"load"` waypoint, `LOAD_MIN` = 1.2 sim-min) →
+come back in for the next spot. Every gate is usable by every truck; the exit gate
+of one trip becomes the entry gate of the next.
+
+- New `"load"` waypoint kind + `loading` truck state (`opsTick`); `tr.cycles` counts
+  completed reloads; `tr.loaded` is event-driven (full on the whole haul-in leg,
+  empty on the whole haul-out leg). `DUMP_MIN` (0.4) / `LOAD_MIN` (1.2) constants —
+  compressed representations of the 1.5–2.5 min / 2.5–4 min field cycles.
+- **Token release on zone exit**: a truck leaving a zone to reload releases the
+  zone token immediately (scan-until-leave instead of "any dump anywhere later"),
+  so other trucks can work the zone while it is out at the gate.
+- `rebalanceIdleTruck` now steals ALL pending blocks of a zone (under the shuttle
+  cycle every trip is its own 1-dump block — stealing one block handed over one load).
+- runPlan memoises `laneRoute` per gate↔access pair (shuttle routing repeats the
+  same legs hundreds of times). Plan preview draws per-zone serpentines + access
+  links instead of the (now enormous) full shuttle route.
+- **Fixed latent km bug**: sim `tr.km` accumulated LOGICAL units/1000; now scaled by
+  `getScale()` → real kilometres everywhere (fleet monitor, telemetry, report).
+
+**No dump spot left uncovered (the screenshot issue).** Two causes fixed:
+- Planner: new `coverageGapSpots(zone, mask, filled, r)` — after the hex serpentine,
+  every still-uncovered workable cell in the zone gets an extra dump appended to the
+  zone path (the interstices a non-overlapping circle packing can never reach).
+  Projected coverage is now ~100 % of workable cells on every test site.
+- Visuals: a completed dump now fills EVERY hex spot inside its real footprint
+  (was: one nearest spot per dump, which left lattice spots looking empty even where
+  material had been placed).
+
+**No-go zones are now real planner inputs.** Each marker is a circular exclusion
+with a configurable radius (new "No-go radius" input, default 30 m):
+`buildMask(V, nogo)` carves the circles out of the workable field (inflated by half
+a cell diagonal so no spot can slip through on cell granularity — conservative is
+correct for hazards); no dump spots inside; coverage is measured against workable
+cells only; hazard-hatched circles drawn on site/plan/ops canvases; plan stores
+`nogo` (logical circles).
+
+**Report = full mining-session report + real-life reference values.** New KPI row
+(material moved in tonnes = dumps × payload, haul cycles, fleet km, throughput
+t/sim-h), session overview (site/workable area, gates, zones, fleet, planned + gap
+dumps), per-zone completion table, expanded per-truck table (tonnes, cycles,
+utilization), and a "Model parameters vs real-life mining reference" table driven by
+the new `REAL_MINING` constant (Cat 785/793/797 payload, top speed, GMW, body
+volume; dump/load cycle reference ranges; turn radius; haul-cycle definition).
+Summary JSON export carries all of it (`parameters.sim` + `parameters.real_life_reference`).
+
+**V2V Communications tab — redesigned into a radio-mesh operations panel.**
+Live mesh map on a real-coordinate canvas (truck positions, dashed radio-range
+rings, links coloured by separation with distance labels), message-rate KPI,
+message-mix breakdown by category (TOKEN/QUEUE/DEFER/REBAL/YIELD/STUCK), link
+budget table with log-distance RSSI estimates and quality pills, and a channel log
+filterable by category (replaces the abstract decorative circle topology).
+
+**Telemetry tab — completely redesigned as a production analytics board.**
+New per-sim-minute telemetry ring buffer in `opsTick` feeds: tonnage / dumps-per-hour
+/ fleet-utilization / coverage KPIs, a proper SVG coverage line chart with the plan
+target marked, a per-zone burn-down (placed/planned progress bars, live), and a
+per-truck performance table (dumps, tonnes, km, average km/h, idle, utilization
+bars). Replaces the three flat bar strips.
+
+**Algorithm refinements from rigid difficult-terrain testing**
+(`tests/hard_path_planning.mjs`, mirrors the full new pipeline + headless `opsTick`):
+- `zoneEntryPoint` candidates are now the zone polygon's OWN edge midpoints
+  (bbox midpoints only as legacy fallback) — concave zones can no longer get an
+  access point floating outside the boundary.
+- `buildMask` no-go inflation (above) found by H2; checker semantics for gate
+  pass-throughs (a route may legitimately drive THROUGH another gate's road node
+  when a zone's branch starts at that gate) and gate-coincident access points
+  (zero-length route) documented by H1/H3.
+- Scenarios: demo+2 gates+mixed fleet shuttle invariants (one load per trip, exit
+  via nearest gate, gate visit between any two dumps, 1880/1880 dumps in sim),
+  rectangle + 2 no-go circles, U-shaped concave site with gates at both arm tips
+  (1304/1304 dumps), dumbbell with a 1.2-unit corridor — **19/19 pass**.
+
+**Validation:** `tests/hard_path_planning.mjs` 19/19 (new), `tests/multigate_path_check.mjs`
+16/16, `tests/live_sim_completion.mjs` 14/14, `tests/zone_decomp_validation.mjs` 18/18,
+`tests/haulroad_zone_check.mjs` OK, all 3 inline script blocks parse
+(suite const lists extended with `LOAD_MIN`/`DUMP_MIN`). See `docs/TESTING.md` T-021/T-022.
+
+### 2026-06-11 — Multi-gate path planning, one path per zone, equal fleet allocation, model-distinct live sim (`site/indexV4.html`)
+
+**Path planning is now strictly zone-based.** Every dump path derives from the zone's
+true clipped polygon, every zone owns exactly one path, and the path belongs to the
+single truck assigned to that zone.
+
+- **`hexDumpsInZone`** packs the zone's actual `verts` polygon (bounding-box rect kept
+  only as a legacy fallback), so dump spots can no longer leak outside a concave or
+  sloped zone boundary.
+- **`boustrophedonOrder`** rewritten as a true serpentine: every hex-lattice row is one
+  sweep, alternating left→right / right→left (was: 3 coarse bands that criss-crossed).
+- **One path per zone** — new `STATE.plan.zonePaths` artifact (`{zone, truck, access,
+  dumps[]}`); a truck's route is home gate → haul roads → zone access → that zone's
+  serpentine → access → next zone → nearest exit gate. **PASS 2 cross-zone gap-fill
+  removed**: finer-radius trucks no longer re-sweep other trucks' zones, preserving
+  strict zone ownership (each zone is packed with its assigned truck's own radius).
+- **Equal mixed-fleet allocation** — `assignZonesWeighted` now applies a
+  priority-weighted zone-count cap (`ceil(nZones × w / Σw)`): no truck can exceed its
+  share of the zone count, so a mixed fleet spreads across all zones instead of pooling
+  on the fastest truck. Workload inside the cap still balances via weighted LPT +
+  locality tie-break. Priority semantics preserved (weight 2 ≈ double share).
+- **`zoneAt`** tests the zone's clipped polygon first (`pip`), bbox as fallback —
+  dump-to-zone attribution is exact on non-rectangular sites.
+
+**Multiple gates (replaces the single Main Gate).**
+
+- Site Setup: the Gate tool now adds any number of gates (G1, G2, …); undo pops the
+  last one; site summary lists all gates; presets updated (demo site ships G1
+  south-west + G2 east).
+- `STATE.site.mainGate` → `STATE.site.gates[]`; plan stores `gates`, `truckGate`
+  (home gate per truck) and keeps `mainGate` as a legacy alias for the first gate.
+- **`buildHaulRoads`** builds one spine per gate to the polygon centroid (all spines
+  meet there, so the network is connected and every gate reaches every zone) plus one
+  branch per zone from the nearest point on any spine; each zone's access point faces
+  its nearest gate (`z.gateIdx`). Single-`[x,y]` legacy call form still accepted.
+- **Gates participate in path planning**: each truck stages at the gate nearest its
+  assigned zones, transits only on the haul-road network (`laneRoute`), and exits via
+  the gate nearest its last zone; the rebalancer routes stolen blocks to the nearest
+  gate too. Plan assignments table shows each truck's home gate.
+- Exports (`plan JSON`, `summary JSON`) now carry `gates`, `truckGates`, `zonePaths`.
+
+**Live simulation — smoother, more realistic, model-distinct (mixed fleet).**
+
+- `TRUCK_MODELS` gains per-model `speedF` (Cat 785 nimble 1.12×, Cat 793 1.0×,
+  Cat 797 heavy 0.88×) and `scale` (body size); demo fleet preset is now one of each
+  model so the live demo shows three visibly different trucks.
+- Movement: throttle ramp (trucks ease out of dumps and stops instead of snapping to
+  full speed) + corner-aware braking (speed drops up to 65 % through sharp headings —
+  the turning circle itself is unchanged), per-model cruise speed.
+- `drawTruck`: body scaled per model, model-coloured trail, twin rear axles on the
+  Cat 797, tipping-bed dump animation (bed slides rearward, material spills behind
+  the truck while dumping), model number badge under the truck id.
+- Trucks stage at their home gates; live ops/plan/fleet-map canvases draw all gates
+  and per-zone access-point markers; ops zone labels show `Z<n> · <truck>`.
+
+**Validation:** new `tests/multigate_path_check.mjs` (16 assertions: road network per
+gate, gate→zone connectivity, in-polygon dump containment, true-serpentine ordering,
+equal allocation, zone ownership, gate bookends, end-to-end multi-gate sim completion,
+single-gate back-compat) — 16/16 pass. Existing suites unaffected:
+`tests/live_sim_completion.mjs` 14/14, `tests/zone_decomp_validation.mjs` 18/18,
+`tests/haulroad_zone_check.mjs` OK; all 3 inline script blocks parse. See
+`docs/TESTING.md` T-020.
+
 ### 2026-06-11 — Architecture redesign: Main Gate → auto haul roads → auto zones
 
 **Goal:** Make the planner behave like a realistic mine-planning system instead of a

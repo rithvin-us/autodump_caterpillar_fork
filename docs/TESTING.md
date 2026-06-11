@@ -169,6 +169,47 @@
   - `tests/live_sim_completion.mjs` after the refactor: `=== 14 passed, 0 failed ===`. Script blocks: all 3 `OK`.
 - Status: PASS
 
+### T-020
+- Scope: Multi-gate path planning, one-path-per-zone, equal mixed-fleet allocation, live-sim smoothing (`buildHaulRoads` multi-gate, `hexDumpsInZone` zone-polygon packing, `boustrophedonOrder` serpentine rewrite, `assignZonesWeighted` zone-count cap, `zoneAt` polygon test, refactored `runPlan` Steps 3–4, `opsTick` throttle/corner braking, `drawTruck` model-distinct rendering in `site/indexV4.html`) (2026-06-11)
+- Command: `node tests/multigate_path_check.mjs` (functions extracted live from the page into a `vm` sandbox; headless `opsTick(0.045)` loop for the end-to-end run), plus re-runs of `node tests/live_sim_completion.mjs`, `node tests/zone_decomp_validation.mjs`, `node tests/haulroad_zone_check.mjs`, and `new vm.Script` syntax check on all 3 inline `<script>` blocks
+- Expected: with 2 gates on the demo polygon and a 4-truck mixed fleet (797/793/785/785, 20 000 m² zone target → 7 zones): one spine per gate; every gate routes to every zone access point; one serpentine path per zone with all dump spots inside the zone's true polygon and the site; zone counts per truck differ by ≤ 1; every dump waypoint lies in its truck's own zones; routes start at the home gate and end at a gate; the full sim completes with all tokens released; the legacy single-`[x,y]` gate call form still works; existing suites unaffected
+- Result: `=== 16 passed, 0 failed ===`
+  - Road network: 9 polylines (2 spines + 7 branches); zone `gateIdx` = 0,0,0,0,1,1,1 (east zones face G2); all 14 gate→zone routes resolved.
+  - Zone paths: Z1–Z7 dump counts 182/257/341/350/286/253/185; all spots inside zone polygon and site polygon; rows strictly ascend and sweep direction alternates (true serpentine).
+  - Allocation: zones 1/2/2/2 (max−min ≤ 1); home gates T1:G1 T2:G1 T3:G1 T4:G2; every dump waypoint in its truck's own zones; all routes gate-bookended.
+  - End-to-end sim: 1854/1854 dumps in 5,339 ticks, all tokens released. Back-compat single-gate call: 4 polylines, all access points set.
+  - Re-runs after the edits: `tests/live_sim_completion.mjs` `=== 14 passed, 0 failed ===` (tick counts grew ~40 % from the new throttle ramp/corner braking — expected, well within the 400k budget); `tests/zone_decomp_validation.mjs` `=== 18 passed, 0 failed ===`; `tests/haulroad_zone_check.mjs` zones 3/3, area conservation 100.00 %, all routes resolve; script blocks `block0 OK`, `block1 OK`, `block2 OK`.
+- Status: PASS
+
+### T-021
+- Scope: Rigid difficult-terrain path planning — load-haul-dump shuttle cycle, coverage completion pass (`coverageGapSpots`), no-go exclusion masking (`buildMask(V, nogo)`), concave-zone access points (`zoneEntryPoint` edge midpoints), end-to-end shuttle sims on hard sites (`site/indexV4.html`) (2026-06-12)
+- Command: `node tests/hard_path_planning.mjs` (functions extracted live from the page into a `vm` sandbox; exact mirror of the new runPlan Steps 1–4; headless `opsTick(0.045)` loops, 600k-tick budget)
+- Expected: H1 demo polygon + 2 gates + mixed 793/785/797 fleet — one load per trip (loads = dumps − 1 per truck), a gate visit between any two dumps, every trip exits via the gate nearest its dump, all dumps in-polygon, gap pass adds dumps, projected coverage ≥ 98.5 %, sim completes with tokens released and reload cycles counted; H2 rectangle + 2 no-go circles — mask carves the circles, no dump inside any circle, workable coverage ≥ 98.5 %; H3 U-shaped concave site with gates at both arm tips — dumps in-polygon, every gate routes to every zone access, sim completes; H4 dumbbell with a 1.2-unit corridor — zones decompose, dumps in-polygon, coverage ≥ 97 %
+- Result: `=== 19 passed, 0 failed ===`
+  - H1: 3 zones, 1,880 dumps (87 gap-fill), projected coverage 100.00 %; sim 1,880/1,880 dumps in 86,711 ticks; cycles T1:533 T2:579 T3:550; all tokens released.
+  - H2: coverage of workable area 100.00 % with both circles fully excluded (1,274 dumps).
+  - H3: 1,304/1,304 dumps in 86,984 ticks; all 4 gate→zone routes resolve; coverage 100.00 %.
+  - H4: 2 zones, 830 dumps, coverage 100.00 %.
+  - First run exposed 3 findings, fixed before the final pass: (1) REAL BUG — a hex spot just inside a no-go circle could slip through when its grid cell centre sat outside; fixed by inflating the blocking radius by half a cell diagonal in `buildMask`. (2) checker semantics — routes may legitimately pass THROUGH another gate's road node when a zone's haul-road branch starts at that gate; gate visits are now detected via `"load"` waypoints. (3) checker semantics — a zone access point may coincide exactly with a gate, making the route a single point (valid).
+- Status: PASS
+
+### T-022
+- Scope: Shuttle-cycle + no-go + report + V2V/Telemetry redesign regression sweep — `"load"` waypoints/`loading` state, token release-on-zone-exit, zone-grouped rebalance steal, real-km fix, footprint spot fill, `laneRoute` memoisation, `REAL_MINING` report tables, telemetry ring buffer (`site/indexV4.html`) (2026-06-12)
+- Command: re-runs of `node tests/multigate_path_check.mjs`, `node tests/live_sim_completion.mjs`, `node tests/zone_decomp_validation.mjs`, `node tests/haulroad_zone_check.mjs` after all edits, plus `new vm.Script` syntax check on all 3 inline `<script>` blocks (suite const lists extended with `LOAD_MIN`/`DUMP_MIN`)
+- Expected: all existing suites unaffected by the workflow redesign (their harnesses build legacy serpentine routes — `opsTick` must keep completing those too)
+- Result: `multigate_path_check` `=== 16 passed, 0 failed ===` (A7 end-to-end 1,854/1,854 dumps in 5,370 ticks); `live_sim_completion` `=== 14 passed, 0 failed ===` (T5 rebalance now 3,541 ticks with the zone-grouped steal); `zone_decomp_validation` `=== 18 passed, 0 failed ===`; `haulroad_zone_check` zones 3/3, area conservation 100.00 %, all routes resolve; script blocks `block0 OK`, `block1 OK`, `block2 OK`
+- Status: PASS
+
+### T-023
+- Scope: Live Operations de-stagnation — off-shift time-warp, coverage/KPI sync (`applyDump` logical-radius + planned-spot painting), coverageHistory throttle, batched hex-spot rendering, O(n) rebalance rebuild with zombie-trip cleanup, dump/reload progress rings (`opsTick`, `drawOps`, `drawTruck`, `rebalanceIdleTruck`, `_dSCls` in `site/indexV4.html`) (2026-06-12)
+- Command: `node tests/hard_path_planning.mjs` (suite extended with scenario H5: rectangle, 1 gate, 2 trucks with a deliberately tiny 06:00–07:00 shift on a route needing thousands of sim-minutes; mid-run coverage checkpoint at 50 % of planned dumps), plus re-runs of `node tests/multigate_path_check.mjs`, `node tests/live_sim_completion.mjs`, `node tests/zone_decomp_validation.mjs`, `node tests/haulroad_zone_check.mjs`, and `new vm.Script` syntax check on all 3 inline `<script>` blocks
+- Expected: the 1-hour-shift fleet completes all dumps via the off-shift time-warp (with "clock advanced" events) instead of freezing; mid-run coverage equals the dump-progress ratio within 10 pp (no premature 100 %); final coverage ≥ 99 %; `coverageHistory` holds far fewer than one entry per tick; existing suites (including T5 rebalance, which exercises the new O(n) rebuild via the legacy fallback) unaffected
+- Result: `=== 24 passed, 0 failed ===`
+  - H5: 1,056/1,056 dumps in 62,682 ticks with 84 time-warp events; mid-run coverage 50.0 % at exactly 50.0 % of dumps; final coverage 100.00 %; coverageHistory 8,971 samples over 62,682 ticks (~1 per 7 ticks).
+  - Intermediate finding during the fix: correcting only the radius left final coverage at 70.17 % — `applyDump` was painting at the truck's position (up to an arrival radius from the spot); painting at the planned dump waypoint brought mid-run sync to ±0.0 pp and final coverage to 100.00 %.
+  - Re-runs: `multigate_path_check` `=== 16 passed, 0 failed ===`; `live_sim_completion` `=== 14 passed, 0 failed ===` (T5: 7 rebalance events, completes in 3,541 ticks on the new rebuild path); `zone_decomp_validation` `=== 18 passed, 0 failed ===`; `haulroad_zone_check` OK; script blocks `block0 OK`, `block1 OK`, `block2 OK`.
+- Status: PASS
+
 ## Notes
 
 - No application runtime tests were executed in this pass.
