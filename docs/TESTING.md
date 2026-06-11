@@ -136,6 +136,28 @@
   - Post-edit syntax check: `ALL SCRIPT BLOCKS OK`.
 - Status: PASS
 
+### T-017
+- Scope: Priority-weighted zone assignment across the whole fleet — replaces the big/small payload gate in Step 4 of `runPlan` (`site/indexV4.html`) (2026-06-11)
+- Command: `node tests/live_sim_completion.mjs` (assignment assertions; functions extracted live from the page via brace-counted slices and run in a `vm` sandbox)
+- Expected: mixed fleet no longer funnels all zones to the dominant truck; homogeneous fleets stay balanced; the new Priority column shifts the planned share
+- Result:
+  - Mixed fleet (1× Cat 797 + 3× Cat 785, rectangle site): zones 3/3/3/3, planned dumps 132/176/176/132 (max/min ratio 1.33 ≤ 2.0). Before the fix the Cat 797 received every zone.
+  - Homogeneous (3× Cat 793): planned dumps 220/220/176, CV 0.101 ≤ 0.25.
+  - Priority (3× Cat 793, T1 priority = 2): planned dumps 308/132/176 — T1 gets 2.00× the mean of the others.
+- Status: PASS
+
+### T-018
+- Scope: Live-simulation robustness — token heartbeat/TTL, queued-truck defer, orbit watchdog, adaptive rebalance, dump-synced progress and completion (`opsTick` and helpers in `site/indexV4.html`) (2026-06-11)
+- Command: `node tests/live_sim_completion.mjs` (headless `opsTick(0.045)` loop, 400k-tick budget) and inline-script syntax check via `new vm.Script` on all 3 `<script>` blocks
+- Expected: every scenario completes all planned dumps with all trucks finished and all tokens released; forced shared-zone contention drains instead of deadlocking; an idle truck steals pending work from a lagging truck
+- Result: 14/14 assertions pass —
+  - Mixed fleet: 616/616 dumps in 1,422 ticks; all tokens released.
+  - Forced contention (T1's first 5 dump waypoints duplicated into T2's route): queue events observed, both trucks finish in 2,609 ticks, no token freeze, all tokens released.
+  - Forced imbalance (T1 given a trivial route, T2 given both trucks' work): 7 REBALANCE events, everything completes in 2,510 ticks.
+  - Single truck: 616/616 dumps in 4,929 ticks. Zero-dump plan: completes in 41 ticks.
+  - `tests/zone_decomp_validation.mjs` re-run after the edits: `=== 18 passed, 0 failed ===`. Script blocks: `block0 OK`, `block1 OK`, `block2 OK`.
+- Status: PASS
+
 ## Notes
 
 - No application runtime tests were executed in this pass.

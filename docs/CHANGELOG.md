@@ -30,6 +30,51 @@
 
 - Editorial: minor wording and formatting fixes to `CHANGELOG.md` to validate commit flow (test edit).
 
+## 2026-06-11 — Priority-weighted assignment + live-sim robustness (`site/indexV4.html`)
+
+Fixes the two reported production blockers: (1) most zones landing on a single truck, starving the rest and deadlocking Live Operations; (2) trucks orbiting one point forever / the sim never completing. Zone geometry (T-015) and the LPT-on-dump-counts concept (T-016) are untouched — only the assignment *policy* and the simulation's failure handling changed.
+
+### Assignment — every truck participates, weighted by priority
+- Removed the big/small payload gate (`payload >= 0.85 × max`) as the assignment pool. With a mixed fleet (e.g. 1× Cat 797 + 3× Cat 785) it left a single "big" truck, so the LPT loop had one candidate and assigned it EVERY zone while the small trucks waited for gap dumps that often never existed.
+- New top-level `assignZonesWeighted(zones, trucks, costOf, weightOf, entryXY)`: same LPT + 8% slack + nearest-centroid tie-break as before, but over the whole fleet with loads normalised by `truckWeight(t)`.
+- Zone cost = expected dump count for that truck's radius in that zone, computed exactly per distinct radius on throwaway grids (`estByRadius`). Each dump costs the same 2.5 sim-min regardless of radius, so raw dump count is the workload.
+- New per-truck **Priority** column in the fleet table (0.1–10, default 1; `truckWeight` clamps and is backward compatible with saved fleets). Weight 2 ≈ double share. Changing priority with an existing plan stops any running sim and re-plans immediately. Priority is also shown in the plan assignments table.
+- PASS 1 now generates each zone's spots with its assigned truck's own dump radius (deterministic zone order, shared `filled` grid); finer-radius trucks still gap-sweep in PASS 2 (gap loads weight-normalised); exit bookends moved after PASS 2. `orderZonesNearestNeighbour` extracted as a top-level helper. Dead `allHexSpots` accumulation deleted.
+
+### Live simulation — deadlock-free and self-healing
+- **Token lifecycle** (`grantToken` / `releaseToken` / `releaseTokensHeldBy` / `brokerTick`): tokens carry a `heartbeat`; the broker revokes tokens whose holder is finished/stopped/missing or idle on the token for > `TOKEN_TTL_MIN` (6 sim-min) without dumping in that zone — the supervisor-revocation the token protocol documented but never had. Finishing a route now releases all held tokens (previously a finished holder kept its zone locked forever). Fixed the dead acquire-log (`if (tok.holder !== tr.id)` after assignment was always false).
+- **Queued trucks no longer freeze**: `deferLockedZone` moves the locked zone's waypoint run behind the truck's remaining work (max 2 defers per zone) so it keeps dumping elsewhere and returns later; if nothing else is left it waits in the FIFO queue, which now actually drains via heartbeat/zone-complete releases.
+- **Per-zone completion**: `ops.zoneRemaining` (built in `opsReset` via new `zoneAt(x,y)` helper) decrements per dump; a finished zone logs "Z<n> complete" and force-releases its token.
+- **Orbit fix**: split arrival radii — transit waypoints accept at `1.05 × turning radius` (a transit point can no longer sit inside the turning circle), dump waypoints stay tight; plus `stuckWatchdog` — no progress toward the current waypoint for `STUCK_RECOVER_MIN` (2 sim-min) pivots the truck straight at the target (three-point-turn recovery).
+- **Adaptive rebalance**: a truck that runs out of waypoints steals the farthest untouched zone block from the busiest remaining truck (`stealableZoneBlocks` / `rebalanceIdleTruck`, threshold `REBALANCE_MIN_DUMPS` = 6), routes there via `laneRoute`, and updates `assignments`/`truckZones` so all dashboards stay live.
+- **Stuck 'active' spots**: spots marked active now carry an `owner`; `resetActiveSpots` reverts them to empty on defer/release/finish so other trucks can claim them.
+- **Progress bar synced to real completion**: bar and label now show `placed / totalPlannedDumps` dumps each tick (was: coverage ÷ projected coverage, which desynced from the log); `ops-canvas-sub` shows the same count; sim also ends when all planned dumps are placed, releasing any leftover tokens. All token/defer/rebalance/watchdog events flow through the existing event log and V2V feed in the same tick.
+- Removed the dead `<script src="hexpack_engine.js">` tag (the packer was inlined long ago; the file no longer exists and 404'd on every load).
+
+### Validation
+- New `tests/live_sim_completion.mjs`: extracts the real functions out of the page (brace-counted slices, vm sandbox, stubbed DOM) and drives `opsTick` headlessly. 14/14 assertions pass — see `docs/TESTING.md` T-017/T-018.
+- `tests/zone_decomp_validation.mjs` still passes (18/18); all 3 inline script blocks parse.
+
+## 2026-06-11 — Enterprise UI redesign, CSS-only (`site/indexV4.html`)
+
+Visual refresh of the whole console; no markup, JS, layout-structure, or workflow changes — all class names, IDs, and CSS variable names preserved (inline styles and JS-injected HTML depend on them).
+
+### Design system
+- Split the Cat-yellow token: `--cat` is now a readable dark amber (`#9E7C00`) for text on light surfaces; new `--cat-bright` (`#FFCD11`) carries true Cat yellow on solid surfaces (primary buttons, active nav marker, workflow chip, accent bars). Fixes the yellow-on-white contrast problem throughout.
+- New neutral scale (`#101828`/`#344054`/`#667085` text, `#E4E7EC`/`#D0D5DD` borders), tokenized shadows (`--shadow-xs/sm/md`), `--frame`/`--terminal` dark-surface tokens.
+- Typography: body switched Inter → Barlow; display headings (page titles, section titles, brand) use Barlow Condensed uppercase; numeric readouts use JetBrains Mono with `tabular-nums`.
+
+### Chrome & components
+- Dark graphite top bar and footer with 3px Cat-yellow rule — command-center frame around a light workspace; workflow steps restyled as chips (current = solid yellow).
+- Sidebar: rounded nav items, active state = white card + yellow edge bar + yellow step number; completed steps green.
+- Content area: subtle 28px engineering-grid background; staggered page-enter animation; `prefers-reduced-motion` support.
+- Cards: white on grey workspace, yellow tick before each card title (replaces yellow title text), hairline header rule, soft shadow; removed hover "lift" gimmick.
+- Buttons: primary is now solid Cat yellow with dark text; secondary/success/danger refined; press = 1px translate.
+- Canvases, event log, and `pre` blocks restyled as dark terminal/radar bezels (matches the dark canvas fill the JS already uses); log line colors brightened for the dark background.
+- Tables, inputs (yellow focus ring), KPI tiles (color classes now actually applied), progress bars (single-hue yellow fill), alerts (left accent border), Gantt segments refreshed.
+- `.dash` fleet-command pages aligned to the same tokens; supervision camera feeds now render as dark feeds with scoped text-color overrides.
+- Responsive: `.grid-4` collapses at 1280px, `.grid-2/3` and narrower sidebar at 980px.
+
 ## 2026-06-11 — Zone Decomposition geometry rewrite (`site/indexV4.html`)
 
 ### Exact scanline geometry (replaces grid sampling)
