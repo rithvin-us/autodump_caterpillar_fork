@@ -20,25 +20,34 @@
 :root{
   --bg0:#FFFFFF;--bg1:#F8F8F8;--bg2:#EEEEEE;--bg3:#E0E0E0;
   --border:#DCDCDC;--border2:#CCCCCC;
-  --txt:#000000;--txt2:#333333;--txt3:#666666;
+  --txt:#000000;--txt2:#222222;--txt3:#4A4A4A;
   --cat:#FFCC00;--cat2:#E6B800;--cat-bg:rgba(255,204,0,.15);
   --green:#00994C;--green-bg:rgba(0,153,76,.15);
   --red:#E53935;--red-bg:rgba(229,57,53,.15);
   --blue:#1E88E5;--blue-bg:rgba(30,136,229,.15);
   --purple:#8E24AA;--orange:#FB8C00;
+  --font-main: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
-html,body{height:100%;overflow:hidden;font-family:Arial,Helvetica,sans-serif;background:var(--bg0);color:var(--txt)}
+html,body{height:100%;overflow:hidden;font-family:var(--font-main);background:var(--bg0);color:var(--txt)}
+
+/* ACCESSIBILITY & TRANSITIONS */
+*:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.card { transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease; }
+.card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.12); }
+.btn, .nav-item, .mode-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+.btn:active:not(:disabled), .mode-btn:active { transform: scale(0.97); }
 body{font-size:14px}
 #shell{display:grid;grid-template-rows:54px 1fr 28px;height:100vh}
 
 /* TOP BAR */
 #topbar{display:flex;align-items:center;justify-content:space-between;background:#FFFFFF;border-bottom:2px solid var(--cat);padding:0 22px;z-index:10;box-shadow:0 2px 12px rgba(0,0,0,.1)}
 .brand{display:flex;align-items:center;gap:12px}
-.cat-logo-text{font-family:'Arial Black',Impact,sans-serif;font-size:26px;font-weight:900;color:#000;letter-spacing:-1px;position:relative;line-height:1}
+.cat-logo-text{font-family:var(--font-main);font-size:26px;font-weight:900;color:#000;letter-spacing:-1px;position:relative;line-height:1}
 .cat-triangle{position:absolute;bottom:0;left:2px;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:12px solid var(--cat);pointer-events:none}
 .brand-sub{font-size:10px;color:var(--txt3);letter-spacing:1.5px;font-weight:700;text-transform:uppercase;margin-top:1px}
 .brand-badge{background:var(--cat);color:#000;font-size:9px;font-weight:700;padding:3px 8px;border-radius:3px;letter-spacing:.5px;margin-bottom:14px}
-.workflow-progress{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--txt3);font-family:'Share Tech Mono',Consolas,monospace;letter-spacing:1px}
+.workflow-progress{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--txt3);font-family:var(--font-mono);letter-spacing:1px}
 .wf-step{padding:3px 9px;border-radius:3px;background:var(--bg3);color:var(--txt3)}
 .wf-step.done{background:var(--green-bg);color:var(--green)}
 .wf-step.cur{background:var(--cat);color:#000;font-weight:700}
@@ -55,12 +64,12 @@ body{font-size:14px}
 .nav-item.active{background:var(--cat-bg);color:var(--cat);font-weight:700;border-left-color:var(--cat)}
 .nav-item.disabled{opacity:.4;cursor:not-allowed}
 .nav-item.disabled:hover{background:transparent;color:var(--txt2)}
-.nav-num{width:24px;height:24px;border-radius:50%;background:var(--bg3);color:var(--txt3);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',Consolas,monospace}
+.nav-num{width:24px;height:24px;border-radius:50%;background:var(--bg3);color:var(--txt3);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono)}
 .nav-item.active .nav-num{background:var(--cat);color:#000}
 .nav-item.done .nav-num{background:var(--green);color:#000}
 .nav-item.done .nav-num::before{content:'✓'}
 .nav-item.done .nav-num span{display:none}
-.nav-sub{font-size:10px;color:var(--txt3);font-family:'Share Tech Mono',Consolas,monospace;text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+.nav-sub{font-size:10px;color:var(--txt3);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
 .nav-item-stack{display:flex;flex-direction:column;flex:1}
 
 /* CONTENT */
@@ -77,7 +86,7 @@ body{font-size:14px}
 .card{background:var(--bg1);border:1px solid var(--border);border-radius:10px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:10px;gap:14px}
 .card-title{font-size:12px;font-weight:700;color:var(--cat);letter-spacing:1.5px;text-transform:uppercase}
-.card-sub{font-size:11px;color:var(--txt3);font-family:'Share Tech Mono',Consolas,monospace}
+.card-sub{font-size:11px;color:var(--txt3);font-family:var(--font-mono)}
 
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
@@ -85,12 +94,12 @@ body{font-size:14px}
 
 /* STATS */
 .stat{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:14px;text-align:center}
-.stat-v{font-size:28px;font-weight:900;color:var(--cat);font-family:'Share Tech Mono',Consolas,monospace;line-height:1}
+.stat-v{font-size:28px;font-weight:900;color:var(--cat);font-family:var(--font-mono);line-height:1}
 .stat-v.green{color:var(--green)} .stat-v.red{color:var(--red)} .stat-v.blue{color:var(--blue)}
 .stat-l{font-size:10px;color:var(--txt3);letter-spacing:1.2px;text-transform:uppercase;margin-top:5px}
 
 /* BUTTONS */
-.btn{font-size:13px;font-weight:600;padding:9px 16px;border-radius:6px;cursor:pointer;border:1px solid var(--border2);background:var(--bg2);color:var(--txt);letter-spacing:.5px;transition:all .15s;display:inline-flex;align-items:center;gap:6px;font-family:Arial,sans-serif}
+.btn{font-size:13px;font-weight:600;padding:9px 16px;border-radius:6px;cursor:pointer;border:1px solid var(--border2);background:var(--bg2);color:var(--txt);letter-spacing:.5px;transition:all .15s;display:inline-flex;align-items:center;gap:6px;font-family:var(--font-main)}
 .btn:hover{background:var(--bg3);border-color:var(--txt3)}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .btn.primary{background:var(--cat-bg);color:var(--cat);border-color:var(--cat);font-weight:700}
@@ -110,23 +119,23 @@ body{font-size:14px}
 /* TABLES */
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{text-align:left;padding:8px 10px;color:var(--txt3);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid var(--border)}
-td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--txt);font-family:'Share Tech Mono',Consolas,monospace;font-size:12px}
+td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--txt);font-family:var(--font-mono);font-size:12px}
 tr:hover td{background:var(--bg2)}
-td.k{color:var(--txt3);font-family:Arial,sans-serif}
+td.k{color:var(--txt3);font-family:var(--font-main)}
 td.v{color:var(--cat);font-weight:700}
-input.cell, select.cell{width:100%;background:var(--bg2);border:1px solid var(--border2);color:var(--txt);padding:5px 7px;border-radius:4px;font-family:'Share Tech Mono',Consolas,monospace;font-size:12px}
+input.cell, select.cell{width:100%;background:var(--bg2);border:1px solid var(--border2);color:var(--txt);padding:5px 7px;border-radius:4px;font-family:var(--font-mono);font-size:12px}
 input.cell:focus, select.cell:focus{outline:none;border-color:var(--cat)}
 
 /* CANVAS */
 canvas.field{background:#F5F5F5;border:1px solid var(--border);border-radius:6px;width:100%;display:block}
 
 /* LOG */
-.log{background:#F5F5F5;border:1px solid var(--border);border-radius:6px;padding:10px;font-family:'Share Tech Mono',Consolas,monospace;font-size:11px;color:var(--green);max-height:240px;overflow-y:auto;line-height:1.6}
+.log{background:#F5F5F5;border:1px solid var(--border);border-radius:6px;padding:10px;font-family:var(--font-mono);font-size:11px;color:var(--green);max-height:240px;overflow-y:auto;line-height:1.6}
 .log-line{padding:1px 0}
 .log-line.amber{color:var(--cat)} .log-line.blue{color:var(--blue)} .log-line.red{color:var(--red)}
 
 /* FOOTER */
-#footer{display:flex;align-items:center;justify-content:space-between;background:var(--bg1);border-top:1px solid var(--border);padding:0 20px;font-size:11px;color:var(--txt3);font-family:'Share Tech Mono',Consolas,monospace;letter-spacing:1px}
+#footer{display:flex;align-items:center;justify-content:space-between;background:var(--bg1);border-top:1px solid var(--border);padding:0 20px;font-size:11px;color:var(--txt3);font-family:var(--font-mono);letter-spacing:1px}
 #footer span.amber{color:var(--cat)}
 
 ::-webkit-scrollbar{width:8px;height:8px}
@@ -144,23 +153,23 @@ canvas.field{background:#F5F5F5;border:1px solid var(--border);border-radius:6px
 .panel{display:flex;flex-direction:column;gap:14px}
 .kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .kpi{background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:10px;text-align:center}
-.kpi-v{font-size:20px;font-weight:900;color:var(--cat);font-family:'Share Tech Mono',Consolas,monospace}
+.kpi-v{font-size:20px;font-weight:900;color:var(--cat);font-family:var(--font-mono)}
 .kpi-l{font-size:9px;color:var(--txt3);text-transform:uppercase;letter-spacing:1px;margin-top:3px}
 
 /* PROGRESS BAR */
 .pbar{height:18px;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;overflow:hidden;position:relative}
 .pbar-fill{height:100%;background:linear-gradient(90deg,var(--cat),var(--green));transition:width .3s ease}
-.pbar-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',Consolas,monospace;font-size:11px;font-weight:700;color:var(--txt);text-shadow:0 1px 2px rgba(0,0,0,.7)}
+.pbar-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--txt);text-shadow:0 1px 2px rgba(0,0,0,.7)}
 
 /* CODE BLOCK */
-pre{background:#F5F5F5;padding:10px;border-radius:6px;color:var(--green);font-family:'Share Tech Mono',Consolas,monospace;font-size:11px;overflow-x:auto;line-height:1.5;border:1px solid var(--border)}
-code{font-family:'Share Tech Mono',Consolas,monospace;color:var(--cat);font-size:12px}
+pre{background:#F5F5F5;padding:10px;border-radius:6px;color:var(--green);font-family:var(--font-mono);font-size:11px;overflow-x:auto;line-height:1.5;border:1px solid var(--border)}
+code{font-family:var(--font-mono);color:var(--cat);font-size:12px}
 
 /* TIMELINE / GANTT */
 .gantt-row{display:grid;grid-template-columns:90px 1fr;gap:8px;align-items:center;margin-bottom:6px}
-.gantt-row .gantt-label{color:var(--txt2);font-family:'Share Tech Mono',Consolas,monospace;font-size:11px}
+.gantt-row .gantt-label{color:var(--txt2);font-family:var(--font-mono);font-size:11px}
 .gantt-bar{height:18px;background:var(--bg2);border:1px solid var(--border2);border-radius:4px;position:relative;overflow:hidden}
-.gantt-seg{position:absolute;top:0;bottom:0;background:var(--green-bg);border:1px solid var(--green);font-size:9px;color:var(--green);text-align:center;line-height:16px;font-family:'Share Tech Mono',Consolas,monospace}
+.gantt-seg{position:absolute;top:0;bottom:0;background:var(--green-bg);border:1px solid var(--green);font-size:9px;color:var(--green);text-align:center;line-height:16px;font-family:var(--font-mono)}
 .gantt-seg.maint{background:rgba(255,138,61,.2);border-color:var(--orange);color:var(--orange)}
 
 .field-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
@@ -174,20 +183,20 @@ code{font-family:'Share Tech Mono',Consolas,monospace;color:var(--cat);font-size
 .tilt-visual,.tilt-sidebar{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px}
 .tilt-visual{justify-content:flex-start}
 .tilt-sidebar{justify-content:space-between}
-.tilt-label{font-size:18px;font-weight:900;letter-spacing:1px;color:var(--txt);font-family:Arial,sans-serif}
+.tilt-label{font-size:18px;font-weight:900;letter-spacing:1px;color:var(--txt);font-family:var(--font-main)}
 .tilt-sub{font-size:13px;color:var(--txt2);line-height:1.6}
 .tilt-stage{width:100%;border-radius:10px;background:#F5F5F5;border:1px solid var(--border);overflow:hidden}
 .slider-group{display:flex;align-items:center;gap:12px}
 .slider-group label{font-size:11px;color:var(--txt3);width:126px;text-transform:uppercase;letter-spacing:1px;font-weight:700}
 .slider-group input[type=range]{flex:1;accent-color:var(--cat)}
-.slider-val{font-size:13px;color:var(--cat);font-family:'Share Tech Mono',Consolas,monospace;min-width:48px;text-align:right}
+.slider-val{font-size:13px;color:var(--cat);font-family:var(--font-mono);min-width:48px;text-align:right}
 .fill-ratio-wrap{display:flex;flex-direction:column;gap:6px}
 .fill-ratio-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 .fill-ratio-title{font-size:11px;color:var(--txt3);text-transform:uppercase;letter-spacing:1px;font-weight:700}
-.fill-ratio-value{font-size:34px;line-height:1;font-weight:700;color:var(--cat);font-family:'Share Tech Mono',Consolas,monospace}
+.fill-ratio-value{font-size:34px;line-height:1;font-weight:700;color:var(--cat);font-family:var(--font-mono)}
 .fill-ratio-bar{width:100%;height:12px;background:#E0E0E0;border:1px solid var(--border2);border-radius:999px;overflow:hidden}
 .fill-ratio-bar-inner{height:100%;width:0%;background:linear-gradient(90deg,var(--cat),var(--green));transition:width .35s ease}
-.tilt-status{font-size:11px;font-family:'Share Tech Mono',Consolas,monospace;letter-spacing:1px}
+.tilt-status{font-size:11px;font-family:var(--font-mono);letter-spacing:1px}
 .tilt-note{font-size:12px;color:var(--txt2);line-height:1.6}
 
 @media (max-width: 980px){
@@ -292,7 +301,7 @@ code{font-family:'Share Tech Mono',Consolas,monospace;color:var(--cat);font-size
 <body>
 <div id="shell">
 
-<div id="topbar">
+<header id="topbar">
   <div class="brand">
     <div style="display:flex;flex-direction:column;justify-content:center;">
       <div class="cat-logo-text">AUTODUMP<div class="cat-triangle"></div></div>
@@ -309,46 +318,46 @@ code{font-family:'Share Tech Mono',Consolas,monospace;color:var(--cat);font-size
     <span class="wf-arrow">→</span>
     <span class="wf-step" data-wf="report">5 · REPORT</span>
   </div>
-</div>
+</header>
 
-<div id="main">
-  <div id="sidebar">
+<main id="main">
+  <nav id="sidebar">
     <div class="sb-label">WORKFLOW</div>
-    <div class="nav-item active" data-page="site"><span class="nav-num"><span>1</span></span>
+    <div class="nav-item active" role="button" tabindex="0" data-page="site"><span class="nav-num"><span>1</span></span>
       <div class="nav-item-stack"><span>Site Setup</span><span class="nav-sub">polygon · gates</span></div></div>
-    <div class="nav-item" data-page="fleet"><span class="nav-num"><span>2</span></span>
+    <div class="nav-item" role="button" tabindex="0" data-page="fleet"><span class="nav-num"><span>2</span></span>
       <div class="nav-item-stack"><span>Fleet Config</span><span class="nav-sub">trucks · shifts</span></div></div>
-    <div class="nav-item" data-page="plan"><span class="nav-num"><span>3</span></span>
+    <div class="nav-item" role="button" tabindex="0" data-page="plan"><span class="nav-num"><span>3</span></span>
       <div class="nav-item-stack"><span>Plan Generation</span><span class="nav-sub">zones · waypoints</span></div></div>
-    <div class="nav-item" data-page="ops"><span class="nav-num"><span>4</span></span>
+    <div class="nav-item" role="button" tabindex="0" data-page="ops"><span class="nav-num"><span>4</span></span>
       <div class="nav-item-stack"><span>Live Operations</span><span class="nav-sub">simulate · monitor</span></div></div>
-    <div class="nav-item" data-page="report"><span class="nav-num"><span>5</span></span>
+    <div class="nav-item" role="button" tabindex="0" data-page="report"><span class="nav-num"><span>5</span></span>
       <div class="nav-item-stack"><span>Report &amp; Export</span><span class="nav-sub">stats · CSV · JSON</span></div></div>
     <div class="sb-label">REFERENCE</div>
-    <div class="nav-item" data-page="about"><span class="nav-num"><span>i</span></span>
+    <div class="nav-item" role="button" tabindex="0" data-page="about"><span class="nav-num"><span>i</span></span>
       <div class="nav-item-stack"><span>About / Method</span><span class="nav-sub">algorithm · training</span></div></div>
     <div class="sb-label">FLEET COMMAND</div>
-    <div class="nav-item" data-page="fleetmon"><span class="nav-num"><span><i class="fas fa-truck-monster"></i></span></span>
+    <div class="nav-item" role="button" tabindex="0" data-page="fleetmon"><span class="nav-num"><span><i class="fas fa-truck-monster"></i></span></span>
       <div class="nav-item-stack"><span>Fleet Monitor</span><span class="nav-sub">live coords · dumps</span></div></div>
-    <div class="nav-item" data-page="v2v"><span class="nav-num"><span><i class="fas fa-tower-broadcast"></i></span></span>
+    <div class="nav-item" role="button" tabindex="0" data-page="v2v"><span class="nav-num"><span><i class="fas fa-tower-broadcast"></i></span></span>
       <div class="nav-item-stack"><span>V2V Comms</span><span class="nav-sub">proximity · tokens</span></div></div>
-    <div class="nav-item" data-page="telemetry"><span class="nav-num"><span><i class="fas fa-chart-line"></i></span></span>
+    <div class="nav-item" role="button" tabindex="0" data-page="telemetry"><span class="nav-num"><span><i class="fas fa-chart-line"></i></span></span>
       <div class="nav-item-stack"><span>Telemetry</span><span class="nav-sub">coverage · dumps</span></div></div>
-    <div class="nav-item" data-page="supervision"><span class="nav-num"><span><i class="fas fa-user-shield"></i></span></span>
+    <div class="nav-item" role="button" tabindex="0" data-page="supervision"><span class="nav-num"><span><i class="fas fa-user-shield"></i></span></span>
       <div class="nav-item-stack"><span>Supervision</span><span class="nav-sub">feeds · status</span></div></div>
-    <div class="nav-item" data-page="killswitch"><span class="nav-num"><span><i class="fas fa-circle-stop"></i></span></span>
+    <div class="nav-item" role="button" tabindex="0" data-page="killswitch"><span class="nav-num"><span><i class="fas fa-circle-stop"></i></span></span>
       <div class="nav-item-stack"><span>Kill Switch</span><span class="nav-sub">E-stop · per-truck</span></div></div>
-  </div>
+  </nav>
 
-  <div id="content">
+  <section id="content">
     <!-- pages injected here -->
   </div>
 </div>
 
-<div id="footer">
+<footer id="footer">
   <span>TECHIVA@26 · PSGitech · Caterpillar Innovation Challenge 2026 · PS-4 — Operations Console v2.0</span>
   <span class="amber" id="f-status">ready</span>
-</div>
+</footer>
 </div>
 
 <!-- Pages slot in here via simple template injection at load -->
@@ -385,19 +394,19 @@ document.getElementById("content").innerHTML = `
       <div class="card">
         <div class="card-h"><div class="card-title">Drawing mode</div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-          <div class="mode-btn active" data-mode="poly" onclick="setMode('poly')">
+          <div class="mode-btn active" role="button" tabindex="0" data-mode="poly" onclick="setMode('poly')">
             <span class="mb-i">⬢</span><span class="mb-l">Polygon</span>
           </div>
-          <div class="mode-btn" data-mode="pathway" onclick="setMode('pathway')">
+          <div class="mode-btn" role="button" tabindex="0" data-mode="pathway" onclick="setMode('pathway')">
             <span class="mb-i" style="color:#9B6BFF">━</span><span class="mb-l">Pathway / Road</span>
           </div>
-          <div class="mode-btn" data-mode="entry" onclick="setMode('entry')">
+          <div class="mode-btn" role="button" tabindex="0" data-mode="entry" onclick="setMode('entry')">
             <span class="mb-i" style="color:#00D26A">▶</span><span class="mb-l">Entry gate</span>
           </div>
-          <div class="mode-btn" data-mode="exit" onclick="setMode('exit')">
+          <div class="mode-btn" role="button" tabindex="0" data-mode="exit" onclick="setMode('exit')">
             <span class="mb-i" style="color:#FF4D5E">◀</span><span class="mb-l">Exit gate</span>
           </div>
-          <div class="mode-btn" data-mode="nogo" onclick="setMode('nogo')">
+          <div class="mode-btn" role="button" tabindex="0" data-mode="nogo" onclick="setMode('nogo')">
             <span class="mb-i" style="color:#FF8A3D">⊘</span><span class="mb-l">No-go zone</span>
           </div>
         </div>
@@ -577,7 +586,7 @@ document.getElementById("content").innerHTML = `
     <div class="btn-row">
       <button class="btn primary" id="btn-ops-play" onclick="opsToggle()">▶ Start</button>
       <button class="btn" onclick="opsReset()">↻ Reset</button>
-      <select class="cell" id="ops-speed" onchange="opsSpeed()" style="width:90px;background:var(--bg2);border:1px solid var(--border2);color:var(--txt);padding:6px;font-family:'Share Tech Mono',Consolas,monospace">
+      <select class="cell" id="ops-speed" onchange="opsSpeed()" style="width:90px;background:var(--bg2);border:1px solid var(--border2);color:var(--txt);padding:6px;font-family:var(--font-mono)">
         <option value="1">1×</option><option value="5">5×</option><option value="15">15×</option><option value="30">30×</option><option value="60" selected>60×</option><option value="120">120×</option><option value="240">240×</option>
       </select>
     </div>
@@ -606,7 +615,7 @@ document.getElementById("content").innerHTML = `
       </div>
       <div class="card">
         <div class="card-h"><div class="card-title">Token board</div></div>
-        <div id="ops-tokens" style="font-size:11px;font-family:'Share Tech Mono',Consolas,monospace"></div>
+        <div id="ops-tokens" style="font-size:11px;font-family:var(--font-mono)"></div>
       </div>
       <div class="card" style="flex:1;display:flex;flex-direction:column">
         <div class="card-h"><div class="card-title">Event log</div></div>
@@ -752,7 +761,7 @@ document.getElementById("content").innerHTML = `
           </div>
           <div class="fill-ratio-value" id="fillRatioDisplay">0.65</div>
           <div class="fill-ratio-bar"><div class="fill-ratio-bar-inner" id="fillRatioBar" style="width:65%"></div></div>
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--txt3);font-family:'Share Tech Mono',Consolas,monospace;letter-spacing:1px;">
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--txt3);font-family:var(--font-mono);letter-spacing:1px;">
             <span>EMPTY</span><span>FULL</span>
           </div>
         </div>
