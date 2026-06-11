@@ -158,6 +158,17 @@
   - `tests/zone_decomp_validation.mjs` re-run after the edits: `=== 18 passed, 0 failed ===`. Script blocks: `block0 OK`, `block1 OK`, `block2 OK`.
 - Status: PASS
 
+### T-019
+- Scope: Main Gate → haul roads → auto zones architecture redesign (`autoDecomposeZones`, `buildHaulRoads`, `zoneEntryPoint`, `haulRoadsToSegments`, refactored `runPlan` Steps 2–4 in `site/indexV4.html`) (2026-06-11)
+- Command: `node tests/haulroad_zone_check.mjs` (functions extracted live from the page into a `vm` sandbox), `node tests/live_sim_completion.mjs`, plus `new Function(...)` syntax check on all 3 inline `<script>` blocks
+- Expected: demo polygon + 3 trucks yields exactly 3 contiguous, roughly balanced zones; zone areas sum to the polygon area; haul road network connects the Main Gate to every zone access point via `laneRoute`; degenerate inputs return no zones; existing simulation suite unaffected
+- Result:
+  - Demo polygon (129,722 m², 3 trucks, 50,000 m² target): 3 zones of 39,870 / 52,932 / 36,920 m²; area conservation 100.00%.
+  - Haul roads: 1 spine + 3 branches (4 segments); routes gate→Z1/Z2/Z3 all resolve over the road network (2–3 points each).
+  - Edge cases: 1-truck rectangle → 1 zone; 8-zone L-shape → 8 zones; 2-vertex degenerate input → 0 zones.
+  - `tests/live_sim_completion.mjs` after the refactor: `=== 14 passed, 0 failed ===`. Script blocks: all 3 `OK`.
+- Status: PASS
+
 ## Notes
 
 - No application runtime tests were executed in this pass.

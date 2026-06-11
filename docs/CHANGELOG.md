@@ -14,6 +14,67 @@
 
 ## Summary (latest changes)
 
+### 2026-06-11 — Architecture redesign: Main Gate → auto haul roads → auto zones
+
+**Goal:** Make the planner behave like a realistic mine-planning system instead of a
+geometric coverage demo. User inputs are now ONLY: mine boundary polygon, Main Gate
+(single point, acts as both entry and exit), truck model(s), and number of trucks.
+Manual region lines (R1/R2), separate entry/exit gates, and pathway drawing are removed.
+
+**New pipeline (`runPlan()` in `site/indexV4.html`):**
+1. Field mask from polygon (unchanged).
+2. **Auto zone decomposition** — `autoDecomposeZones()` divides the polygon into
+   `max(nTrucks, min(nTrucks×2, area/zoneSizeTarget, 8))` balanced horizontal slab
+   zones, each clipped to the true polygon boundary (verts stored per zone).
+   Boustrophedon strips remain internal to zones (`boustrophedonOrder`) and are
+   never promoted to zones; the token board lists zones only.
+3. **Auto haul road generation** — `buildHaulRoads()` builds a spine from the Main
+   Gate to the polygon centroid plus one branch per zone to its nearest access
+   point (`zoneEntryPoint()`); `laneRoute` (Dijkstra over road segments) constrains
+   all transit legs to the road network. If the user skipped the gate, it is
+   auto-placed at the polygon vertex nearest the bottom-centre of the bounding box.
+4. Weighted zone→truck assignment via token broker (unchanged mechanism, now over
+   auto zones); trucks enter zones at their road access point, not centroid.
+5. All trucks start at the Main Gate and the exit bookend returns them to the gate.
+
+**Site Setup UI:** drawing modes reduced to Polygon / Main Gate / No-go; site summary
+shows gate coordinates; presets and demo updated; pathway/entry/exit drawing removed.
+**Rendering:** plan preview and live ops draw the generated haul roads (amber corridors
+with dashed centre-line), the Main Gate marker, and zones as their actual clipped
+polygons; fleet-monitor map updated likewise.
+**Exports:** plan/summary JSON now include `mainGate` and `haulRoads` instead of
+`entries`/`exits`.
+**Coverage** was already area-based (`filled cells / polygon cells`) and is unchanged.
+Legacy `splitPolygonByPathways`/`buildZones`/`drawGate` remain defined for reference
+tests but are no longer called by the live pipeline.
+
+**Validation:** new `tests/haulroad_zone_check.mjs` (zone balance, 100% area
+conservation, road connectivity gate→every zone, degenerate inputs) plus the existing
+`tests/live_sim_completion.mjs` suite — 14/14 pass.
+
+### 2026-06-11 — Fix zone decomposition: regions, not strips, are zones
+
+**Problem:** For large regions (created when the user draws R1/R2 pathway separators),
+`buildZones()` was called to generate truckWidth-wide horizontal strips, and each strip
+was promoted to a zone. This caused the token board to show dozens of zones and trucks
+to be assigned strip-by-strip instead of region-by-region.
+
+**Fix (single change in `runPlan()` Step 3, `site/indexV4.html`):**
+- Each region created by pathway separators now maps to **exactly one zone** by default.
+- For very large regions (area > `ZONE_THRESHOLD_M2`, default now 50 000 m²), the region
+  is subdivided into at most 4 equal horizontal sub-zones — never truckWidth-wide strips.
+- `buildZones()` is no longer called in the live pipeline (still defined but dead code;
+  boustrophedon strip traversal is handled internally by `boustrophedonOrder`).
+- Zone `verts` polygon is stored on each zone object for future accurate rendering.
+- UI: renamed "Small region threshold" → "Zone subdivision threshold"; default 5 000 → 50 000 m²;
+  updated step description and helper text.
+
+**Result for Polygon + R1 + R2 (default settings):**
+→ Zone A, Zone B, Zone C (3 zones) — one per separator-defined region.
+Token board: 3 tokens. Each truck assigned a complete operational region.
+
+
+
 - README fix: repointed the deployed link to the GitHub Pages root so it opens the published app again.
 - Deployment fix: restored a `site/index.html` entry file so GitHub Pages opens the app from the repository root again.
 - UI/Branding: switched to a light Caterpillar theme; replaced `Barlow Condensed` with `Arial`; updated logo, favicon, and tab title to "AutoDump".
