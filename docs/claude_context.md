@@ -173,13 +173,21 @@ Legacy-but-still-defined (reference/tests only, NOT in the live pipeline):
   `rebalanceIdleTruck` (steals farthest pending zone block from the busiest
   truck, exits via nearest gate).
 - Arrival radii: transit/load ≥ 1.05× turning circle, dump tight (0.7×).
-- **Live traffic (2026-06-12)**: `roadOccupancyTick` (throttled
-  `OCC_TICK_MIN` 0.5 sim-min) snaps active trucks to road edges →
-  `ops.roadOcc` + `ops.congestionIndex`; `congestionSpeedFactor` slows trucks
-  nonlinearly on busy edges (`1/(1+0.6·u⁴)`, clamp [0.45,1]); after every
-  reload `rerouteNextLeg` re-routes the next haul-in leg around live
-  congestion when its utilization ≥ `REROUTE_UTIL` (splices ONLY the transit
-  run; no-op on legacy serpentine routes). `opsReset` DEEP-COPIES waypoints
+- **Live traffic (2026-06-12, always-on per-truck since 2026-06-13)**:
+  `roadOccupancyTick` (throttled `OCC_TICK_MIN` 0.5 sim-min) snaps active
+  trucks to road edges → `ops.roadOcc` + `ops.congestionIndex`;
+  `congestionSpeedFactor` slows trucks nonlinearly on busy edges
+  (`1/(1+0.6·u⁴)`, clamp [0.45,1]); `rerouteNextLeg` re-plans EVERY haul-in
+  leg (at reload) and EVERY haul-out leg (after dump) from the truck's live
+  position with live occupancy, per-truck corridor bias (`truckSeed`) and
+  diversity vs its own previous leg (`tr._lastLegEdges`) — `REROUTE_UTIL`
+  only gates logging/counting now (splices ONLY the transit run; no-op on
+  legacy serpentine routes). Traffic-mode cost terms in `routeOnGraph`
+  (flows-gated, so ε=1.0 laneRoute parity holds): linear early-spread
+  `0.5·u`, static hub toll `0.35·(deg−2)`, ±12 % per-truck jitter.
+  `moveTruckWithAvoidance`: nearest-AHEAD blocker only, LOADED trucks have
+  right of way (then lower index — total order, deadlock-free), head-on
+  pairs both keep right (transit only). `opsReset` DEEP-COPIES waypoints
   (defers/reroutes splice them — aliasing the plan arrays corrupted re-runs).
   Fuel: `tr.fuelL` accrues per km at `fuelLoaded`/`fuelEmpty` (TRUCK_MODELS).
   Congestion overlay (`drawCongestionOverlay`) + congestion/fuel KPIs +

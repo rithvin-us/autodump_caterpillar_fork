@@ -156,7 +156,8 @@ check("C1 every gate and zone access point is a graph node",
     return sb.routeOnGraph(g1, [0,0], [10,0], { eps: 1.0, flows }).cost;
   };
   const c0 = costAt(0), c1 = costAt(cap), c2 = costAt(2*cap);
-  check("C2 BPR at capacity = (1+alpha) x length", Math.abs(c1 - 10*1.6) < 1e-6, `c(k)=${c1.toFixed(2)}`);
+  // cost at capacity = len x (1 + BPR alpha + 0.5 linear early-spread term)
+  check("C2 cost at capacity = (1 + alpha + 0.5) x length", Math.abs(c1 - 10*2.1) < 1e-6, `c(k)=${c1.toFixed(2)}`);
   check("C2 BPR convex (nonlinear blow-up near capacity)", (c2 - c1) > (c1 - c0),
     `c(0)=${c0.toFixed(1)} c(k)=${c1.toFixed(1)} c(2k)=${c2.toFixed(1)}`);
 }
@@ -361,6 +362,49 @@ check("C1 every gate and zone access point is a graph node",
   check("C8 graph-backed laneRoute matches legacy Dijkstra length (eps 1.0)",
     parity, parity ? "all OD pairs within 1%" : details.join("; "));
   check("C8 no pathological detours (<= 3x straight line)", sane);
+}
+
+// ── C9: collision avoidance — loaded right-of-way + head-on keep-right ──────
+{
+  const S = sb.STATE;
+  const mk = (id, x, y, heading, loaded) => ({
+    id, model: "Cat 793", x, y, heading, loaded, state: "transit",
+    finished: false, dumps: 0, waypoints: [], wpIdx: 0,
+  });
+  // loaded right-of-way: empty T1 (index 0 — would win the old index rule)
+  // heads toward loaded T2 directly ahead within the hard-stop distance
+  const e1 = mk("T1", 0, 0, 0, false), l2 = mk("T2", 1.0, 0, 0, true);
+  S.ops.trucks = [e1, l2];
+  const rEmpty = sb.moveTruckWithAvoidance(e1, S.ops, [5, 0], 0.2);
+  const rLoaded = sb.moveTruckWithAvoidance(l2, S.ops, [5, 0], 0.2);
+  check("C9 empty truck yields to loaded truck ahead (mine right-of-way)",
+    rEmpty.wait === true && rLoaded.wait === false,
+    `empty wait=${rEmpty.wait}, loaded wait=${rLoaded.wait}`);
+  // head-on: both trucks shift to their OWN right and pass — neither stops
+  const a = mk("A", 0, 0, 0, true), b = mk("B", 3.0, 0, Math.PI, true);
+  S.ops.trucks = [a, b];
+  const ra = sb.moveTruckWithAvoidance(a, S.ops, [6, 0], 0.2);
+  const rb = sb.moveTruckWithAvoidance(b, S.ops, [-3, 0], 0.2);
+  check("C9 head-on encounter: both keep right, opposite sides, no dead stop",
+    ra.wait === false && rb.wait === false && ra.aim[1] < -0.5 && rb.aim[1] > 0.5,
+    `A lateral ${ra.aim[1].toFixed(2)}, B lateral ${rb.aim[1].toFixed(2)}`);
+  // a near truck BEHIND is not a blocker (old nearest-overall scan bug)
+  const f1 = mk("F1", 0, 0, 0, true), f2 = mk("F2", -0.9, 0, 0, true);
+  S.ops.trucks = [f2, f1];          // f1 has the higher index AND a truck 0.9 behind it
+  const rf = sb.moveTruckWithAvoidance(f1, S.ops, [5, 0], 0.2);
+  check("C9 truck close BEHIND does not trigger a yield",
+    rf.wait === false && rf.aim[0] === 5 && rf.aim[1] === 0);
+}
+
+// ── C10: per-truck corridor bias — each truck owns its route economics ──────
+{
+  const flows = new Float32Array(graph.edges.length);   // zero traffic
+  const od = [gatesXY[0], zones[zones.length-1].accessPt];
+  const r0 = sb.routeOnGraph(graph, od[0], od[1], { eps: 1.2, flows, truckSeed: 0 });
+  const r3 = sb.routeOnGraph(graph, od[0], od[1], { eps: 1.2, flows, truckSeed: 3 });
+  check("C10 per-truck cost bias active (route economics differ per truck)",
+    r0 && r3 && Math.abs(r0.cost - r3.cost) > 1e-9,
+    `cost(seed 0)=${r0.cost.toFixed(3)}, cost(seed 3)=${r3.cost.toFixed(3)}`);
 }
 
 console.log(`\n=== ${pass} passed, ${fail} failed ===`);

@@ -210,6 +210,13 @@
   - Re-runs: `multigate_path_check` `=== 16 passed, 0 failed ===`; `live_sim_completion` `=== 14 passed, 0 failed ===` (T5: 7 rebalance events, completes in 3,541 ticks on the new rebuild path); `zone_decomp_validation` `=== 18 passed, 0 failed ===`; `haulroad_zone_check` OK; script blocks `block0 OK`, `block1 OK`, `block2 OK`.
 - Status: PASS
 
+### T-025
+- Scope: Per-truck dynamic path planning + mine-rule collision avoidance — `routeOnGraph` traffic-mode cost terms (linear early-spread `0.5·u`, static hub toll `0.35·(deg−2)`, per-truck ±12 % corridor bias via `truckSeed`), always-on `rerouteNextLeg` (haul-in at every reload AND haul-out after every dump, diversity vs own previous leg, change-gated logging), `moveTruckWithAvoidance` rewrite (nearest-AHEAD blocker, loaded-over-empty right of way, head-on both-keep-right) (`site/indexV4.html`) (2026-06-13)
+- Command: `node tests/congestion_routing_check.mjs` (C2 expectation updated for the linear term; new C9 avoidance units + C10 per-truck bias), plus re-runs of `node tests/hard_path_planning.mjs`, `node tests/multigate_path_check.mjs`, `node tests/live_sim_completion.mjs`, `node tests/zone_decomp_validation.mjs`, `node tests/haulroad_zone_check.mjs`, and the 3-script-block `new vm.Script` syntax gate
+- Expected: cost at capacity = (1+α+0.5)·len with convexity preserved; laneRoute ε=1.0 parity unaffected (new terms are flows-gated); empty truck yields to a loaded truck ahead while the loaded one proceeds; a head-on pair both shift to their own right with opposite lateral offsets and neither stops; a truck close BEHIND triggers no yield; truckSeed produces truck-specific route costs; all sims still complete
+- Result: `congestion_routing_check` `=== 27 passed, 0 failed ===` (first run caught the stale C2 expectation — c(κ)=21.00 vs the old 16.00 — fixed as intended behaviour; C7 reroutes now 38 on the forced-saturation scenario with always-on re-planning; de-centering 3/24 routes via hub; C9 lateral offsets −0.90/+0.90; C10 costs 28.780 vs 28.496). Re-runs: `hard_path_planning` `=== 24 passed, 0 failed ===`, `multigate_path_check` `=== 16 passed, 0 failed ===`, `live_sim_completion` `=== 14 passed, 0 failed ===`, `zone_decomp_validation` `=== 18 passed, 0 failed ===`, `haulroad_zone_check` OK; script blocks `block0 OK`, `block1 OK`, `block2 OK`.
+- Status: PASS
+
 ## Notes
 
 - No application runtime tests were executed in this pass.

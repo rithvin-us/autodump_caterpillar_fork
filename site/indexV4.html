@@ -851,12 +851,13 @@ document.getElementById("content").innerHTML = `
       <tbody>
         <tr><td class="k">Edge capacity</td><td class="v">&kappa;<sub>e</sub> = max(1, &lfloor;&#8467;<sub>e</sub> / h&rfloor;) &nbsp;&middot;&nbsp; h = one truck headway slot (2.5&times; the V2V separation gap)</td></tr>
         <tr><td class="k">Congestion cost &mdash; BPR</td><td class="v">c<sub>e</sub>(f) = &#8467;<sub>e</sub> &middot; (1 + &alpha;&middot;min(f<sub>e</sub>/&kappa;<sub>e</sub>, 2)<sup>&beta;</sup>), &nbsp;&alpha; = 0.6, &beta; = 4 &mdash; cost grows <b>nonlinearly</b> as road utilization approaches capacity, so load spreads across the haul network</td></tr>
-        <tr><td class="k">Intersection utilization</td><td class="v">c<sub>v</sub> = &gamma;&middot;(deg(v) &minus; 2)&middot;u<sub>v</sub><sup>2</sup> at nodes with degree &ge; 3, &gamma; = 0.8 &mdash; busy junctions (e.g. the centroid hub) repel new routes</td></tr>
+        <tr><td class="k">Intersection utilization</td><td class="v">c<sub>v</sub> = &gamma;&middot;(deg(v) &minus; 2)&middot;u<sub>v</sub><sup>2</sup> + 0.35&middot;(deg(v) &minus; 2) at nodes with degree &ge; 3, &gamma; = 0.8 &mdash; busy junctions repel routes dynamically AND carry a static hub toll, so the fleet never converges on the centre hub just to traverse it</td></tr>
+        <tr><td class="k">Per-truck corridor bias</td><td class="v">deterministic &plusmn;12% cost jitter per (truck, edge) hash + linear early-spread term 0.5&middot;u &mdash; each truck computes ITS OWN optimal corridor, so identical trucks split across parallel routes from trip one</td></tr>
         <tr><td class="k">Route diversity</td><td class="v">+ &delta;&middot;&#8467;<sub>e</sub> (&delta; = 0.25) on every edge of the SAME truck&rsquo;s previous trip on that origin&ndash;destination pair &mdash; consecutive trips alternate corridors</td></tr>
         <tr><td class="k">Fuel term</td><td class="v">+ &lambda;&middot;&#8467;<sub>e</sub>&middot;q/q<sub>ref</sub> (&lambda; = 0.15; q = L/km loaded or empty per model) &nbsp;+&nbsp; &mu;&middot;(1 &minus; cos&thinsp;&theta;) per heading change (&mu; = 0.3) &mdash; shorter, straighter, cheaper-to-burn paths win ties</td></tr>
         <tr><td class="k">Search</td><td class="v">weighted A*: f(n) = g(n) + &epsilon;&middot;h(n), h = Euclidean (admissible), &epsilon; = 1.2 &rArr; cost &le; 1.2&times; optimal in a fraction of the expansions &mdash; suitable for real-time dispatch (Pohl 1970)</td></tr>
         <tr><td class="k">Fleet flow assignment</td><td class="v">trips routed round-robin across the fleet with per-edge flow accumulation and decay 0.7/round &mdash; predicted traffic density &asymp; concurrent occupancy</td></tr>
-        <tr><td class="k">Live traffic response</td><td class="v">v = v<sub>0</sub> / (1 + &alpha;&middot;u<sup>&beta;</sup>) clamped to [0.45, 1] on the truck&rsquo;s current edge; next haul-in leg re-routed via live-occupancy weighted A* when leg utilization &ge; 50%</td></tr>
+        <tr><td class="k">Live traffic response</td><td class="v">v = v<sub>0</sub> / (1 + &alpha;&middot;u<sup>&beta;</sup>) clamped to [0.45, 1] on the truck&rsquo;s current edge; EVERY haul-in leg (at reload) and haul-out leg (after dump) is re-planned from the truck&rsquo;s live position via live-occupancy weighted A* &mdash; paths are never static; logged when the route actually changes</td></tr>
         <tr><td class="k">Path smoothing</td><td class="v">quadratic B&eacute;zier corner cuts: B(t) = (1&minus;t)<sup>2</sup>P<sub>a</sub> + 2t(1&minus;t)C + t<sup>2</sup>P<sub>b</sub>, cut depth d = min(0.45&middot;min leg, 2R<sub>turn</sub>), t &isin; &#123;&frac14;, &frac12;, &frac34;&#125; &mdash; dump/load points never move</td></tr>
         <tr><td class="k">Congestion index (KPI)</td><td class="v">CI = &Sigma;<sub>e</sub> occ<sub>e</sub>&middot;u<sub>e</sub> / max(1, &Sigma;<sub>e</sub> occ<sub>e</sub>) &mdash; occupancy-weighted mean utilization; live runs may finish slightly over the planned ETA because of the traffic speed response</td></tr>
         <tr><td class="k">References</td><td class="v">Bureau of Public Roads (1964) volume-delay function &middot; Pohl (1970) weighted A* &middot; Cat 785/793/797 fuel-burn field references</td></tr>
@@ -1668,6 +1669,7 @@ function routeOnGraph(graph, from, to, opts) {
   const flows = opts.flows || null;
   const prevE = opts.prevEdges || null;
   const fuelQ = opts.fuelLpkm || 0;
+  const seedT = opts.truckSeed != null ? opts.truckSeed : null;
   const ALPHA = typeof BPR_ALPHA !== "undefined" ? BPR_ALPHA : 0.6;
   const BETA  = typeof BPR_BETA !== "undefined" ? BPR_BETA : 4;
   const GAMMA = 0.8, DELTA = 0.25, LAMBDA = 0.15, MU = 0.3, QREF = 9.6;
@@ -1726,7 +1728,10 @@ function routeOnGraph(graph, from, to, opts) {
   else { seed(S.virt.a, S.virt.off + S.virt.da); seed(S.virt.b, S.virt.off + S.virt.db); }
   const eCost = (e, u, v) => {
     const ut = flows ? Math.min((flows[e.id] || 0) / e.cap, 2) : 0;
-    let c = e.len * (1 + ALPHA * Math.pow(ut, BETA));
+    // BPR (nonlinear near capacity) + a LINEAR early-spread term: BPR alone is
+    // nearly flat below capacity, so the fleet's first trips all picked the
+    // same shortest corridor — the linear term diversifies from the first truck
+    let c = e.len * (1 + ALPHA * Math.pow(ut, BETA) + (flows ? 0.5 * ut : 0));
     if (prevE && prevE.has(e.id)) c += DELTA * e.len;
     if (fuelQ > 0) {
       c += LAMBDA * e.len * fuelQ / QREF;
@@ -1743,6 +1748,16 @@ function routeOnGraph(graph, from, to, opts) {
       for (const ee of graph.adj[v]) { fSum += flows[ee.id] || 0; cSum += ee.cap; }
       const uv = cSum > 0 ? fSum / cSum : 0;
       c += GAMMA * (graph.adj[v].length - 2) * uv * uv;
+      // static hub toll: busy junctions (the centroid hub) cost extra even with
+      // zero traffic, so routes don't converge on the centre "just to traverse"
+      c += 0.35 * (graph.adj[v].length - 2);
+    }
+    // per-truck corridor bias: deterministic +-12% jitter (truck x edge hash)
+    // makes each truck's optimal path ITS OWN — parallel corridors split the
+    // fleet instead of every truck computing the identical route
+    if (flows && seedT != null) {
+      const j = Math.sin(e.id * 12.9898 + seedT * 78.233);
+      c *= 1 + 0.12 * (j * 0.5 + 0.5);
     }
     return c;
   };
@@ -2703,6 +2718,7 @@ async function runPlan() {
       prevEdges: lastTripEdges[t.id][odKey] || null,
       loaded,
       fuelLpkm: loaded ? (fm.fuelLoaded || 0) : (fm.fuelEmpty || 0),
+      truckSeed: trucks.indexOf(t),   // per-truck corridor bias — each truck owns its optimum
     });
     if (!r) { pushLane(wp, fromXY, toXY); return; }
     for (let i = 1; i < r.path.length; i++)
@@ -3090,36 +3106,57 @@ const REAL_MINING = {
 
 // Collision avoidance: keep a 2.5×-radius gap. Lower-index truck has right of way;
 // the higher-index truck deflects around, or waits if it's right on top of it.
+// Collision avoidance with mine-site rules:
+// - only a truck AHEAD of my motion is a blocker (a near truck behind me is
+//   not an obstacle — the old nearest-overall scan could mask a real blocker)
+// - LOADED trucks have right of way over empty ones (real haul-road rule);
+//   equal load state falls back to the stable lower-index rule, so exactly
+//   one truck of any pair yields — no mutual stop, no deadlock
+// - head-on encounters: BOTH trucks shift to their own right and pass like
+//   two-way haul-road traffic instead of one stopping dead (transit only)
 function moveTruckWithAvoidance(tr, ops, target, step) {
   const minGap = 2.5 * TRUCK_RAD_LOGICAL;
   const myIdx  = ops.trucks.indexOf(tr);
-  let nearest = null, nearestD = Infinity;
+  const tx = target[0]-tr.x, ty = target[1]-tr.y, tl = Math.hypot(tx,ty) || 1;
+  let blocker = null, blockerD = Infinity, oncoming = null, oncomingD = Infinity;
   for (const ot of ops.trucks) {
     if (ot === tr || ot.finished) continue;
-    const d = Math.hypot(ot.x - tr.x, ot.y - tr.y);
-    if (d < nearestD) { nearestD = d; nearest = ot; }
+    const ox = ot.x-tr.x, oy = ot.y-tr.y;
+    const d = Math.hypot(ox, oy);
+    const ahead = (ox*tx + oy*ty) / tl;        // is this truck in my path?
+    if (ahead > 0 && d < minGap && d < blockerD) { blockerD = d; blocker = ot; }
+    if (ahead > 0 && d < minGap * 2 && tr.heading != null && ot.heading != null) {
+      const hd = Math.cos(tr.heading)*Math.cos(ot.heading) + Math.sin(tr.heading)*Math.sin(ot.heading);
+      if (hd < -0.5 && d < oncomingD) { oncomingD = d; oncoming = ot; }   // opposite headings
+    }
   }
+  const hasPriorityOver = ot => {
+    if (!!tr.loaded !== !!ot.loaded) return !!tr.loaded;   // loaded beats empty
+    return myIdx < ops.trucks.indexOf(ot);                 // stable tie-break
+  };
   let aim = [target[0], target[1]], wait = false;
-  if (nearest && nearestD < minGap) {
-    const ni = ops.trucks.indexOf(nearest);
-    const tx = target[0]-tr.x, ty = target[1]-tr.y, tl = Math.hypot(tx,ty) || 1;
-    const ox = nearest.x-tr.x,  oy = nearest.y-tr.y;
-    const ahead = (ox*tx + oy*ty) / tl;        // is the blocker in my path?
-    if (ahead > 0 && myIdx > ni) {             // I yield to the lower-index truck
-      if (nearestD < TRUCK_RAD_LOGICAL * 1.6) {
-        wait = true;                           // too close → stop and yield
-      } else {                                 // deflect perpendicular to go around
-        const px = -ty/tl, py = tx/tl;
-        const side = (ox*px + oy*py) > 0 ? -1 : 1;
-        aim = [tr.x + tx/tl*step*3 + px*side*minGap,
-               tr.y + ty/tl*step*3 + py*side*minGap];
-      }
-      if (tr.yieldingTo !== nearest.id) {      // log once per yield event
-        opsLog(`${tr.id} yielding to ${nearest.id}`, "amber");
-        tr.yieldingTo = nearest.id;
-      }
-    } else if (tr.yieldingTo) { tr.yieldingTo = null; }
-  } else if (tr.yieldingTo) { tr.yieldingTo = null; }
+  if (blocker && !hasPriorityOver(blocker)) {
+    if (blockerD < TRUCK_RAD_LOGICAL * 1.6) {
+      wait = true;                             // too close → stop and yield
+    } else {                                   // deflect perpendicular to go around
+      const px = -ty/tl, py = tx/tl;
+      const ox = blocker.x-tr.x, oy = blocker.y-tr.y;
+      const side = (ox*px + oy*py) > 0 ? -1 : 1;
+      aim = [tr.x + tx/tl*step*3 + px*side*minGap,
+             tr.y + ty/tl*step*3 + py*side*minGap];
+    }
+    if (tr.yieldingTo !== blocker.id) {        // log once per yield event
+      opsLog(`${tr.id} yielding to ${blocker.id}`, "amber");
+      tr.yieldingTo = blocker.id;
+    }
+  } else {
+    if (tr.yieldingTo) tr.yieldingTo = null;
+    if (oncoming && tr.state === "transit" && tr.heading != null) {
+      const rx = Math.sin(tr.heading), ry = -Math.cos(tr.heading);   // my right side
+      aim = [aim[0] + rx * TRUCK_RAD_LOGICAL * 1.2,
+             aim[1] + ry * TRUCK_RAD_LOGICAL * 1.2];
+    }
+  }
   return { wait, aim };
 }
 
@@ -3583,6 +3620,9 @@ function opsTick(dt) {
         }
         tr.dumps++; tr.dumpProgress = 0; tr.state = "transit"; tr.wpIdx++;
         tr.vel = 0;                          // pull away from the dump smoothly
+        // dynamic path planning: re-plan the haul-out leg from HERE with live
+        // traffic (no-op without a road graph / live occupancy data)
+        if (typeof rerouteNextLeg === "function") rerouteNextLeg(tr, ops);
         // productive dump: refresh the zone token's heartbeat and track
         // per-zone completion so a finished zone releases its lock instantly
         const zHere = zoneAt(tr.x, tr.y);
@@ -3853,11 +3893,14 @@ function congestionSpeedFactor(tr, ops) {
   return Math.max(0.45, Math.min(1, 1 / (1 + a * Math.pow(u, b))));
 }
 
-// Dynamic path planning: after a reload, re-route the truck's next haul-in
-// leg (the consecutive transit run before its next dump) around live
-// congestion. Only transit waypoints are replaced — the dump, the access
-// point (last transit before the dump) and all later waypoints are untouched,
-// so every shuttle invariant survives. No-op on legacy serpentine routes.
+// Dynamic path planning, PER TRUCK and PER TRIP: at every reload (next
+// haul-in leg) and after every dump (haul-out leg) the truck's next transit
+// run is re-planned from its CURRENT position with live road occupancy, its
+// own corridor bias and a diversity penalty against its own previous leg —
+// the path is never static and is each truck's own optimum under traffic.
+// Only transit waypoints are replaced — the dump, the zone access and the
+// load/gate waypoints are untouched, so every shuttle invariant survives.
+// No-op on legacy serpentine routes (guarded by waypoint kind).
 function rerouteNextLeg(tr, ops) {
   const plan = STATE.plan;
   if (!plan || !plan.roadGraph || !ops.roadOcc) return false;
@@ -3866,7 +3909,9 @@ function rerouteNextLeg(tr, ops) {
   if (!wp || tr.wpIdx >= wp.length || wp[tr.wpIdx][2] !== "transit") return false;
   let end = tr.wpIdx;
   while (end < wp.length && wp[end][2] === "transit") end++;
-  if (end >= wp.length || wp[end][2] !== "dump") return false;   // haul-in legs only
+  const legKind = end < wp.length ? wp[end][2] : null;
+  if (legKind !== "dump" && legKind !== "load") return false;   // haul legs only
+  const loaded = legKind === "dump";             // haul-in carries the load
   const runLen = end - tr.wpIdx;
   if (runLen < 2) return false;
   const g = plan.roadGraph;
@@ -3879,27 +3924,46 @@ function rerouteNextLeg(tr, ops) {
     }
     return bd <= 1.0 ? be : -1;
   };
-  let maxU = 0;
-  for (let i = tr.wpIdx; i < end; i++) {
-    const ei = snap(wp[i]);
-    if (ei >= 0) maxU = Math.max(maxU, ops.roadOcc[ei] / g.edges[ei].cap);
+  let maxU = 0, oldLen = 0;
+  {
+    let px = tr.x, py = tr.y;
+    for (let i = tr.wpIdx; i < end; i++) {
+      const ei = snap(wp[i]);
+      if (ei >= 0) maxU = Math.max(maxU, ops.roadOcc[ei] / g.edges[ei].cap);
+      oldLen += Math.hypot(wp[i][0] - px, wp[i][1] - py); px = wp[i][0]; py = wp[i][1];
+    }
   }
-  const thr = typeof REROUTE_UTIL !== "undefined" ? REROUTE_UTIL : 0.5;
-  if (maxU < thr) return false;                  // planned leg is clear — keep it
-  const legEnd = wp[end - 1];                    // zone access (last transit before dump)
-  const r = routeOnGraph(g, [tr.x, tr.y], [legEnd[0], legEnd[1]], {
+  // haul-in target = the zone access (last transit, kept inclusive);
+  // haul-out target = the load/gate waypoint itself (kept, transits replaced)
+  const tgt = loaded ? wp[end - 1] : wp[end];
+  const r = routeOnGraph(g, [tr.x, tr.y], [tgt[0], tgt[1]], {
     eps: typeof ASTAR_EPS !== "undefined" ? ASTAR_EPS : 1.2,
     flows: ops.roadOcc,
-    loaded: true,
-    fuelLpkm: (TRUCK_MODELS[tr.model] || {}).fuelLoaded || 0,
+    prevEdges: tr._lastLegEdges || null,         // diversity vs OWN previous leg
+    loaded,
+    fuelLpkm: (TRUCK_MODELS[tr.model] || {})[loaded ? "fuelLoaded" : "fuelEmpty"] || 0,
+    truckSeed: ops.trucks.indexOf(tr),           // per-truck corridor bias
   });
   if (!r || r.path.length < 2) return false;
-  let leg = r.path.map(p => [+p[0].toFixed(2), +p[1].toFixed(2), "transit"]);
-  if (typeof smoothPathBezier === "function")
-    leg = smoothPathBezier(leg, metresToLogical(CAT793_TURN_M));
+  tr._lastLegEdges = new Set(r.edgeIds);
+  const pts = loaded ? r.path.slice(1) : r.path.slice(1, -1);
+  let leg = pts.map(p => [+p[0].toFixed(2), +p[1].toFixed(2), "transit"]);
+  if (typeof smoothPathBezier === "function" && leg.length)
+    leg = smoothPathBezier([[+tr.x.toFixed(2), +tr.y.toFixed(2), "transit"], ...leg],
+                           metresToLogical(CAT793_TURN_M)).slice(1);
+  let newLen = 0;
+  {
+    let px = tr.x, py = tr.y;
+    for (const w of leg) { newLen += Math.hypot(w[0] - px, w[1] - py); px = w[0]; py = w[1]; }
+  }
   wp.splice(tr.wpIdx, runLen, ...leg);
-  ops.reroutes = (ops.reroutes || 0) + 1;
-  opsLog(`${tr.id} re-routed around congestion (leg util ${(maxU*100).toFixed(0)}%)`, "blue");
+  // count + log only when the path actually changed (every trip re-plans, but
+  // logging every reload would flood the event feed)
+  const thr = typeof REROUTE_UTIL !== "undefined" ? REROUTE_UTIL : 0.5;
+  if (Math.abs(newLen - oldLen) > 0.3 || maxU >= thr) {
+    ops.reroutes = (ops.reroutes || 0) + 1;
+    opsLog(`${tr.id} dynamic re-route (${loaded ? "haul-in" : "haul-out"}, leg util ${(maxU*100).toFixed(0)}%)`, "blue");
+  }
   return true;
 }
 

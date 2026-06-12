@@ -14,6 +14,72 @@
 
 ## Summary (latest changes)
 
+### 2026-06-13 — Per-truck dynamic path planning: always-on leg re-planning, corridor bias + hub toll de-centering, mine-rule collision avoidance (`site/indexV4.html`)
+
+Round 2 on the "trucks still converge on the centre / paths feel static"
+report. Root causes found in the 2026-06-12 model:
+
+1. **BPR is flat below capacity by design** (β = 4) — with near-zero flows the
+   fleet's FIRST trips all computed the identical shortest corridor through
+   the centroid hub, so the sim opened with every truck at the centre.
+2. **The intersection penalty was utilization-driven only** — an empty hub
+   cost nothing, so routes happily traversed the centre "just to pass".
+3. **Live re-routing was threshold-gated** (leg utilization ≥ 50 %) — under
+   light traffic every path stayed exactly as planned, i.e. static.
+4. **Collision avoidance picked the nearest truck overall** (even one BEHIND),
+   used a fixed lower-index priority, and had no head-on behaviour.
+
+**Cost function (`routeOnGraph`) — three new traffic-mode terms** (all inert
+in the ε = 1.0 `laneRoute` parity path, which passes no flows):
+- *Linear early-spread*: edge multiplier is now `1 + α·u^β + 0.5·u` — the
+  linear term reacts to the very first truck on an edge, so trips diversify
+  from round one instead of waiting for near-capacity.
+- *Static hub toll*: `+0.35·(deg−2)` at every degree-≥3 node IN ADDITION to
+  the dynamic `γ·(deg−2)·u_v²` — the centroid junction now has a fixed price,
+  so nobody routes through the centre when a perimeter link is comparable.
+- *Per-truck corridor bias*: deterministic ±12 % cost jitter from a
+  `(truck, edge)` hash (`truckSeed` opt) — each truck literally has its own
+  cost surface, so identical trucks split across parallel corridors instead
+  of all computing the same "optimal" path. Plan-time legs pass the truck's
+  fleet index; live re-routes pass its ops index.
+
+**Live dynamic path planning is now ALWAYS-ON and per truck**
+(`rerouteNextLeg` rewritten): at EVERY reload the next haul-in leg, and after
+EVERY dump the haul-out leg, is re-planned from the truck's live position
+with live occupancy, its corridor bias, and a diversity penalty against its
+OWN previous leg (`tr._lastLegEdges`). The 50 % utilization threshold now
+only gates logging/counting (a change ≥ 0.3 logical in leg length or a
+congested leg logs "dynamic re-route (haul-in/haul-out)") — re-planning every
+trip with no log flood. Haul-out targets the load/gate waypoint (kept
+exactly); haul-in targets the zone access (kept exactly); only transit
+waypoints are ever spliced, so all shuttle invariants survive. Legacy
+serpentine routes remain untouched (kind-guarded no-op).
+
+**Collision avoidance (`moveTruckWithAvoidance`) — mine-site rules:**
+- Blocker = nearest truck AHEAD of my motion within the gap (the old
+  nearest-overall scan could pick a truck behind me and mask the real
+  blocker ahead).
+- **Loaded trucks have right of way** over empty ones (real haul-road rule);
+  equal load state falls back to the stable lower-index rule — the priority
+  relation stays a total order, so exactly one of any pair yields (no mutual
+  stop, no deadlock).
+- **Head-on encounters: both trucks shift to their own right** (perpendicular
+  to their own heading, transit state only) and pass like two-way haul-road
+  traffic instead of one truck stopping dead in the lane.
+- Hard-stop distance and yield logging unchanged.
+
+**Validation:** `tests/congestion_routing_check.mjs` extended — C2 updated for
+the linear term (cost at capacity = (1+α+0.5)·len, convexity preserved), new
+C9 (loaded right-of-way yields, head-on both-keep-right with opposite lateral
+offsets and no dead stop, truck-behind is not a blocker) and C10 (per-truck
+cost bias produces truck-specific route economics) — **27/27 pass**;
+de-centering holds at 3/24 routes via hub with the stronger spreading.
+Re-runs: `hard_path_planning` 24/24, `multigate_path_check` 16/16,
+`live_sim_completion` 14/14, `zone_decomp_validation` 18/18,
+`haulroad_zone_check` OK, all 3 inline script blocks parse. See
+`docs/TESTING.md` T-025. (`graphify-out/graph.json`/`graph.html` are
+regenerated automatically by the post-commit graphify hook.)
+
 ### 2026-06-12 — Congestion-aware fleet routing: weighted A* + BPR cost, road-network diversification, live dynamic re-routing, fuel model, Bézier path smoothing (`site/indexV4.html`)
 
 Addresses two reported problems: (1) the planner had no fleet-level traffic
