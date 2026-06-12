@@ -8,37 +8,64 @@
 <meta property="og:url" content="https://preethikakumaravel.github.io/autodump_caterpillar/"/>
 <meta name="description" content="AutoDump Operations: a deployable tool that plans dump-truck routes for autonomous Cat 793/797/785 fleets on irregular mining fields. Built for the Caterpillar Innovation Challenge 2026."/>
 <meta name="author" content="Team Techiva@26 — PSG Institute of Technology"/>
-<meta name="theme-color" content="#0B1320"/>
+<meta name="theme-color" content="#15181C"/>
 <meta property="og:type" content="website"/>
 <meta property="og:title" content="AutoDump Operations — Caterpillar Innovation Challenge 2026"/>
 <meta property="og:description" content="Plan-and-execute tool for autonomous mining-truck dump packing. Site setup → fleet config → live operations → exportable waypoints."/>
 <meta name="twitter:card" content="summary_large_image"/>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpolygon points='32,28 4,56 60,56' fill='%23FFC107'/%3E%3C/svg%3E"/>
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet"/>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpolygon points='32,28 4,56 60,56' fill='%23FFCD11'/%3E%3C/svg%3E"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg0:#FFFFFF;--bg1:#ffffff;--bg2:#ffffff;--bg3:#ffffff;
-  --border:#E4E7EC;--border2:#D0D5DD;
-  --txt:#101828;--txt2:#344054;--txt3:#667085;
-  --cat:#9E7C00;--cat-bright:#FFCD11;--cat2:#EDBC00;--cat-bg:rgba(255,205,17,.13);
-  --green:#0E9F6E;--green-bg:rgba(14,159,110,.10);
-  --red:#D92D20;--red-bg:rgba(217,45,32,.08);
-  --blue:#1570EF;--blue-bg:rgba(21,112,239,.09);
-  --purple:#7A5AF8;--orange:#DC6803;
-  --frame:#14171C;--frame-edge:#262B33;
-  --terminal:#0C1118;--terminal-edge:#1F2733;
+  /* ---- Design tokens · color primitives (Caterpillar enterprise palette) ---- */
+  --cat-yellow:#FFCD11;        /* Caterpillar Yellow — brand + primary action */
+  --cat-yellow-deep:#EDBC00;   /* hover/pressed yellow */
+  --cat-yellow-text:#7A6200;   /* yellow usable as text on white (≥5:1) */
+  --charcoal-950:#15181C;      /* app frame / map background */
+  --charcoal-900:#1B1F24;
+  --charcoal-800:#262B31;
+  --gray-700:#344054;--gray-600:#475467;--gray-500:#5D6878;
+  --gray-300:#D0D5DD;--gray-200:#E4E7EC;--gray-100:#F2F3F6;--gray-50:#F8F9FB;
+  /* ---- Semantic colors (status only — never decorative) ---- */
+  --status-ok:#067647;   --status-ok-strong:#0E9F6E;
+  --status-warn:#B54708; --status-warn-strong:#DC6803;
+  --status-err:#B42318;  --status-err-strong:#D92D20;
+  --status-info:#175CD3; --status-info-strong:#1570EF;
+  /* ---- Semantic aliases (legacy names kept for the whole codebase) ---- */
+  --bg0:#FFFFFF;--bg1:var(--gray-50);--bg2:var(--gray-100);--bg3:var(--gray-200);
+  --border:var(--gray-200);--border2:var(--gray-300);
+  --txt:#101828;--txt2:var(--gray-700);--txt3:var(--gray-500);
+  --cat:var(--cat-yellow-text);--cat-bright:var(--cat-yellow);--cat2:var(--cat-yellow-deep);--cat-bg:rgba(255,205,17,.13);
+  --green:var(--status-ok-strong);--green-bg:rgba(14,159,110,.10);
+  --red:var(--status-err-strong);--red-bg:rgba(217,45,32,.08);
+  --blue:var(--status-info-strong);--blue-bg:rgba(21,112,239,.09);
+  --purple:#7A5AF8;--orange:var(--status-warn-strong);
+  --frame:var(--charcoal-950);--frame-edge:var(--charcoal-800);
+  --terminal:var(--charcoal-950);--terminal-edge:var(--charcoal-800);
+  /* ---- Spacing scale (4px base) ---- */
+  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-8:32px;
+  /* ---- Radius scale ---- */
+  --r-sm:4px;--r-md:6px;--r-lg:8px;
+  /* ---- Elevation ---- */
   --shadow-xs:0 1px 2px rgba(16,24,40,.05);
   --shadow-sm:0 1px 3px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.05);
   --shadow-md:0 4px 10px -2px rgba(16,24,40,.09),0 2px 4px -2px rgba(16,24,40,.05);
-  --font-main:'Barlow',system-ui,sans-serif;
-  --font-display:'Barlow Condensed','Barlow',system-ui,sans-serif;
-  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  /* ---- Motion (enterprise: 150–250ms, standard easing) ---- */
+  --t-fast:150ms;--t-base:200ms;--t-slow:250ms;
+  --ease:cubic-bezier(.2,0,0,1);
+  /* ---- Typography ---- */
+  --font-main:'Inter','Segoe UI',system-ui,sans-serif;
+  --font-display:'Inter','Segoe UI',system-ui,sans-serif;
+  --font-mono:'IBM Plex Mono',Consolas,ui-monospace,monospace;
 }
 html,body{height:100%;overflow:hidden;font-family:var(--font-main);background:var(--bg0);color:var(--txt);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 
 /* ACCESSIBILITY & MOTION */
 *:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:2px}
+#topbar *:focus-visible,#footer *:focus-visible{outline-color:var(--cat-bright)}
+.skip-link{position:absolute;left:8px;top:-48px;z-index:100;background:var(--charcoal-950);color:#fff;padding:10px 16px;border-radius:0 0 6px 6px;font-size:13px;font-weight:600;text-decoration:none;transition:top var(--t-fast) var(--ease)}
+.skip-link:focus{top:0}
 ::selection{background:rgba(255,205,17,.4);color:#101828}
 .card{transition:box-shadow .2s ease,border-color .2s ease}
 .card:hover{box-shadow:var(--shadow-sm)}
@@ -52,22 +79,34 @@ body{font-size:14px;line-height:1.45}
 /* TOP BAR */
 #topbar{display:flex;align-items:center;justify-content:space-between;background:var(--frame);border-bottom:3px solid var(--cat-bright);padding:0 22px;z-index:10;box-shadow:0 2px 10px rgba(8,12,20,.25)}
 .brand{display:flex;align-items:center;gap:12px}
-.cat-logo-text{font-family:var(--font-display);font-size:27px;font-weight:700;color:#FFFFFF;letter-spacing:1px;position:relative;line-height:1}
+.cat-logo-text{font-family:var(--font-display);font-size:20px;font-weight:800;color:#FFFFFF;letter-spacing:.5px;position:relative;line-height:1}
 .cat-triangle{position:absolute;bottom:1px;left:3px;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:12px solid var(--cat-bright);pointer-events:none}
 .brand-sub{font-size:10px;color:#8B94A3;letter-spacing:1.5px;font-weight:600;text-transform:uppercase;margin-top:1px}
 .brand-badge{background:var(--cat-bright);color:#111;font-size:9px;font-weight:700;padding:3px 8px;border-radius:3px;letter-spacing:.5px;margin-bottom:14px}
 .workflow-progress{display:flex;align-items:center;gap:7px;font-size:10.5px;color:#8B94A3;font-family:var(--font-mono);letter-spacing:1px}
 .wf-step{padding:4px 10px;border-radius:4px;background:rgba(255,255,255,.06);color:#8B94A3;border:1px solid rgba(255,255,255,.07);transition:background-color .2s,color .2s}
 .wf-step.done{background:rgba(62,213,152,.10);color:#3ED598;border-color:rgba(62,213,152,.25)}
-.wf-step.cur{background:var(--cat-bright);color:#111;font-weight:700;border-color:var(--cat-bright);box-shadow:0 0 0 3px rgba(255,205,17,.15)}
+.wf-step.cur{background:var(--cat-bright);color:#111;font-weight:700;border-color:var(--cat-bright)}
 .wf-arrow{color:#3A414C}
+
+/* HEADER STATUS GROUP */
+.hdr-status-group{display:flex;align-items:center;gap:10px}
+.hdr-chip{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#C5CCD6;font-size:10.5px;font-weight:600;font-family:var(--font-mono);letter-spacing:1px;padding:5px 11px;border-radius:4px;text-transform:uppercase;transition:background-color var(--t-base) var(--ease),color var(--t-base) var(--ease)}
+.hdr-dot{width:7px;height:7px;border-radius:50%;background:#8B94A3;flex:none;transition:background-color var(--t-base) var(--ease)}
+.hdr-chip.running{color:var(--cat-bright);border-color:rgba(255,205,17,.35)}
+.hdr-chip.running .hdr-dot{background:var(--cat-bright)}
+.hdr-chip.done{color:#3ED598;border-color:rgba(62,213,152,.3)}
+.hdr-chip.done .hdr-dot{background:#3ED598}
+.hdr-chip.estop{color:#FF8A80;border-color:rgba(255,138,128,.35)}
+.hdr-chip.estop .hdr-dot{background:#FF5252}
+.hdr-clock{font-family:var(--font-mono);font-size:12px;color:#C5CCD6;letter-spacing:1px;font-variant-numeric:tabular-nums;min-width:72px;text-align:right}
 
 /* MAIN */
 #main{display:grid;grid-template-columns:240px 1fr;overflow:hidden}
 
 /* SIDEBAR */
 #sidebar{background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:14px 10px;gap:2px;overflow-y:auto}
-.sb-label{font-size:9.5px;font-weight:700;color:var(--txt3);letter-spacing:2.2px;text-transform:uppercase;padding:14px 10px 6px}
+.sb-label{font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:2px;text-transform:uppercase;padding:14px 10px 6px}
 .nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;font-size:13.5px;font-weight:500;color:var(--txt2);cursor:pointer;letter-spacing:.3px;border-radius:8px;position:relative}
 .nav-item::before{content:'';position:absolute;left:-10px;top:22%;bottom:22%;width:3px;border-radius:0 2px 2px 0;background:transparent;transition:background-color .15s}
 .nav-item:hover{background:var(--bg2);color:var(--txt)}
@@ -92,10 +131,10 @@ body{font-size:14px;line-height:1.45}
 .page.active>:nth-child(3){animation-delay:.1s}
 .page.active>:nth-child(n+4){animation-delay:.14s}
 .page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:4px}
-.page-title{font-family:var(--font-display);font-size:31px;font-weight:700;color:var(--txt);letter-spacing:.5px;text-transform:uppercase;line-height:1.05}
+.page-title{font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--txt);letter-spacing:-.2px;line-height:1.2}
 .page-title span{color:var(--cat)}
 .page-sub{font-size:13px;color:var(--txt3);margin-top:7px;max-width:720px;line-height:1.55}
-.tag{display:inline-flex;align-items:center;gap:6px;background:var(--bg0);border:1px solid var(--border2);color:var(--txt3);font-size:9.5px;font-weight:600;font-family:var(--font-mono);padding:3px 9px;border-radius:4px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:9px}
+.tag{display:inline-flex;align-items:center;gap:6px;background:var(--bg0);border:1px solid var(--border2);color:var(--txt3);font-size:10px;font-weight:600;font-family:var(--font-mono);padding:3px 9px;border-radius:4px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:9px}
 .tag::before{content:'';width:6px;height:6px;background:var(--cat-bright);border-radius:1px}
 
 /* CARDS */
@@ -175,7 +214,7 @@ canvas.field{background:var(--terminal);border:1px solid #222A37;border-radius:8
 .kpi{background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:11px 10px;text-align:center}
 .kpi-v{font-size:19px;font-weight:700;color:var(--txt);font-family:var(--font-mono);font-variant-numeric:tabular-nums}
 .kpi-v.green{color:var(--green)} .kpi-v.red{color:var(--red)} .kpi-v.blue{color:var(--blue)}
-.kpi-l{font-size:9px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+.kpi-l{font-size:10px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
 
 /* PROGRESS BAR */
 .pbar{height:16px;background:var(--bg2);border:1px solid var(--border);border-radius:999px;overflow:hidden;position:relative}
@@ -221,6 +260,12 @@ pre code{background:none;color:inherit;padding:0;border-radius:0}
 .tilt-status{font-size:11px;font-family:var(--font-mono);letter-spacing:1px}
 .tilt-note{font-size:12px;color:var(--txt2);line-height:1.6}
 
+/* PAGE LAYOUTS (canvas + side panel · ops control-room) */
+.layout-canvas-right{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;flex:1}
+.layout-ops{display:grid;grid-template-columns:minmax(0,1fr) 300px;grid-template-rows:minmax(0,auto) auto;gap:16px;flex:1}
+.layout-ops .ops-bottom{grid-column:1/-1}
+
+/* RESPONSIVE — desktop monitors, laptops, large ops displays */
 @media (max-width:1280px){
   .grid-4{grid-template-columns:repeat(2,1fr)}
 }
@@ -228,6 +273,20 @@ pre code{background:none;color:inherit;padding:0;border-radius:0}
   .tilt-demo{grid-template-columns:1fr}
   .grid-2,.grid-3{grid-template-columns:1fr}
   #main{grid-template-columns:200px 1fr}
+  .layout-canvas-right,.layout-ops{grid-template-columns:1fr}
+  .page-header{flex-direction:column}
+}
+@media (max-width: 840px){
+  .workflow-progress{display:none}
+  #main{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  #sidebar{flex-direction:row;overflow-x:auto;overflow-y:hidden;border-right:none;border-bottom:1px solid var(--border);padding:8px 10px}
+  .sb-label{display:none}
+  .nav-sub{display:none}
+  .nav-item{flex:none}
+}
+@media (min-width:1800px){
+  .page{padding:28px 48px}
+  body{font-size:15px}
 }
 /* ===== Merged Fleet-Command dashboard pages (namespaced under .dash) ===== */
 .dash{
@@ -237,13 +296,13 @@ pre code{background:none;color:inherit;padding:0;border-radius:0}
   --text-primary:#101828;--text-secondary:#344054;--text-muted:#667085;
   --success:#0E9F6E;--warning:#DC6803;--danger:#D92D20;--info:#1570EF;
   --radius:10px;--radius-sm:8px;--transition:.2s cubic-bezier(.4,0,.2,1);
-  --shadow:0 1px 2px rgba(16,24,40,.05);--shadow-glow:0 0 15px var(--cat-yellow-glow);
-  --font-main:'Barlow',system-ui,sans-serif;--font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --shadow:0 1px 2px rgba(16,24,40,.05);--shadow-glow:0 1px 3px rgba(16,24,40,.08);
+  --font-main:'Inter','Segoe UI',system-ui,sans-serif;--font-mono:'IBM Plex Mono',Consolas,ui-monospace,monospace;
   font-family:var(--font-main);color:var(--text-primary);padding:2px;
 }
 .dash>*{animation:dash-fadeIn .35s ease forwards}
-.dash .section-title{font-family:var(--font-display);font-size:27px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-primary);margin-bottom:16px;display:flex;align-items:center;gap:10px}
-.dash .section-title i{color:#9E7C00;font-size:20px}
+.dash .section-title{font-family:var(--font-display);font-size:20px;font-weight:700;letter-spacing:-.2px;color:var(--text-primary);margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.dash .section-title i{color:var(--cat-yellow-text);font-size:17px}
 .dash .mb-16{margin-bottom:16px}.dash .mb-20{margin-bottom:20px}
 .dash .card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);transition:border-color var(--transition),box-shadow var(--transition)}
 .dash .card:hover{border-color:var(--border-glow);box-shadow:0 1px 3px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.05)}
@@ -279,13 +338,14 @@ pre code{background:none;color:inherit;padding:0;border-radius:0}
 .dash .toggle-slider{position:absolute;inset:0;background:var(--bg-glass);border:1px solid var(--border-color);border-radius:24px;cursor:pointer;transition:var(--transition)}
 .dash .toggle-slider::before{content:'';position:absolute;width:18px;height:18px;border-radius:50%;background:var(--text-muted);top:2px;left:2px;transition:var(--transition)}
 .dash .toggle input:checked + .toggle-slider{background:rgba(255,203,5,.2);border-color:var(--cat-yellow)}
-.dash .toggle input:checked + .toggle-slider::before{transform:translateX(20px);background:var(--cat-yellow);box-shadow:0 0 8px var(--cat-yellow-glow)}
-.dash .kill-switch-container{display:flex;flex-direction:column;align-items:center;gap:20px;padding:30px}
-.dash .kill-btn{width:180px;height:180px;border-radius:50%;border:4px solid var(--danger);background:rgba(239,68,68,.08);color:var(--danger);font-size:16px;font-weight:800;text-transform:uppercase;letter-spacing:2px;cursor:pointer;transition:var(--transition);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative;font-family:inherit}
-.dash .kill-btn i{font-size:40px}
-.dash .kill-btn::after{content:'';position:absolute;inset:-8px;border-radius:50%;border:2px dashed rgba(239,68,68,.3);animation:dash-spin 10s linear infinite}
-.dash .kill-btn:hover{background:rgba(239,68,68,.2);box-shadow:0 0 40px rgba(239,68,68,.3);transform:scale(1.05)}
-.dash .kill-btn.active{background:var(--danger);color:#fff;animation:dash-pulse-danger 1s infinite}
+.dash .toggle input:checked + .toggle-slider::before{transform:translateX(20px);background:var(--cat-yellow)}
+.dash .kill-switch-container{display:flex;flex-direction:column;align-items:center;gap:24px;padding:34px}
+/* Industrial E-stop: red mushroom head on a yellow safety plate — no animation */
+.dash .kill-btn{width:168px;height:168px;border-radius:50%;border:4px solid #8E1B12;background:var(--danger);color:#fff;font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:2px;cursor:pointer;transition:background-color var(--t-base) var(--ease),box-shadow var(--t-base) var(--ease);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative;font-family:inherit;box-shadow:0 0 0 10px var(--cat-yellow),0 0 0 11px #C49D00,0 4px 10px 10px rgba(16,24,40,.12)}
+.dash .kill-btn i{font-size:36px}
+.dash .kill-btn:hover{background:#B91C1C}
+.dash .kill-btn:focus-visible{outline:3px solid var(--charcoal-950);outline-offset:14px}
+.dash .kill-btn.active{background:#7F1D1D;box-shadow:0 0 0 10px var(--cat-yellow),0 0 0 11px #C49D00,inset 0 3px 8px rgba(0,0,0,.4)}
 .dash .progress-bar{height:6px;background:var(--bg-glass);border-radius:10px;overflow:hidden;margin-top:8px}
 .dash .progress-fill{height:100%;border-radius:10px;transition:width 1s ease}
 .dash .progress-fill.yellow{background:linear-gradient(90deg,var(--cat-yellow-dark),var(--cat-yellow))}
@@ -301,8 +361,8 @@ pre code{background:none;color:inherit;padding:0;border-radius:0}
 .dash .status-pill.idle{background:rgba(245,158,11,.12);color:var(--warning)}
 .dash .status-pill.stopped{background:rgba(239,68,68,.12);color:var(--danger)}
 .dash .status-pill.maintenance{background:rgba(59,130,246,.12);color:var(--info)}
-.dash .comm-node{width:60px;height:60px;border-radius:50%;border:2px solid var(--cat-yellow);background:rgba(255,203,5,.08);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;position:relative}
-.dash .comm-node.active{animation:dash-node-pulse 2s infinite}
+.dash .comm-node{width:60px;height:60px;border-radius:50%;border:2px solid var(--border-color);background:var(--bg-glass);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;position:relative;transition:border-color var(--t-base) var(--ease),box-shadow var(--t-base) var(--ease)}
+.dash .comm-node.active{border-color:var(--cat-yellow);box-shadow:0 0 0 3px rgba(255,205,17,.18)}
 .dash .chart-area{width:100%;height:200px;position:relative;overflow:hidden}
 .dash .chart-bar-group{display:flex;align-items:flex-end;gap:4px;height:100%;padding-top:20px}
 .dash .chart-bar{flex:1;border-radius:4px 4px 0 0;transition:height 1s ease;min-width:8px;position:relative;cursor:pointer}
@@ -313,38 +373,39 @@ pre code{background:none;color:inherit;padding:0;border-radius:0}
 .dash .truck-feed{border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border-color);background:var(--bg-glass)}
 .dash .truck-feed-header{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;background:var(--bg-card-hover);border-bottom:1px solid var(--border-color);font-size:12px;font-weight:600}
 .dash .truck-feed-body{aspect-ratio:16/10;background:linear-gradient(135deg,#0F141C,#161D28);--text-secondary:#C5CCD6;--text-muted:#7C8694;display:flex;align-items:center;justify-content:center;color:#7C8694;font-size:11px;position:relative;overflow:hidden}
-.dash .scan-line{position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--cat-yellow),transparent);animation:dash-scan 3s linear infinite}
+.dash .scan-line{display:none}
 .dash .truck-feed-footer{padding:8px 14px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--text-muted)}
-@keyframes dash-spin{to{transform:rotate(360deg)}}
-@keyframes dash-pulse-danger{0%,100%{box-shadow:0 0 20px rgba(239,68,68,.4)}50%{box-shadow:0 0 50px rgba(239,68,68,.7)}}
-@keyframes dash-node-pulse{0%,100%{box-shadow:0 0 0 0 var(--cat-yellow-glow)}50%{box-shadow:0 0 0 10px transparent}}
-@keyframes dash-scan{0%{top:0}100%{top:100%}}
 @keyframes dash-fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:1100px){.dash .grid-4{grid-template-columns:repeat(2,1fr)}.dash .grid-3{grid-template-columns:repeat(2,1fr)}.dash .grid-2{grid-template-columns:1fr}}
 
 </style>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet"/>
 </head>
 <body>
+<a class="skip-link" href="#content">Skip to main content</a>
 <div id="shell">
 
 <header id="topbar">
   <div class="brand">
-    <div style="display:flex;flex-direction:column;justify-content:center;">
+    <div style="display:flex;flex-direction:column;justify-content:center;gap:2px;">
       <div class="cat-logo-text">AUTODUMP<div class="cat-triangle"></div></div>
+      <div class="brand-sub">Mine Operations Planning</div>
     </div>
   </div>
-  <div class="workflow-progress">
-    <span class="wf-step cur" data-wf="site">1 · SITE</span>
-    <span class="wf-arrow">→</span>
-    <span class="wf-step" data-wf="fleet">2 · FLEET</span>
-    <span class="wf-arrow">→</span>
-    <span class="wf-step" data-wf="plan">3 · PLAN</span>
-    <span class="wf-arrow">→</span>
-    <span class="wf-step" data-wf="ops">4 · OPERATE</span>
-    <span class="wf-arrow">→</span>
-    <span class="wf-step" data-wf="report">5 · REPORT</span>
+  <div class="workflow-progress" role="list" aria-label="Workflow progress">
+    <span class="wf-step cur" role="listitem" data-wf="site">1 · SITE</span>
+    <span class="wf-arrow" aria-hidden="true">→</span>
+    <span class="wf-step" role="listitem" data-wf="fleet">2 · FLEET</span>
+    <span class="wf-arrow" aria-hidden="true">→</span>
+    <span class="wf-step" role="listitem" data-wf="plan">3 · PLAN</span>
+    <span class="wf-arrow" aria-hidden="true">→</span>
+    <span class="wf-step" role="listitem" data-wf="ops">4 · OPERATE</span>
+    <span class="wf-arrow" aria-hidden="true">→</span>
+    <span class="wf-step" role="listitem" data-wf="report">5 · REPORT</span>
+  </div>
+  <div class="hdr-status-group">
+    <span class="hdr-chip" id="hdr-sim-status" role="status"><span class="hdr-dot" aria-hidden="true"></span><span id="hdr-sim-text">READY</span></span>
+    <span class="hdr-clock" id="hdr-clock" aria-label="Local time">--:--:--</span>
   </div>
 </header>
 
@@ -377,14 +438,14 @@ pre code{background:none;color:inherit;padding:0;border-radius:0}
       <div class="nav-item-stack"><span>Kill Switch</span><span class="nav-sub">E-stop · per-truck</span></div></div>
   </nav>
 
-  <section id="content">
+  <section id="content" aria-label="Page content">
     <!-- pages injected here -->
-  </div>
-</div>
+  </section>
+</main>
 
 <footer id="footer">
   <span>TECHIVA@26 · PSGitech · Caterpillar Innovation Challenge 2026 · PS-4 — Operations Console v2.0</span>
-  <span class="amber" id="f-status">ready</span>
+  <span class="amber" id="f-status" role="status" aria-live="polite">ready</span>
 </footer>
 </div>
 
@@ -402,19 +463,19 @@ document.getElementById("content").innerHTML = `
       <div class="page-sub">Draw the mine boundary polygon, place one or more Gates (each acts as an entry and exit point for the haul-road network), and mark no-go zones if needed. Haul roads and zone decomposition are generated automatically during plan generation — every gate participates in path planning.</div>
     </div>
     <div class="btn-row">
-      <button class="btn" onclick="loadPreset('demo')">📋 Load demo site</button>
-      <button class="btn primary" onclick="finishSite()">Finish setup →</button>
+      <button class="btn" onclick="loadPreset('demo')"><i class="fas fa-file-import" aria-hidden="true"></i> Load demo site</button>
+      <button class="btn primary" onclick="finishSite()">Finish setup <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 320px;gap:18px;flex:1">
+  <div class="layout-canvas-right">
     <!-- LEFT: canvas -->
     <div class="card" style="padding:14px">
       <div class="card-h">
         <div class="card-title">Mining field</div>
         <div class="card-sub" id="site-canvas-sub">click to start drawing the polygon</div>
       </div>
-      <canvas id="siteCanvas" class="field" width="720" height="540" style="cursor:crosshair"></canvas>
+      <canvas id="siteCanvas" class="field" width="720" height="540" style="cursor:crosshair" role="img" aria-label="Mine site editor — draw the boundary polygon, gates and no-go zones"></canvas>
     </div>
 
     <!-- RIGHT: tools -->
@@ -422,14 +483,14 @@ document.getElementById("content").innerHTML = `
       <div class="card">
         <div class="card-h"><div class="card-title">Drawing mode</div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
-          <div class="mode-btn active" role="button" tabindex="0" data-mode="poly" onclick="setMode('poly')">
-            <span class="mb-i">⬢</span><span class="mb-l">Polygon</span>
+          <div class="mode-btn active" role="button" tabindex="0" data-mode="poly" onclick="setMode('poly')" aria-label="Polygon drawing mode">
+            <span class="mb-i"><i class="fas fa-draw-polygon" aria-hidden="true"></i></span><span class="mb-l">Polygon</span>
           </div>
-          <div class="mode-btn" role="button" tabindex="0" data-mode="gate" onclick="setMode('gate')">
-            <span class="mb-i" style="color:#FFCD11">◉</span><span class="mb-l">Gates</span>
+          <div class="mode-btn" role="button" tabindex="0" data-mode="gate" onclick="setMode('gate')" aria-label="Gate placement mode">
+            <span class="mb-i" style="color:var(--cat-yellow-text)"><i class="fas fa-location-dot" aria-hidden="true"></i></span><span class="mb-l">Gates</span>
           </div>
-          <div class="mode-btn" role="button" tabindex="0" data-mode="nogo" onclick="setMode('nogo')">
-            <span class="mb-i" style="color:#FF8A3D">⊘</span><span class="mb-l">No-go zone</span>
+          <div class="mode-btn" role="button" tabindex="0" data-mode="nogo" onclick="setMode('nogo')" aria-label="No-go zone mode">
+            <span class="mb-i" style="color:var(--status-warn-strong)"><i class="fas fa-ban" aria-hidden="true"></i></span><span class="mb-l">No-go zone</span>
           </div>
         </div>
         <div style="font-size:11px;color:var(--txt3);margin-top:10px;line-height:1.5">
@@ -441,10 +502,10 @@ document.getElementById("content").innerHTML = `
       <div class="card">
         <div class="card-h"><div class="card-title">Polygon controls</div></div>
         <div class="btn-row">
-          <button class="btn btn-sm" onclick="siteUndo()">↶ Undo</button>
-          <button class="btn btn-sm" onclick="sitePresetRect()">▭ Rectangle</button>
-          <button class="btn btn-sm" onclick="sitePresetL()">⌐ L-shape</button>
-          <button class="btn btn-sm danger" onclick="siteClear()">✕ Clear all</button>
+          <button class="btn btn-sm" onclick="siteUndo()"><i class="fas fa-arrow-rotate-left" aria-hidden="true"></i> Undo</button>
+          <button class="btn btn-sm" onclick="sitePresetRect()">Rectangle</button>
+          <button class="btn btn-sm" onclick="sitePresetL()">L-shape</button>
+          <button class="btn btn-sm danger" onclick="siteClear()"><i class="fas fa-trash-can" aria-hidden="true"></i> Clear all</button>
         </div>
       </div>
 
@@ -453,17 +514,17 @@ document.getElementById("content").innerHTML = `
         <div class="field-row">
           <label>Canvas width</label>
           <input class="cell" type="number" id="p-real-width" value="500" step="10" min="20" max="20000" onchange="siteUpdateStats(); drawSite();"/>
-          <span style="color:var(--txt3);font-family:'Share Tech Mono',monospace;font-size:11px">m real</span>
+          <span style="color:var(--txt3);font-family:var(--font-mono);font-size:11px">m real</span>
         </div>
         <div class="field-row">
           <label>Safety buffer</label>
           <input class="cell" type="number" id="p-buffer" value="2.0" step="0.1" min="0" max="10"/>
-          <span style="color:var(--txt3);font-family:'Share Tech Mono',monospace;font-size:11px">m</span>
+          <span style="color:var(--txt3);font-family:var(--font-mono);font-size:11px">m</span>
         </div>
         <div class="field-row">
           <label>No-go radius</label>
           <input class="cell" type="number" id="p-nogo-radius" value="30" step="5" min="5" max="200" onchange="drawSite()"/>
-          <span style="color:var(--txt3);font-family:'Share Tech Mono',monospace;font-size:11px">m</span>
+          <span style="color:var(--txt3);font-family:var(--font-mono);font-size:11px">m</span>
         </div>
         <div style="font-size:10px;color:var(--txt3);margin-top:4px;line-height:1.4">Canvas width = how many metres the full canvas represents in real life. All areas, distances and truck-width strips scale from this. No-go radius applies to the next no-go marker you place.</div>
       </div>
@@ -494,9 +555,9 @@ document.getElementById("content").innerHTML = `
       <div class="page-sub">Configure each truck in your fleet. Mix Cat 793, 797, and 785 models. Set shift hours and maintenance windows per truck — the planner will respect each truck's availability.</div>
     </div>
     <div class="btn-row">
-      <button class="btn" onclick="fleetAddRow()">+ Add truck</button>
-      <button class="btn" onclick="loadFleetPreset()">📋 Load demo fleet</button>
-      <button class="btn primary" onclick="finishFleet()">Finish fleet →</button>
+      <button class="btn" onclick="fleetAddRow()"><i class="fas fa-plus" aria-hidden="true"></i> Add truck</button>
+      <button class="btn" onclick="loadFleetPreset()"><i class="fas fa-file-import" aria-hidden="true"></i> Load demo fleet</button>
+      <button class="btn primary" onclick="finishFleet()">Finish fleet <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
     </div>
   </div>
 
@@ -546,9 +607,9 @@ document.getElementById("content").innerHTML = `
       <div class="page-sub">AutoDump automatically decomposes the mine polygon into operational zones, generates a haul road network connecting every gate to every zone, allocates zones equally across the mixed fleet (priority-weighted), and computes one boustrophedon dump path per zone. Zone count scales with fleet size and site area. The RL-trained policy informs packing density.</div>
     </div>
     <div class="btn-row">
-      <button class="btn primary" onclick="runPlan()">⚙ Generate plan</button>
-      <button class="btn" onclick="exportPlan()" id="btn-export-plan" disabled>↓ Export plan JSON</button>
-      <button class="btn primary" onclick="nav('ops')" id="btn-next-ops">Next: Live Simulation →</button>
+      <button class="btn primary" onclick="runPlan()"><i class="fas fa-gears" aria-hidden="true"></i> Generate plan</button>
+      <button class="btn" onclick="exportPlan()" id="btn-export-plan" disabled><i class="fas fa-download" aria-hidden="true"></i> Export plan JSON</button>
+      <button class="btn primary" onclick="nav('ops')" id="btn-next-ops">Next: Live Simulation <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
     </div>
   </div>
 
@@ -584,7 +645,7 @@ document.getElementById("content").innerHTML = `
     <div class="grid-2" style="display:grid">
       <div class="card" style="padding:14px">
         <div class="card-h"><div class="card-title">Plan preview</div><div class="card-sub">zones colored by assigned truck</div></div>
-        <canvas id="planCanvas" class="field" width="720" height="540"></canvas>
+        <canvas id="planCanvas" class="field" width="720" height="540" role="img" aria-label="Plan preview map — operational zones colored by assigned truck, with haul roads and gates"></canvas>
       </div>
       <div class="card">
         <div class="card-h"><div class="card-title">Truck assignments</div></div>
@@ -608,21 +669,21 @@ document.getElementById("content").innerHTML = `
       <div class="page-sub">Multi-truck simulation. Each truck follows its assigned waypoints, requests zone-tokens from the broker, dumps fill the heatmap. Use this view to monitor a real fleet, replay a plan, or stress-test contention behaviour.</div>
     </div>
     <div class="btn-row">
-      <button class="btn primary" id="btn-ops-play" onclick="opsToggle()">▶ Start</button>
-      <button class="btn" onclick="opsReset()">↻ Reset</button>
+      <button class="btn primary" id="btn-ops-play" onclick="opsToggle()"><i class="fas fa-play" aria-hidden="true"></i> Start</button>
+      <button class="btn" onclick="opsReset()"><i class="fas fa-arrows-rotate" aria-hidden="true"></i> Reset</button>
       <select class="cell" id="ops-speed" onchange="opsSpeed()" style="width:90px;background:var(--bg2);border:1px solid var(--border2);color:var(--txt);padding:6px;font-family:var(--font-mono)">
         <option value="1">1×</option><option value="5">5×</option><option value="15">15×</option><option value="30">30×</option><option value="60" selected>60×</option><option value="120">120×</option><option value="240">240×</option>
       </select>
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 300px;gap:16px;flex:1">
+  <div class="layout-ops">
     <div class="card" style="padding:14px">
       <div class="card-h">
         <div class="card-title">Field view</div>
         <div class="card-sub" id="ops-canvas-sub">sim t=00:00 · 0 dumps · 0% coverage</div>
       </div>
-      <canvas id="opsCanvas" class="field" width="720" height="540"></canvas>
+      <canvas id="opsCanvas" class="field" width="720" height="540" role="img" aria-label="Live operations map — truck positions, routes, zones and dump coverage"></canvas>
     </div>
     <div class="panel">
       <div class="card">
@@ -634,17 +695,17 @@ document.getElementById("content").innerHTML = `
           <div class="kpi"><div class="kpi-v" id="kpi-dumps">0</div><div class="kpi-l">dumps placed</div></div>
         </div>
         <div style="margin-top:10px">
-          <div class="pbar"><div class="pbar-fill" id="ops-pbar" style="width:0%"></div><div class="pbar-text" id="ops-pbar-text">0% complete</div></div>
+          <div class="pbar" role="progressbar" aria-label="Coverage progress" aria-valuemin="0" aria-valuemax="100"><div class="pbar-fill" id="ops-pbar" style="width:0%"></div><div class="pbar-text" id="ops-pbar-text">0% complete</div></div>
         </div>
       </div>
-      <div class="card">
+      <div class="card" style="flex:1">
         <div class="card-h"><div class="card-title">Token board</div></div>
         <div id="ops-tokens" style="font-size:11px;font-family:var(--font-mono)"></div>
       </div>
-      <div class="card" style="flex:1;display:flex;flex-direction:column">
-        <div class="card-h"><div class="card-title">Event log</div></div>
-        <div class="log" id="ops-log" style="flex:1"></div>
-      </div>
+    </div>
+    <div class="card ops-bottom" style="display:flex;flex-direction:column">
+      <div class="card-h"><div class="card-title">Event log</div><div class="card-sub">operational events · token grants · warnings</div></div>
+      <div class="log" id="ops-log" role="log" aria-label="Operational event log" style="flex:1;max-height:170px"></div>
     </div>
   </div>
 </div>
@@ -660,9 +721,9 @@ document.getElementById("content").innerHTML = `
       <div class="page-sub">End-of-run summary, per-truck breakdown, baseline comparison, and exportable plan files for integration with MineStar / FleetOps.</div>
     </div>
     <div class="btn-row">
-      <button class="btn primary" onclick="exportWaypointsCSV()" id="btn-export-csv" disabled>↓ Waypoints CSV</button>
-      <button class="btn" onclick="exportSummaryJSON()" id="btn-export-json" disabled>↓ Summary JSON</button>
-      <button class="btn" onclick="window.print()">🖨 Print report</button>
+      <button class="btn primary" onclick="exportWaypointsCSV()" id="btn-export-csv" disabled><i class="fas fa-download" aria-hidden="true"></i> Waypoints CSV</button>
+      <button class="btn" onclick="exportSummaryJSON()" id="btn-export-json" disabled><i class="fas fa-download" aria-hidden="true"></i> Summary JSON</button>
+      <button class="btn" onclick="window.print()"><i class="fas fa-print" aria-hidden="true"></i> Print report</button>
     </div>
   </div>
 
@@ -741,8 +802,8 @@ document.getElementById("content").innerHTML = `
         <div style="flex:1;background:var(--bg0);border:1px solid var(--border);border-radius:8px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,0.06);display:flex;flex-direction:column;align-items:center;text-align:center;">
           <div style="font-size:11px;font-weight:900;color:var(--blue);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Layer 1</div>
           <div style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:12px;">Zone Decomposition</div>
-          <div style="font-size:12px;color:var(--txt2);font-family:'Share Tech Mono',monospace;margin-bottom:4px;">Sweep-line</div>
-          <div style="font-size:12px;color:var(--txt2);font-family:'Share Tech Mono',monospace;margin-bottom:12px;">O(n log n)</div>
+          <div style="font-size:12px;color:var(--txt2);font-family:var(--font-mono);margin-bottom:4px;">Sweep-line</div>
+          <div style="font-size:12px;color:var(--txt2);font-family:var(--font-mono);margin-bottom:12px;">O(n log n)</div>
           <div style="font-size:11px;color:var(--txt3);margin-top:auto;">Choset 2001</div>
         </div>
         
@@ -752,8 +813,8 @@ document.getElementById("content").innerHTML = `
         <div style="flex:1;background:var(--bg0);border:1px solid var(--border);border-radius:8px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,0.06);display:flex;flex-direction:column;align-items:center;text-align:center;">
           <div style="font-size:11px;font-weight:900;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Layer 2</div>
           <div style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:12px;">Q-Learning Agent</div>
-          <div style="font-size:12px;color:var(--txt2);font-family:'Share Tech Mono',monospace;margin-bottom:4px;">60 states · 3 actions</div>
-          <div style="font-size:12px;color:var(--txt2);font-family:'Share Tech Mono',monospace;margin-bottom:12px;">trained 1500 ep</div>
+          <div style="font-size:12px;color:var(--txt2);font-family:var(--font-mono);margin-bottom:4px;">60 states · 3 actions</div>
+          <div style="font-size:12px;color:var(--txt2);font-family:var(--font-mono);margin-bottom:12px;">trained 1500 ep</div>
           <div style="font-size:11px;color:var(--txt3);margin-top:auto;">Sutton &amp; Barto 2018</div>
         </div>
 
@@ -763,8 +824,8 @@ document.getElementById("content").innerHTML = `
         <div style="flex:1;background:var(--bg0);border:1px solid var(--border);border-radius:8px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,0.06);display:flex;flex-direction:column;align-items:center;text-align:center;">
           <div style="font-size:11px;font-weight:900;color:var(--purple);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Layer 3</div>
           <div style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:12px;">Token Broker</div>
-          <div style="font-size:12px;color:var(--txt2);font-family:'Share Tech Mono',monospace;margin-bottom:4px;">FIFO + heartbeat</div>
-          <div style="font-size:12px;color:var(--txt2);font-family:'Share Tech Mono',monospace;margin-bottom:12px;">deadlock-free</div>
+          <div style="font-size:12px;color:var(--txt2);font-family:var(--font-mono);margin-bottom:4px;">FIFO + heartbeat</div>
+          <div style="font-size:12px;color:var(--txt2);font-family:var(--font-mono);margin-bottom:12px;">deadlock-free</div>
           <div style="font-size:11px;color:var(--txt3);margin-top:auto;">Coffman 1971</div>
         </div>
 
@@ -774,8 +835,8 @@ document.getElementById("content").innerHTML = `
         <div style="flex:1.2;background:var(--bg0);border:1px solid var(--border);border-radius:8px;padding:16px;box-shadow:0 6px 16px rgba(255,204,0,0.15);display:flex;flex-direction:column;align-items:center;text-align:center;">
           <div style="font-size:12px;font-weight:900;color:var(--cat);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Output</div>
           <div style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:12px;">Dump waypoints + tokens</div>
-          <div style="font-size:26px;font-weight:900;color:var(--green);font-family:'Share Tech Mono',monospace;margin-bottom:6px;line-height:1;">+12.66 pp</div>
-          <div style="font-size:12px;color:var(--txt2);font-family:'Share Tech Mono',monospace;margin-bottom:12px;">62% → 75% coverage</div>
+          <div style="font-size:26px;font-weight:900;color:var(--green);font-family:var(--font-mono);margin-bottom:6px;line-height:1;">+12.66 pp</div>
+          <div style="font-size:12px;color:var(--txt2);font-family:var(--font-mono);margin-bottom:12px;">62% → 75% coverage</div>
           <div style="font-size:10px;color:var(--txt3);margin-top:auto;font-weight:700;background:var(--bg2);padding:4px 8px;border-radius:4px;">ZERO new hardware</div>
         </div>
       </div>
@@ -789,7 +850,7 @@ document.getElementById("content").innerHTML = `
         <div class="tilt-label">INTERACTIVE PILE SIMULATOR</div>
         <div class="tilt-sub">Drag the sliders to simulate pile lean. The truck corrects dump position automatically.</div>
         <div class="tilt-stage">
-          <canvas id="tiltCanvas" class="field" width="500" height="320"></canvas>
+          <canvas id="tiltCanvas" class="field" width="500" height="320" role="img" aria-label="Pile tilt simulator — shows how the truck corrects its dump position as the pile leans"></canvas>
         </div>
       </div>
       <div class="tilt-sidebar">
@@ -1699,8 +1760,10 @@ function orderZonesNearestNeighbour(zoneIds, zones, startXY) {
 //  NAVIGATION
 // ============================================================================
 function nav(page) {
-  document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
-  document.querySelector(`.nav-item[data-page="${page}"]`).classList.add("active");
+  document.querySelectorAll(".nav-item").forEach(n => { n.classList.remove("active"); n.removeAttribute("aria-current"); });
+  const navEl = document.querySelector(`.nav-item[data-page="${page}"]`);
+  navEl.classList.add("active");
+  navEl.setAttribute("aria-current", "page");
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   document.getElementById("page-"+page).classList.add("active");
   STATE.currentPage = page;
@@ -1727,8 +1790,25 @@ function onPageEnter(page) {
 document.querySelectorAll(".nav-item").forEach(el => {
   el.addEventListener("click", () => nav(el.dataset.page));
 });
+// Keyboard activation for every role="button" element (nav items, mode buttons, …)
+document.addEventListener("keydown", e => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.getAttribute && e.target.getAttribute("role") === "button") {
+    e.preventDefault(); e.target.click();
+  }
+});
 
-function setStatus(msg) { const el = document.getElementById("f-status"); if (el) el.textContent = msg; }
+function setStatus(msg) {
+  const el = document.getElementById("f-status"); if (el) el.textContent = msg;
+  // mirror into the header simulation-status chip
+  const chip = document.getElementById("hdr-sim-status"), txt = document.getElementById("hdr-sim-text");
+  if (chip && txt) {
+    txt.textContent = msg.length > 34 ? msg.slice(0, 33) + "…" : msg;
+    chip.classList.remove("running", "done", "estop");
+    if (/e-?stop|emergency|halt/i.test(msg)) chip.classList.add("estop");
+    else if (/running|simulat|generat|playing/i.test(msg)) chip.classList.add("running");
+    else if (/complete|done|finish|ready/i.test(msg)) chip.classList.add("done");
+  }
+}
 function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
 
 
@@ -1744,11 +1824,11 @@ function fit(canvas) {
     from: (cx, cy) => [(cx-(w-FIELD_W*s)/2)/s, (h-cy-(h-FIELD_H*s)/2)/s]
   };
 }
-function clearC(ctx, color="#070C18") {
+function clearC(ctx, color="#15181C") {
   ctx.fillStyle = color; ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height);
 }
 function drawGrid(ctx, P) {
-  ctx.strokeStyle="#162035"; ctx.lineWidth=0.5;
+  ctx.strokeStyle="#262B31"; ctx.lineWidth=0.5;
   for (let x=0; x<=FIELD_W; x+=2) { ctx.beginPath(); ctx.moveTo(P.px(x),P.py(0)); ctx.lineTo(P.px(x),P.py(FIELD_H)); ctx.stroke(); }
   for (let y=0; y<=FIELD_H; y+=2) { ctx.beginPath(); ctx.moveTo(P.px(0),P.py(y)); ctx.lineTo(P.px(FIELD_W),P.py(y)); ctx.stroke(); }
 }
@@ -2030,7 +2110,7 @@ function renderFleetTable() {
   const tbody = document.getElementById("fleet-rows");
   if (!tbody) return;
   if (STATE.fleet.trucks.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--txt3);padding:24px;font-family:'Barlow Condensed',Arial">No trucks configured. Click <b style="color:var(--cat)">+ Add truck</b> or <b style="color:var(--cat)">📋 Load demo fleet</b> above.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--txt3);padding:24px;font-family:var(--font-main)">No trucks configured. Click <b style="color:var(--cat)">Add truck</b> or <b style="color:var(--cat)">Load demo fleet</b> above.</td></tr>`;
   } else {
     tbody.innerHTML = STATE.fleet.trucks.map((t, i) => {
       const opts = Object.keys(TRUCK_MODELS).map(m =>
@@ -2069,7 +2149,7 @@ function renderGantt() {
   let html = `<div class="gantt-row"><div class="gantt-label" style="color:var(--txt3);font-size:9px">24h</div><div style="position:relative;height:14px;border-bottom:1px solid var(--border)">`;
   for (let h=0; h<=24; h+=4) {
     const left = h/24*100;
-    html += `<div style="position:absolute;left:${left}%;top:0;font-size:9px;color:var(--txt3);font-family:'Share Tech Mono',monospace;transform:translateX(-50%)">${String(h).padStart(2,'0')}h</div>`;
+    html += `<div style="position:absolute;left:${left}%;top:0;font-size:9px;color:var(--txt3);font-family:var(--font-mono);transform:translateX(-50%)">${String(h).padStart(2,'0')}h</div>`;
   }
   html += `</div></div>`;
   STATE.fleet.trucks.forEach(t => {
@@ -2129,7 +2209,7 @@ async function runPlan() {
     "Routing trucks via haul roads and tallying distances...",
     "Estimating projected coverage and ETA..."
   ];
-  stepsEl.innerHTML = steps.map(s => `<div style="color:var(--txt3);font-family:'Share Tech Mono',monospace;font-size:11px;padding:3px 0">⋯ ${s}</div>`).join("");
+  stepsEl.innerHTML = steps.map(s => `<div style="color:var(--txt3);font-family:var(--font-mono);font-size:11px;padding:3px 0">⋯ ${s}</div>`).join("");
 
   await new Promise(r => setTimeout(r, 50));
   // Step 1: mask of the entire field, minus no-go exclusion circles — no dump
@@ -2550,7 +2630,7 @@ function opsReset() {
     if (z) STATE.ops.zoneRemaining[z.id] = (STATE.ops.zoneRemaining[z.id] || 0) + 1;
   }));
   const btn = document.getElementById("btn-ops-play");
-  if (btn) btn.textContent = "▶ Start";
+  if (btn) btn.innerHTML = '<i class="fas fa-play" aria-hidden="true"></i> Start';
   drawOps();
   renderTokens();
   setText("kpi-time", "00:00");
@@ -2559,6 +2639,8 @@ function opsReset() {
   setText("kpi-dumps", 0);
   document.getElementById("ops-log").innerHTML = "";
   document.getElementById("ops-pbar").style.width = "0%";
+  const pbar0 = document.getElementById("ops-pbar").parentElement;
+  if (pbar0 && pbar0.hasAttribute("role")) pbar0.setAttribute("aria-valuenow", 0);
   document.getElementById("ops-pbar-text").textContent = `0 / ${STATE.ops.totalPlannedDumps} dumps (0%)`;
   opsLog("Simulation reset — ready", "amber");
 }
@@ -2570,11 +2652,11 @@ function opsToggle() {
     STATE.ops.running = false;
     if (STATE.ops.raf) cancelAnimationFrame(STATE.ops.raf);
     STATE.ops.raf = null;
-    document.getElementById("btn-ops-play").textContent = "▶ Resume";
+    document.getElementById("btn-ops-play").innerHTML = '<i class="fas fa-play" aria-hidden="true"></i> Resume';
     opsLog("Simulation paused", "amber");
   } else {
     STATE.ops.running = true;
-    document.getElementById("btn-ops-play").textContent = "❚❚ Pause";
+    document.getElementById("btn-ops-play").innerHTML = '<i class="fas fa-pause" aria-hidden="true"></i> Pause';
     opsLog("Simulation started", "amber");
     STATE.ops.lastFrame = performance.now();
     STATE.ops.raf = requestAnimationFrame(opsFrame);
@@ -3302,6 +3384,8 @@ function opsTick(dt) {
   // progress bar tracks actual dump completion, synced to the same tick as the log
   const pct = totalPlanned > 0 ? Math.min(100, placed / totalPlanned * 100) : 0;
   document.getElementById("ops-pbar").style.width = pct+"%";
+  const pbarEl = document.getElementById("ops-pbar").parentElement;
+  if (pbarEl && pbarEl.hasAttribute("role")) pbarEl.setAttribute("aria-valuenow", Math.round(pct));
   document.getElementById("ops-pbar-text").textContent = `${placed} / ${totalPlanned} dumps (${pct.toFixed(0)}%)`;
   drawOps();
   if (typeof dashLiveTick === "function") dashLiveTick();   // keep Fleet-Command tabs live
@@ -3363,7 +3447,7 @@ function drawOpsLegend(ctx) {
   ctx.font="10px monospace"; ctx.textAlign="left"; ctx.textBaseline="middle"; ctx.setLineDash([]);
   const g=ctx.createLinearGradient(lx,0,lx+16,0); g.addColorStop(0,"rgba(0,210,106,0.18)"); g.addColorStop(1,"rgba(0,210,106,0.62)");
   ctx.fillStyle=g; ctx.fillRect(lx,ly,16,10); ctx.fillStyle="#cfe3ff"; ctx.fillText("coverage",lx+24,ly+5);
-  ctx.strokeStyle="#f5a623"; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(lx+8,ly+24,5,0,2*Math.PI); ctx.stroke();
+  ctx.strokeStyle="#DC6803"; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(lx+8,ly+24,5,0,2*Math.PI); ctx.stroke();
   ctx.fillStyle="#cfe3ff"; ctx.fillText("dumping now",lx+24,ly+24);
   ctx.fillStyle="rgba(0,210,106,0.6)"; ctx.beginPath(); ctx.arc(lx+8,ly+40,5,0,2*Math.PI); ctx.fill();
   ctx.fillStyle="#cfe3ff"; ctx.fillText("dump placed",lx+24,ly+40); ctx.restore();
@@ -3436,9 +3520,9 @@ function drawOps() {
           ctx.beginPath(); ctx.arc(sx, sy, er, 0, 2*Math.PI); ctx.fill(); ctx.stroke();
           ctx.shadowBlur = 0;
         } else {
-          ctx.shadowColor = '#f5a623'; ctx.shadowBlur = 6 + 6 * pulse;
+          ctx.shadowColor = '#DC6803'; ctx.shadowBlur = 6 + 6 * pulse;
           ctx.fillStyle = `rgba(245,166,35,${0.25 + 0.20 * pulse})`;
-          ctx.strokeStyle = '#f5a623'; ctx.lineWidth = 1.5;
+          ctx.strokeStyle = '#DC6803'; ctx.lineWidth = 1.5;
           ctx.beginPath(); ctx.arc(sx, sy, sr * (1 + 0.10 * pulse), 0, 2*Math.PI); ctx.fill(); ctx.stroke();
           ctx.shadowBlur = 0;
         }
@@ -3736,7 +3820,7 @@ function drawTiltDemo(tiltDeg, fillPct) {
   ctx.fillStyle = '#F5F5F5';
   ctx.fillRect(0, 0, W, H);
 
-  ctx.strokeStyle = 'rgba(0,212,255,0.06)';
+  ctx.strokeStyle = 'rgba(16,24,40,0.05)';
   ctx.lineWidth = 1;
   for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
   for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
@@ -3747,22 +3831,22 @@ function drawTiltDemo(tiltDeg, fillPct) {
 
   ctx.fillStyle = '#E0E0E0';
   ctx.fillRect(0, groundY, W, H - groundY);
-  ctx.strokeStyle = '#2a4060';
+  ctx.strokeStyle = '#5D6878';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(0, groundY);
   ctx.lineTo(W, groundY);
   ctx.stroke();
 
-  ctx.strokeStyle = 'rgba(0,212,255,0.4)';
+  ctx.strokeStyle = 'rgba(21,112,239,0.55)';
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 4]);
   ctx.beginPath();
   ctx.arc(spotCX, groundY, spotR, Math.PI, 0);
   ctx.stroke();
   ctx.setLineDash([]);
-  ctx.fillStyle = 'rgba(0,212,255,0.5)';
-  ctx.font = '11px Space Mono, monospace';
+  ctx.fillStyle = '#475467';
+  ctx.font = '11px IBM Plex Mono, monospace';
   ctx.textAlign = 'center';
   ctx.fillText('DUMP SPOT BOUNDARY', spotCX, groundY + 22);
 
@@ -3786,48 +3870,48 @@ function drawTiltDemo(tiltDeg, fillPct) {
   ctx.closePath();
   ctx.fill();
 
-  ctx.strokeStyle = 'rgba(255,71,87,0.8)';
+  ctx.strokeStyle = 'rgba(217,45,32,0.8)';
   ctx.lineWidth = 1.5;
   ctx.setLineDash([4, 3]);
   ctx.beginPath();
   ctx.moveTo(peakX - 60, peakY);
   ctx.lineTo(peakX + 60, peakY);
   ctx.stroke();
-  ctx.strokeStyle = 'rgba(245,166,35,0.8)';
+  ctx.strokeStyle = 'rgba(220,104,3,0.8)';
   ctx.beginPath();
   ctx.moveTo(pileBaseL, groundY - 10);
   ctx.lineTo(pileBaseR, groundY - 10);
   ctx.stroke();
   ctx.setLineDash([]);
 
-  ctx.fillStyle = '#ff4757';
-  ctx.font = '10px Space Mono, monospace';
+  ctx.fillStyle = '#D92D20';
+  ctx.font = '10px IBM Plex Mono, monospace';
   ctx.textAlign = 'left';
   ctx.fillText('D_top', peakX + 64, peakY + 4);
-  ctx.fillStyle = '#f5a623';
+  ctx.fillStyle = '#DC6803';
   ctx.textAlign = 'right';
   ctx.fillText('D_bottom', pileBaseL - 4, groundY - 7);
 
   if (Math.abs(tiltDeg) > 3) {
-    ctx.strokeStyle = 'rgba(0,212,255,0.9)';
+    ctx.strokeStyle = 'rgba(21,112,239,0.9)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(peakX, groundY, 50, -Math.PI / 2 - tiltRad, -Math.PI / 2, tiltDeg < 0);
     ctx.stroke();
-    ctx.fillStyle = '#00d4ff';
-    ctx.font = 'bold 12px Space Mono, monospace';
+    ctx.fillStyle = '#1570EF';
+    ctx.font = 'bold 12px IBM Plex Mono, monospace';
     ctx.textAlign = 'center';
     ctx.fillText(`θ=${tiltDeg}°`, peakX + (tiltDeg < 0 ? -55 : 55), groundY - 55);
   }
 
   const correctedX = spotCX - peakOffset * 0.6;
   const direction = tiltDeg < -10 ? 'DUMP RIGHT →' : tiltDeg > 10 ? '← DUMP LEFT' : '↓ DUMP CENTER';
-  const directionColor = tiltDeg < -10 || tiltDeg > 10 ? '#f5a623' : '#2ed573';
+  const directionColor = tiltDeg < -10 || tiltDeg > 10 ? '#DC6803' : '#067647';
   ctx.fillStyle = directionColor;
-  ctx.font = 'bold 11px Space Mono, monospace';
+  ctx.font = 'bold 11px IBM Plex Mono, monospace';
   ctx.textAlign = 'center';
   ctx.fillText(direction, correctedX, 38);
-  ctx.font = '10px DM Sans, sans-serif';
+  ctx.font = '10px Inter, sans-serif';
   ctx.fillText('TRUCK CORRECTION', correctedX, 54);
 
   const truckY = 66;
@@ -3857,13 +3941,13 @@ function updateTiltDemo() {
   const status = document.getElementById("spotStatus");
   if (fill >= 90) {
     status.textContent = "FULL — REASSIGNING";
-    status.style.color = "#ff4757";
+    status.style.color = "#D92D20";
   } else if (fill >= 60) {
     status.textContent = "FILLING";
-    status.style.color = "#f5a623";
+    status.style.color = "#DC6803";
   } else {
     status.textContent = "AVAILABLE";
-    status.style.color = "#2ed573";
+    status.style.color = "#067647";
   }
 
   drawTiltDemo(tilt, fill);
@@ -3888,6 +3972,12 @@ function boot() {
   // Default to a fresh empty Site Setup page so the user follows the workflow
   drawSite();
   setStatus("ready · start at step 1");
+  // Header clock — 24h local time, control-room style
+  const clk = document.getElementById("hdr-clock");
+  if (clk) {
+    const tick = () => { clk.textContent = new Date().toLocaleTimeString("en-GB", { hour12: false }); };
+    tick(); setInterval(tick, 1000);
+  }
 }
 window.addEventListener("DOMContentLoaded", boot);
 </script>
@@ -3943,7 +4033,7 @@ function renderFleetMon(){
   </div>
   <div class="card mb-20">
     <div class="card-header"><div class="card-title"><i class="fas fa-map-location-dot"></i> Live Fleet Positions</div><div class="card-badge ${haveSim?'success':'warning'}" id="fm-badge">${haveSim?'LIVE · t='+fmtTime(simt):'AWAITING SIM'}</div></div>
-    <canvas id="fleetMap" width="900" height="420" style="width:100%;border:1px solid var(--border-color);border-radius:8px;background:#070C18"></canvas>
+    <canvas id="fleetMap" width="900" height="420" style="width:100%;border:1px solid var(--border-color);border-radius:8px;background:#15181C"></canvas>
     <div style="margin-top:8px;color:var(--text-muted);font-size:11px">Coordinates in real metres (site width = ${(STATE.site&&STATE.site.realWidthM)||500} m). Run <b>Live Operations</b> to animate.</div>
   </div>
   <div class="grid-2">
@@ -4093,7 +4183,7 @@ function renderV2V(){
   <div class="grid-2 mb-20">
     <div class="card">
       <div class="card-header"><div class="card-title"><i class="fas fa-map-location-dot"></i> Live Mesh Map</div><div class="card-badge ${active?'success':'warning'}" id="v2-badge">${active?'MESH ACTIVE':'IDLE'}</div></div>
-      <canvas id="v2Map" width="640" height="380" style="width:100%;border:1px solid var(--border-color);border-radius:8px;background:#070C18"></canvas>
+      <canvas id="v2Map" width="640" height="380" style="width:100%;border:1px solid var(--border-color);border-radius:8px;background:#15181C"></canvas>
       <div style="margin-top:8px;color:var(--text-muted);font-size:11px">Real truck positions. Dashed ring = radio range (~${Math.round(V2V_RANGE_L*_dScale())} m). Link colour: green = clear, yellow = close, red = proximity alert.</div>
     </div>
     <div class="card" style="display:flex;flex-direction:column">

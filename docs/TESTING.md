@@ -210,6 +210,14 @@
   - Re-runs: `multigate_path_check` `=== 16 passed, 0 failed ===`; `live_sim_completion` `=== 14 passed, 0 failed ===` (T5: 7 rebalance events, completes in 3,541 ticks on the new rebuild path); `zone_decomp_validation` `=== 18 passed, 0 failed ===`; `haulroad_zone_check` OK; script blocks `block0 OK`, `block1 OK`, `block2 OK`.
 - Status: PASS
 
+### T-024
+- Scope: Enterprise UI redesign regression check — design-token rewrite, Inter/IBM Plex Mono typography, header status chip + clock, ARIA/keyboard accessibility, de-gamed kill switch/scan-line/pulse styles, FA-icon buttons, `.layout-ops` control-room layout with bottom event log, responsive breakpoints (`site/indexV4.html`) (2026-06-12)
+- Command: `node tests/live_sim_completion.mjs`, `node tests/zone_decomp_validation.mjs`, `node tests/assignment_balance_eval.mjs`, `node tests/haulroad_zone_check.mjs`, `node tests/multigate_path_check.mjs`, `node tests/hard_path_planning.mjs`, plus `new Function()` syntax check on all 3 inline `<script>` blocks and greps confirming zero remaining references to removed keyframes (`dash-spin/scan/pulse/node-pulse`), legacy fonts (Barlow/Share Tech Mono/JetBrains/Space Mono/DM Sans), and emoji button glyphs
+- Expected: all existing suites unaffected (redesign touched CSS, template markup, and presentation-only JS — button innerHTML, status chip mirror, clock, aria-valuenow), scripts parse, no dangling references
+- Result: `live_sim_completion === 14 passed, 0 failed ===`; `zone_decomp_validation === 18 passed, 0 failed ===`; `multigate_path_check === 16 passed, 0 failed ===`; `hard_path_planning === 24 passed, 0 failed ===`; `haulroad_zone_check` and `assignment_balance_eval` ran clean (no FAIL lines); script blocks 0/1/2 all `OK`; greps returned no leftovers (only the harmless unused `--cat-yellow-glow` token definition remains)
+- Status: PASS
+- Note: visual appearance (fonts, header chip, E-stop styling, responsive collapse) verified by code inspection only — no browser automation was run in this pass.
+
 ## Notes
 
 - No application runtime tests were executed in this pass.
