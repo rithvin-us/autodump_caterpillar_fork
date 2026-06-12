@@ -632,6 +632,8 @@ document.getElementById("content").innerHTML = `
           <div class="kpi"><div class="kpi-v blue" id="kpi-active">0</div><div class="kpi-l">active trucks</div></div>
           <div class="kpi"><div class="kpi-v green" id="kpi-cov">0.0%</div><div class="kpi-l">coverage</div></div>
           <div class="kpi"><div class="kpi-v" id="kpi-dumps">0</div><div class="kpi-l">dumps placed</div></div>
+          <div class="kpi"><div class="kpi-v amber" id="kpi-congestion">0%</div><div class="kpi-l">congestion idx</div></div>
+          <div class="kpi"><div class="kpi-v" id="kpi-fuel">0 L</div><div class="kpi-l">fuel used</div></div>
         </div>
         <div style="margin-top:10px">
           <div class="pbar"><div class="pbar-fill" id="ops-pbar" style="width:0%"></div><div class="pbar-text" id="ops-pbar-text">0% complete</div></div>
@@ -697,7 +699,7 @@ document.getElementById("content").innerHTML = `
       <div class="card">
         <div class="card-h"><div class="card-title">Per-truck stats</div></div>
         <table>
-          <thead><tr><th>Truck</th><th>Model</th><th>Dumps</th><th>Tonnes</th><th>Cycles</th><th>Distance</th><th>Idle</th><th>Util.</th></tr></thead>
+          <thead><tr><th>Truck</th><th>Model</th><th>Dumps</th><th>Tonnes</th><th>Cycles</th><th>Distance</th><th>Fuel</th><th>Idle</th><th>Util.</th></tr></thead>
           <tbody id="rp-trucks"></tbody>
         </table>
       </div>
@@ -780,6 +782,25 @@ document.getElementById("content").innerHTML = `
         </div>
       </div>
     </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="card-title">Congestion-aware routing — formulations</div><div class="card-sub">fleet-level traffic balancing &amp; fuel-efficient dispatch</div></div>
+    <table style="font-size:12px">
+      <tbody>
+        <tr><td class="k">Edge capacity</td><td class="v">&kappa;<sub>e</sub> = max(1, &lfloor;&#8467;<sub>e</sub> / h&rfloor;) &nbsp;&middot;&nbsp; h = one truck headway slot (2.5&times; the V2V separation gap)</td></tr>
+        <tr><td class="k">Congestion cost &mdash; BPR</td><td class="v">c<sub>e</sub>(f) = &#8467;<sub>e</sub> &middot; (1 + &alpha;&middot;min(f<sub>e</sub>/&kappa;<sub>e</sub>, 2)<sup>&beta;</sup>), &nbsp;&alpha; = 0.6, &beta; = 4 &mdash; cost grows <b>nonlinearly</b> as road utilization approaches capacity, so load spreads across the haul network</td></tr>
+        <tr><td class="k">Intersection utilization</td><td class="v">c<sub>v</sub> = &gamma;&middot;(deg(v) &minus; 2)&middot;u<sub>v</sub><sup>2</sup> at nodes with degree &ge; 3, &gamma; = 0.8 &mdash; busy junctions (e.g. the centroid hub) repel new routes</td></tr>
+        <tr><td class="k">Route diversity</td><td class="v">+ &delta;&middot;&#8467;<sub>e</sub> (&delta; = 0.25) on every edge of the SAME truck&rsquo;s previous trip on that origin&ndash;destination pair &mdash; consecutive trips alternate corridors</td></tr>
+        <tr><td class="k">Fuel term</td><td class="v">+ &lambda;&middot;&#8467;<sub>e</sub>&middot;q/q<sub>ref</sub> (&lambda; = 0.15; q = L/km loaded or empty per model) &nbsp;+&nbsp; &mu;&middot;(1 &minus; cos&thinsp;&theta;) per heading change (&mu; = 0.3) &mdash; shorter, straighter, cheaper-to-burn paths win ties</td></tr>
+        <tr><td class="k">Search</td><td class="v">weighted A*: f(n) = g(n) + &epsilon;&middot;h(n), h = Euclidean (admissible), &epsilon; = 1.2 &rArr; cost &le; 1.2&times; optimal in a fraction of the expansions &mdash; suitable for real-time dispatch (Pohl 1970)</td></tr>
+        <tr><td class="k">Fleet flow assignment</td><td class="v">trips routed round-robin across the fleet with per-edge flow accumulation and decay 0.7/round &mdash; predicted traffic density &asymp; concurrent occupancy</td></tr>
+        <tr><td class="k">Live traffic response</td><td class="v">v = v<sub>0</sub> / (1 + &alpha;&middot;u<sup>&beta;</sup>) clamped to [0.45, 1] on the truck&rsquo;s current edge; next haul-in leg re-routed via live-occupancy weighted A* when leg utilization &ge; 50%</td></tr>
+        <tr><td class="k">Path smoothing</td><td class="v">quadratic B&eacute;zier corner cuts: B(t) = (1&minus;t)<sup>2</sup>P<sub>a</sub> + 2t(1&minus;t)C + t<sup>2</sup>P<sub>b</sub>, cut depth d = min(0.45&middot;min leg, 2R<sub>turn</sub>), t &isin; &#123;&frac14;, &frac12;, &frac34;&#125; &mdash; dump/load points never move</td></tr>
+        <tr><td class="k">Congestion index (KPI)</td><td class="v">CI = &Sigma;<sub>e</sub> occ<sub>e</sub>&middot;u<sub>e</sub> / max(1, &Sigma;<sub>e</sub> occ<sub>e</sub>) &mdash; occupancy-weighted mean utilization; live runs may finish slightly over the planned ETA because of the traffic speed response</td></tr>
+        <tr><td class="k">References</td><td class="v">Bureau of Public Roads (1964) volume-delay function &middot; Pohl (1970) weighted A* &middot; Cat 785/793/797 fuel-burn field references</td></tr>
+      </tbody>
+    </table>
   </div>
 
   <div class="card">
@@ -874,9 +895,9 @@ const EMBED = {"q_table": [[28.54313035770366, 30.70046940432455, 24.64126291231
 //  CAT TRUCK SPECIFICATIONS (manufacturer data)
 // ============================================================================
 const TRUCK_MODELS = {
-  "Cat 785": { width: 6.4, dumpRadius: 2.6, payload: 136, color: "#9B6BFF", speedF: 1.12, scale: 0.78 },
-  "Cat 793": { width: 7.6, dumpRadius: 3.2, payload: 240, color: "#FFC107", speedF: 1.00, scale: 0.90 },
-  "Cat 797": { width: 9.7, dumpRadius: 3.8, payload: 363, color: "#00D26A", speedF: 0.88, scale: 1.05 }
+  "Cat 785": { width: 6.4, dumpRadius: 2.6, payload: 136, color: "#9B6BFF", speedF: 1.12, scale: 0.78, fuelLoaded: 7.2, fuelEmpty: 4.2 },
+  "Cat 793": { width: 7.6, dumpRadius: 3.2, payload: 240, color: "#FFC107", speedF: 1.00, scale: 0.90, fuelLoaded: 9.6, fuelEmpty: 5.6 },
+  "Cat 797": { width: 9.7, dumpRadius: 3.8, payload: 363, color: "#00D26A", speedF: 0.88, scale: 1.05, fuelLoaded: 13.4, fuelEmpty: 7.8 }
 };
 
 // Per-truck workload weight from the fleet table's Priority column. A truck with
@@ -1284,7 +1305,12 @@ function zoneEntryPoint(zone, gateXY) {
 // point on ANY spine to the zone's access point. The access point faces the
 // gate closest to the zone. Sets z.accessPt and z.gateIdx on each zone.
 // Accepts a single [x,y] gate (legacy) or an array of [x,y] gates.
-function buildHaulRoads(gatesXY, polygon, zones) {
+// Optional 4th arg: no-go circles [{x,y,r}] — alternative links avoid them.
+// Beyond the spine/branch backbone, extra ALTERNATIVE links (gate–gate,
+// access-ring, direct gate–access) are added when they stay inside the
+// polygon, giving the congestion-aware router multiple feasible paths so the
+// fleet is not forced through the centroid hub. Added links carry kind="link".
+function buildHaulRoads(gatesXY, polygon, zones, nogos) {
   if (!gatesXY || !gatesXY.length || !polygon || !zones.length) return [];
   if (typeof gatesXY[0] === "number") gatesXY = [gatesXY];   // single-gate back-compat
   const cent = polyCentroid(polygon);
@@ -1317,6 +1343,45 @@ function buildHaulRoads(gatesXY, polygon, zones) {
     });
     if (best && bd > 0.1) polylines.push([best, ep.slice()]);
   });
+  // ---- Alternative links (route diversity; congestion-aware A* picks among them)
+  const nogoC = (nogos || []).map(n => ({ x: n.x ?? n[0], y: n.y ?? n[1], r: n.r ?? 1 }));
+  const linkOK = (A, B) => {
+    const len = Math.hypot(B[0]-A[0], B[1]-A[1]);
+    if (len < 0.5) return false;
+    for (let i = 1; i <= 9; i++) {
+      const t = i / 10, x = A[0] + (B[0]-A[0])*t, y = A[1] + (B[1]-A[1])*t;
+      if (!pip(x, y, polygon)) return false;
+      for (const n of nogoC) if (Math.hypot(x-n.x, y-n.y) < n.r) return false;
+    }
+    return true;
+  };
+  const addLink = (A, B) => {
+    if (!linkOK(A, B)) return;
+    const pl = [[A[0], A[1]], [B[0], B[1]]];
+    pl.kind = "link";
+    polylines.push(pl);
+  };
+  const ang = p => Math.atan2(p[1]-cent[1], p[0]-cent[0]);
+  // Gate–gate links between angularly adjacent gates (ring closed at 3+).
+  if (gatesXY.length >= 2) {
+    const gs = gatesXY.slice().sort((a, b) => ang(a) - ang(b));
+    const n = gs.length;
+    for (let i = 0; i < (n === 2 ? 1 : n); i++) addLink(gs[i], gs[(i+1) % n]);
+  }
+  // Ring links between angularly adjacent zone access points.
+  const aps = zones.filter(z => z.accessPt).map(z => z.accessPt);
+  if (aps.length >= 2) {
+    const as = aps.slice().sort((a, b) => ang(a) - ang(b));
+    const fw = typeof FIELD_W !== "undefined" ? FIELD_W : 30;
+    const fh = typeof FIELD_H !== "undefined" ? FIELD_H : 26;
+    const n = as.length, maxLen = 0.6 * Math.hypot(fw, fh);
+    for (let i = 0; i < (n === 2 ? 1 : n); i++) {
+      const A = as[i], B = as[(i+1) % n];
+      if (Math.hypot(B[0]-A[0], B[1]-A[1]) <= maxLen) addLink(A, B);
+    }
+  }
+  // Direct gate–access shortcuts (spine-free alternative into each zone).
+  zones.forEach(z => { if (z.accessPt) addLink(gatesXY[z.gateIdx], z.accessPt); });
   return polylines;
 }
 
@@ -1380,11 +1445,22 @@ function drawNogo(ctx, P, nogos) {
 
 function drawHaulRoads(ctx, P, haulPolylines) {
   if (!haulPolylines || !haulPolylines.length) return;
+  const main = haulPolylines.filter(pl => pl.kind !== "link");
+  const links = haulPolylines.filter(pl => pl.kind === "link");
   ctx.save();
+  // Alternative links (thin, dim — secondary corridors)
+  ctx.strokeStyle = "rgba(255,205,17,0.22)";
+  ctx.lineWidth = 3.5; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.setLineDash([]);
+  links.forEach(pl => {
+    if (pl.length < 2) return;
+    ctx.beginPath();
+    pl.forEach((pt, i) => { const x=P.px(pt[0]),y=P.py(pt[1]); i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y); });
+    ctx.stroke();
+  });
   // Road surface (wide, amber-tinted)
   ctx.strokeStyle = "rgba(255,205,17,0.45)";
-  ctx.lineWidth = 7; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.setLineDash([]);
-  haulPolylines.forEach(pl => {
+  ctx.lineWidth = 7;
+  main.forEach(pl => {
     if (pl.length < 2) return;
     ctx.beginPath();
     pl.forEach((pt, i) => { const x=P.px(pt[0]),y=P.py(pt[1]); i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y); });
@@ -1393,7 +1469,7 @@ function drawHaulRoads(ctx, P, haulPolylines) {
   // Centre-line (dashed, darker)
   ctx.strokeStyle = "rgba(160,100,0,0.7)";
   ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
-  haulPolylines.forEach(pl => {
+  main.forEach(pl => {
     if (pl.length < 2) return;
     ctx.beginPath();
     pl.forEach((pt, i) => { const x=P.px(pt[0]),y=P.py(pt[1]); i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y); });
@@ -1424,8 +1500,18 @@ function _segInt(p1,p2,p3,p4){
 // Shortest route from `from` to `to` constrained to the road network (+ short
 // straight on/off ramps). Returns an ordered polyline incl. endpoints. With no
 // roads it degrades to a straight segment so road-free demos still work.
+// Delegates to the cached road graph + weighted A* (eps 1.0 = exact shortest
+// path, behaviour parity) when those are available; the original per-call
+// Dijkstra below is kept as the fallback for older test sandboxes.
 function laneRoute(pathways, from, to){
   if(!pathways || !pathways.length) return [from.slice(), to.slice()];
+  if (typeof buildRoadGraph === "function" && typeof routeOnGraph === "function") {
+    const g = buildRoadGraph(pathways);
+    if (g && g.edges.length) {
+      const r = routeOnGraph(g, from, to, { eps: 1.0 });
+      if (r && r.path && r.path.length >= 2) return r.path;
+    }
+  }
   const nodes=new Map();
   const add=p=>{ const k=_lkey(p); if(!nodes.has(k)) nodes.set(k,p.slice()); return k; };
   const seg=pathways.map(s=>[s[0].slice(), s[1].slice()]);
@@ -1456,6 +1542,221 @@ function laneRoute(pathways, from, to){
   if(D.get(kTo)===Infinity) return [from.slice(), to.slice()];
   const path=[]; let c=kTo; while(c!==undefined){ path.unshift(nodes.get(c)); c=prev.get(c); }
   return path;
+}
+
+// ============================================================================
+//  ROAD GRAPH + CONGESTION-AWARE WEIGHTED A* + BEZIER PATH SMOOTHING
+//  The graph is built ONCE per road network and cached on the function object
+//  (module-level state would be invisible to the vm-extracted test copies).
+//  Cost model (also shown on the About page):
+//    edge:  c_e = len * (1 + BPR_ALPHA * min(flow/cap, 2)^BPR_BETA)   [BPR]
+//         + DELTA * len if the edge was on this truck's previous trip [diversity]
+//         + LAMBDA * len * fuelLpkm / QREF                            [fuel]
+//         + MU * (1 - cos theta) per heading change                   [turn]
+//         + GAMMA * (deg - 2) * u_node^2 at intersections (deg >= 3)
+//    A*:    f = g + eps * h,  h = Euclidean distance to goal
+// ============================================================================
+function buildRoadGraph(pathways) {
+  if (!pathways || !pathways.length) return null;
+  let sig = pathways.length + ":";
+  for (const s of pathways) sig += (s[0][0] + s[0][1] * 7 + s[1][0] * 13 + s[1][1] * 31).toFixed(2) + ";";
+  if (buildRoadGraph._cache && buildRoadGraph._cache.key === sig) return buildRoadGraph._cache.graph;
+  const headway = typeof HEADWAY_L !== "undefined" ? HEADWAY_L : 3.75;
+  const nodes = [], keyIdx = new Map();
+  const addN = p => {
+    const k = _lkey(p);
+    if (keyIdx.has(k)) return keyIdx.get(k);
+    keyIdx.set(k, nodes.length); nodes.push([p[0], p[1]]);
+    return nodes.length - 1;
+  };
+  const seg = pathways.map(s => [[s[0][0], s[0][1]], [s[1][0], s[1][1]]]);
+  seg.forEach(s => { addN(s[0]); addN(s[1]); });
+  for (let i = 0; i < seg.length; i++) for (let j = i + 1; j < seg.length; j++) {
+    const x = _segInt(seg[i][0], seg[i][1], seg[j][0], seg[j][1]);
+    if (x) addN(x);
+  }
+  const edges = [], adj = nodes.map(() => []);
+  const addE = (a, b) => {
+    const len = _ld(nodes[a], nodes[b]);
+    if (len < 1e-9) return;
+    const e = { id: edges.length, a, b, len, cap: Math.max(1, Math.floor(len / headway)) };
+    edges.push(e); adj[a].push(e); adj[b].push(e);
+  };
+  const segNodes = seg.map(s => {
+    const on = [];
+    for (let i = 0; i < nodes.length; i++)
+      if (_ld(nodes[i], _projSeg(nodes[i], s[0], s[1])) < 1e-6) on.push(i);
+    on.sort((i1, i2) => _ld(s[0], nodes[i1]) - _ld(s[0], nodes[i2]));
+    for (let i = 1; i < on.length; i++) addE(on[i - 1], on[i]);
+    return on;
+  });
+  const graph = { nodes, keyIdx, edges, adj, seg, segNodes };
+  buildRoadGraph._cache = { key: sig, graph };
+  return graph;
+}
+
+// Weighted A* over the cached road graph. opts: { eps, flows (per-edge counts),
+// prevEdges (Set of edge ids from this truck's previous trip on the same OD),
+// fuelLpkm (enables fuel + turn terms) }. With no opts this is an exact
+// shortest path (legacy laneRoute parity). Returns { path, edgeIds, cost } or
+// null when the goal is unreachable.
+function routeOnGraph(graph, from, to, opts) {
+  if (!graph || !graph.edges.length) return null;
+  opts = opts || {};
+  const eps   = opts.eps != null ? opts.eps : (typeof ASTAR_EPS !== "undefined" ? ASTAR_EPS : 1.2);
+  const flows = opts.flows || null;
+  const prevE = opts.prevEdges || null;
+  const fuelQ = opts.fuelLpkm || 0;
+  const ALPHA = typeof BPR_ALPHA !== "undefined" ? BPR_ALPHA : 0.6;
+  const BETA  = typeof BPR_BETA !== "undefined" ? BPR_BETA : 4;
+  const GAMMA = 0.8, DELTA = 0.25, LAMBDA = 0.15, MU = 0.3, QREF = 9.6;
+  const NN = graph.nodes.length;
+  const resolve = p => {
+    const k = _lkey(p);
+    if (graph.keyIdx.has(k)) return { node: graph.keyIdx.get(k), virt: null };
+    let bi = 0, bq = null, bd = Infinity;
+    for (let i = 0; i < graph.seg.length; i++) {
+      const q = _projSeg(p, graph.seg[i][0], graph.seg[i][1]);
+      const d = _ld(p, q);
+      if (d < bd) { bd = d; bq = q; bi = i; }
+    }
+    const on = graph.segNodes[bi];
+    const dq = _ld(graph.seg[bi][0], bq);
+    let a = on[0], b = on[on.length - 1], found = false;
+    for (let i = 1; i < on.length; i++) {
+      if (_ld(graph.seg[bi][0], graph.nodes[on[i]]) >= dq - 1e-9) { a = on[i - 1]; b = on[i]; found = true; break; }
+    }
+    if (!found && on.length >= 2) { a = on[on.length - 2]; b = on[on.length - 1]; }
+    return { node: null, virt: { q: bq, off: bd, segIdx: bi, a, b,
+             da: _ld(bq, graph.nodes[a]), db: _ld(bq, graph.nodes[b]) } };
+  };
+  const S = resolve(from), T = resolve(to);
+  if (S.node != null && T.node != null && S.node === T.node)
+    return { path: [from.slice(), to.slice()], edgeIds: [], cost: _ld(from, to) };
+  // goal entry nodes -> cost of leaving the network there
+  const goal = new Map();
+  if (T.node != null) goal.set(T.node, 0);
+  else { goal.set(T.virt.a, T.virt.da + T.virt.off); goal.set(T.virt.b, T.virt.db + T.virt.off); }
+  const g = new Float64Array(NN).fill(Infinity);
+  const came = new Int32Array(NN).fill(-1);
+  const cameE = new Int32Array(NN).fill(-1);
+  const closed = new Uint8Array(NN);
+  const hf = [], hn = [];
+  const hpush = (f, n) => {
+    let i = hf.length; hf.push(f); hn.push(n);
+    while (i > 0) { const p = (i - 1) >> 1; if (hf[p] <= hf[i]) break;
+      const tf = hf[p]; hf[p] = hf[i]; hf[i] = tf; const tn = hn[p]; hn[p] = hn[i]; hn[i] = tn; i = p; }
+  };
+  const hpop = () => {
+    const top = hn[0]; const lf = hf.pop(), ln = hn.pop();
+    if (hf.length) { hf[0] = lf; hn[0] = ln;
+      let i = 0;
+      while (true) { let m = i; const l = 2*i+1, r = 2*i+2;
+        if (l < hf.length && hf[l] < hf[m]) m = l;
+        if (r < hf.length && hf[r] < hf[m]) m = r;
+        if (m === i) break;
+        const tf = hf[m]; hf[m] = hf[i]; hf[i] = tf; const tn = hn[m]; hn[m] = hn[i]; hn[i] = tn; i = m; }
+    }
+    return top;
+  };
+  const h = n => eps * _ld(graph.nodes[n], to);
+  const seed = (n, cost) => { if (cost < g[n]) { g[n] = cost; hpush(cost + h(n), n); } };
+  if (S.node != null) seed(S.node, 0);
+  else { seed(S.virt.a, S.virt.off + S.virt.da); seed(S.virt.b, S.virt.off + S.virt.db); }
+  const eCost = (e, u, v) => {
+    const ut = flows ? Math.min((flows[e.id] || 0) / e.cap, 2) : 0;
+    let c = e.len * (1 + ALPHA * Math.pow(ut, BETA));
+    if (prevE && prevE.has(e.id)) c += DELTA * e.len;
+    if (fuelQ > 0) {
+      c += LAMBDA * e.len * fuelQ / QREF;
+      const pu = came[u];
+      if (pu >= 0) {
+        const d1x = graph.nodes[u][0] - graph.nodes[pu][0], d1y = graph.nodes[u][1] - graph.nodes[pu][1];
+        const d2x = graph.nodes[v][0] - graph.nodes[u][0], d2y = graph.nodes[v][1] - graph.nodes[u][1];
+        const l1 = Math.hypot(d1x, d1y) || 1e-9, l2 = Math.hypot(d2x, d2y) || 1e-9;
+        c += MU * (1 - (d1x * d2x + d1y * d2y) / (l1 * l2));
+      }
+    }
+    if (flows && graph.adj[v].length >= 3) {
+      let fSum = 0, cSum = 0;
+      for (const ee of graph.adj[v]) { fSum += flows[ee.id] || 0; cSum += ee.cap; }
+      const uv = cSum > 0 ? fSum / cSum : 0;
+      c += GAMMA * (graph.adj[v].length - 2) * uv * uv;
+    }
+    return c;
+  };
+  let goalsLeft = goal.size;
+  while (hf.length && goalsLeft > 0) {
+    const u = hpop();
+    if (closed[u]) continue;
+    closed[u] = 1;
+    if (goal.has(u)) { goalsLeft--; if (goalsLeft === 0) break; }
+    for (const e of graph.adj[u]) {
+      const v = e.a === u ? e.b : e.a;
+      if (closed[v]) continue;
+      const nd = g[u] + eCost(e, u, v);
+      if (nd < g[v]) { g[v] = nd; came[v] = u; cameE[v] = e.id; hpush(nd + h(v), v); }
+    }
+  }
+  let bestN = -1, bestC = Infinity;
+  goal.forEach((exitC, n) => { if (g[n] + exitC < bestC) { bestC = g[n] + exitC; bestN = n; } });
+  // same-segment direct hop (both endpoints project between the same nodes)
+  let direct = Infinity;
+  if (S.virt && T.virt && S.virt.segIdx === T.virt.segIdx)
+    direct = S.virt.off + _ld(S.virt.q, T.virt.q) + T.virt.off;
+  if (bestN < 0 && direct === Infinity) return null;
+  const pts = [], eids = [];
+  if (direct < bestC) {
+    pts.push(from.slice(), S.virt.q.slice(), T.virt.q.slice(), to.slice());
+  } else {
+    const chain = [];
+    for (let c = bestN; c >= 0; c = came[c]) { chain.unshift(c); if (cameE[c] >= 0) eids.unshift(cameE[c]); if (came[c] < 0) break; }
+    pts.push(from.slice());
+    if (S.virt) pts.push(S.virt.q.slice());
+    for (const n of chain) pts.push(graph.nodes[n].slice());
+    if (T.virt) pts.push(T.virt.q.slice());
+    pts.push(to.slice());
+  }
+  const path = [];
+  for (const p of pts) {
+    if (!path.length || _ld(path[path.length - 1], p) > 1e-6) path.push(p);
+  }
+  if (path.length < 2) path.push(to.slice());
+  path[0] = from.slice(); path[path.length - 1] = to.slice();
+  return { path, edgeIds: eids, cost: direct < bestC ? direct : bestC };
+}
+
+// Quadratic-Bezier corner smoothing for a waypoint route. Only consecutive
+// "transit" corners are cut — dump/load waypoints and both route ends are
+// preserved exactly (the shuttle invariants depend on them). Corners flatter
+// than 20 degrees or with short legs (< 2 x transit arrival radius) are kept.
+function smoothPathBezier(wp, turnRadLogical) {
+  if (!wp || wp.length < 3) return wp ? wp.slice() : wp;
+  const R = Math.max(0.2, turnRadLogical || 0.7);
+  const minLeg = 2 * Math.max(0.6, 1.05 * R);
+  const cos20 = Math.cos(20 * Math.PI / 180);
+  const out = [wp[0]];
+  for (let i = 1; i < wp.length - 1; i++) {
+    const P = wp[i];
+    if (P[2] !== "transit") { out.push(P); continue; }
+    const A = out[out.length - 1], B = wp[i + 1];
+    const ax = P[0] - A[0], ay = P[1] - A[1], la = Math.hypot(ax, ay);
+    const bx = B[0] - P[0], by = B[1] - P[1], lb = Math.hypot(bx, by);
+    if (la < minLeg || lb < minLeg) { out.push(P); continue; }
+    const cosT = (ax * bx + ay * by) / (la * lb || 1e-9);
+    if (cosT > cos20) { out.push(P); continue; }
+    const d = Math.min(0.45 * Math.min(la, lb), 2 * R);
+    const Pa = [P[0] - ax / la * d, P[1] - ay / la * d];
+    const Pb = [P[0] + bx / lb * d, P[1] + by / lb * d];
+    for (const t of [0.25, 0.5, 0.75]) {
+      const mt = 1 - t;
+      const x = mt * mt * Pa[0] + 2 * mt * t * P[0] + t * t * Pb[0];
+      const y = mt * mt * Pa[1] + 2 * mt * t * P[1] + t * t * Pb[1];
+      out.push([+x.toFixed(2), +y.toFixed(2), "transit"]);
+    }
+  }
+  out.push(wp[wp.length - 1]);
+  return out;
 }
 
 // ============================================================================
@@ -2175,7 +2476,7 @@ async function runPlan() {
     gates = [{ x: best.x, y: best.y, name: "G1" }];
   }
   const gatesXY = gates.map(g => [g.x, g.y]);
-  const haulPolylines = buildHaulRoads(gatesXY, STATE.site.verts, zones);
+  const haulPolylines = buildHaulRoads(gatesXY, STATE.site.verts, zones, nogoLogical);
   const haulRoadSegs  = haulRoadsToSegments(haulPolylines);
   const nearestGateIdx = p => {
     let gi = 0, bd = Infinity;
@@ -2286,7 +2587,20 @@ async function runPlan() {
   // zone's path, then leaves by the SHORTEST way out (the gate nearest that
   // dump), reloads at the gate, and comes back in for the next spot. Every
   // gate is usable; the exit gate of one trip is the entry gate of the next.
+  //
+  // FLEET-LEVEL TRAFFIC BALANCING: trips are routed over the shared road
+  // graph with congestion-aware weighted A*. Trips are interleaved ROUND-ROBIN
+  // across the fleet so the per-edge predicted flow approximates real
+  // concurrency; the nonlinear BPR term spreads traffic across the alternative
+  // links, a diversity penalty nudges each truck off its own previous path,
+  // and the per-round decay models the rolling traffic window. Falls back to
+  // the memoised plain laneRoute when the graph helpers are unavailable.
+  const roadGraph = (typeof buildRoadGraph === "function" && typeof routeOnGraph === "function")
+    ? buildRoadGraph(pathways) : null;
+  const flows = (roadGraph && roadGraph.edges.length) ? new Float32Array(roadGraph.edges.length) : null;
+  const trips = {}, lastTripEdges = {}, preCounts = {};
   trucks.forEach(t => {
+    trips[t.id] = []; lastTripEdges[t.id] = {};
     const wp = waypoints[t.id];
     const home = gates[truckGate[t.id]];
     let curGate = home;
@@ -2295,18 +2609,60 @@ async function runPlan() {
       const zp = zonePaths[zid];
       if (!zp || !zp.dumps.length) return;                   // zone yielded no dumps
       zp.dumps.forEach(d => {
-        pushLane(wp, [curGate.x, curGate.y], zp.access);     // in along haul roads
-        wp.push([d[0], d[1], "dump"]);                       // place this trip's load
-        totalDumps++;
-        wp.push([zp.access[0], zp.access[1], "transit"]);    // back to zone access
         const exitGate = gates[nearestGateIdx(d)];           // shortest way out
-        pushLane(wp, [zp.access[0], zp.access[1]], [exitGate.x, exitGate.y]);
-        wp[wp.length-1][2] = "load";                         // reload at the gate
+        trips[t.id].push({ entry: curGate, access: zp.access, dump: d, exit: exitGate });
         curGate = exitGate;
       });
     });
+  });
+  const pushGraphLeg = (wp, t, fromXY, toXY, odKey, loaded) => {
+    const fm = TRUCK_MODELS[t.model] || {};
+    const r = routeOnGraph(roadGraph, fromXY, toXY, {
+      eps: typeof ASTAR_EPS !== "undefined" ? ASTAR_EPS : 1.2,
+      flows,
+      prevEdges: lastTripEdges[t.id][odKey] || null,
+      loaded,
+      fuelLpkm: loaded ? (fm.fuelLoaded || 0) : (fm.fuelEmpty || 0),
+    });
+    if (!r) { pushLane(wp, fromXY, toXY); return; }
+    for (let i = 1; i < r.path.length; i++)
+      wp.push([+r.path[i][0].toFixed(2), +r.path[i][1].toFixed(2), "transit"]);
+    for (const id of r.edgeIds) flows[id] += 1;
+    lastTripEdges[t.id][odKey] = new Set(r.edgeIds);
+  };
+  const maxTrips = Math.max(0, ...trucks.map(t => trips[t.id].length));
+  const flowDecay = typeof FLOW_DECAY !== "undefined" ? FLOW_DECAY : 0.7;
+  for (let round = 0; round < maxTrips; round++) {
+    trucks.forEach(t => {
+      const trip = trips[t.id][round];
+      if (!trip) return;
+      const wp = waypoints[t.id];
+      if (flows) pushGraphLeg(wp, t, [trip.entry.x, trip.entry.y], trip.access,
+                              "in:" + trip.entry.name + ">" + trip.access.join(","), true);
+      else       pushLane(wp, [trip.entry.x, trip.entry.y], trip.access);
+      wp.push([trip.dump[0], trip.dump[1], "dump"]);         // place this trip's load
+      totalDumps++;
+      wp.push([trip.access[0], trip.access[1], "transit"]);  // back to zone access
+      if (flows) pushGraphLeg(wp, t, trip.access, [trip.exit.x, trip.exit.y],
+                              "out:" + trip.access.join(",") + ">" + trip.exit.name, false);
+      else       pushLane(wp, [trip.access[0], trip.access[1]], [trip.exit.x, trip.exit.y]);
+      wp[wp.length-1][2] = "load";                           // reload at the gate
+    });
+    if (flows) for (let i = 0; i < flows.length; i++) flows[i] *= flowDecay;
+  }
+  trucks.forEach(t => {
+    const wp = waypoints[t.id];
     // the final gate arrival ends the shift — no reload there
     if (wp.length > 1 && wp[wp.length-1][2] === "load") wp[wp.length-1][2] = "transit";
+    // ETA model inputs captured BEFORE Bezier smoothing (smoothing inserts
+    // extra transit points; the 0.5 min/transit calibration predates them)
+    preCounts[t.id] = {
+      dumps:    wp.filter(w => w[2] === "dump").length,
+      loads:    wp.filter(w => w[2] === "load").length,
+      transits: wp.filter(w => w[2] === "transit").length,
+    };
+    if (typeof smoothPathBezier === "function")
+      waypoints[t.id] = smoothPathBezier(wp, metresToLogical(CAT793_TURN_M));
   });
 
   markStep(3);
@@ -2329,10 +2685,8 @@ async function runPlan() {
   for (let i=0; i<filled.length; i++) if (filled[i]) nFilled++;
   const projectedCov = nFilled / Math.max(insideCells, 1);
   const etaMin = Math.max(...trucks.map(t => {
-    const wp = waypoints[t.id];
-    const dumps = wp.filter(w => w[2]==="dump").length;
-    const loads = wp.filter(w => w[2]==="load").length;
-    return dumps * 2.5 + loads * LOAD_MIN + (wp.length - dumps - loads) * 0.5;
+    const pc = preCounts[t.id] || { dumps: 0, loads: 0, transits: 0 };
+    return pc.dumps * 2.5 + pc.loads * LOAD_MIN + pc.transits * 0.5;
   }));
   markStep(5);
 
@@ -2348,6 +2702,8 @@ async function runPlan() {
     nogo: nogoLogical,             // logical-space exclusion circles carved from the mask
     widestTW: widestTWMetres,      // store the METRES value
     scaleMperUnit: scale,
+    roadGraph,                     // cached road graph (runtime only — NOT exported)
+    plannedFlows: flows,           // per-edge predicted flow from plan-time assignment
     hexSpots: buildFieldSpots(STATE.site.verts, mask),   // spot circles for ops visualisation
   };
 
@@ -2532,13 +2888,20 @@ function opsReset() {
       wpIdx: 0,
       state: "transit", dumpProgress: 0, loadProgress: 0,
       loaded: true,                       // staged loaded — first trip needs no reload
-      dumps: 0, cycles: 0, km: 0, idleMin: 0,
+      dumps: 0, cycles: 0, km: 0, fuelL: 0, idleMin: 0,
       finished: false,
-      waypoints: STATE.plan.waypoints[t.id] || [],
+      // DEEP copy — defers and live re-routes splice this array; aliasing the
+      // plan's own waypoints corrupted re-runs and exports
+      waypoints: (STATE.plan.waypoints[t.id] || []).map(w => w.slice()),
     };
   });
   STATE.ops.telemetry = [];
   STATE.ops._lastSample = null;
+  STATE.ops.roadOcc = null;
+  STATE.ops.congestionIndex = 0;
+  STATE.ops._lastOccT = null;
+  STATE.ops._congWarned = false;
+  STATE.ops.reroutes = 0;
   STATE.ops.tokens = STATE.plan.zones.map(z => ({ zone: z.id, holder: null, queue: [], heartbeat: 0 }));
   // planned-work accounting drives the progress bar and zone-complete releases
   STATE.ops.totalPlannedDumps = 0;
@@ -2557,6 +2920,8 @@ function opsReset() {
   setText("kpi-active", 0);
   setText("kpi-cov", "0.0%");
   setText("kpi-dumps", 0);
+  setText("kpi-congestion", "0%");
+  setText("kpi-fuel", "0 L");
   document.getElementById("ops-log").innerHTML = "";
   document.getElementById("ops-pbar").style.width = "0%";
   document.getElementById("ops-pbar-text").textContent = `0 / ${STATE.ops.totalPlannedDumps} dumps (0%)`;
@@ -2615,6 +2980,14 @@ const STUCK_RECOVER_MIN   = 2;   // sim-min without progress before a truck pivo
 const REBALANCE_MIN_DUMPS = 6;   // don't steal work from a truck with fewer remaining dumps than this
 const LOAD_MIN            = 1.2; // sim-min to reload at a gate between shuttle trips
 const DUMP_MIN            = 0.4; // sim-min to tip one load (compressed representation of ~1.5-2.5 real min)
+// ── Congestion-aware routing constants (BPR cost + weighted A*) ─────────────
+const BPR_ALPHA    = 0.6;  // BPR congestion coefficient: cost = len*(1 + a*(flow/cap)^b)
+const BPR_BETA     = 4;    // BPR exponent — congestion cost grows NONLINEARLY near capacity
+const ASTAR_EPS    = 1.2;  // weighted A* inflation (solution <= eps * optimal, much faster)
+const HEADWAY_L    = 3.75; // logical headway per truck slot on an edge (= 5 x TRUCK_RAD_LOGICAL)
+const OCC_TICK_MIN = 0.5;  // sim-min between live road-occupancy refreshes
+const REROUTE_UTIL = 0.5;  // re-route the next haul-in leg when its utilization >= this
+const FLOW_DECAY   = 0.7;  // per-round decay of predicted flows during plan-time assignment
 
 // Real-life reference values for the report: what the simulation parameters
 // REPRESENT. Sim time is compressed — dumping/loading in real mining is much
@@ -3094,6 +3467,9 @@ function opsTick(dt) {
         tr.state = "transit";
         tr.wpIdx++;
         tr.vel = 0;
+        // dynamic path planning: before the next haul-in leg, re-route it
+        // around live congestion (no-op without a road graph / live data)
+        if (typeof rerouteNextLeg === "function") rerouteNextLeg(tr, ops);
       }
       return;
     }
@@ -3219,7 +3595,9 @@ function opsTick(dt) {
     // a corner-aware target so trucks ease out of dumps and brake into sharp
     // turns instead of snapping — the turning CIRCLE itself never changes.
     stuckWatchdog(tr, target, dist, dtMin);      // breaks turning-circle orbits
-    const cruise = 0.2 * (tr.speedF || 1) * STATE.ops.speedMul * dt;  // logical units this frame
+    // traffic-aware speed: trucks slow nonlinearly on congested road edges
+    const cgf = (typeof congestionSpeedFactor === "function") ? congestionSpeedFactor(tr, ops) : 1;
+    const cruise = 0.2 * (tr.speedF || 1) * STATE.ops.speedMul * dt * cgf;  // logical units this frame
     const avoid = moveTruckWithAvoidance(tr, ops, target, Math.min(cruise, dist, 1.2));
     if (avoid.wait) {
       tr.vel = 0;                                // hard yield — pull away smoothly after
@@ -3236,7 +3614,11 @@ function opsTick(dt) {
       const step = Math.min(cruise * tr.vel, dist, 1.2);   // safety cap for long frame gaps
       const bx = tr.x, by = tr.y;
       moveTruckWithTurning(tr, avoid.aim, step);
-      tr.km += Math.hypot(tr.x-bx, tr.y-by) * getScale() / 1000;   // REAL km (logical→m→km)
+      const dKm = Math.hypot(tr.x-bx, tr.y-by) * getScale() / 1000;   // REAL km (logical→m→km)
+      tr.km += dKm;
+      // fuel burn: loaded haul-in burns more per km than the empty haul-out
+      const fmSpec = TRUCK_MODELS[tr.model] || {};
+      tr.fuelL = (tr.fuelL || 0) + dKm * (tr.loaded ? (fmSpec.fuelLoaded || 0) : (fmSpec.fuelEmpty || 0));
     }
   });
   // Off-shift time-warp: if EVERY truck with pending work is merely off shift
@@ -3272,6 +3654,7 @@ function opsTick(dt) {
     }
   }
   brokerTick(ops);                              // revoke stale / orphaned zone tokens
+  if (typeof roadOccupancyTick === "function") roadOccupancyTick(ops);  // live traffic census
   const cov = ops.nFilled / Math.max(STATE.plan.insideCells, 1);
   // sample the report curve at most twice per sim-minute — pushing every frame
   // grew an unbounded array (60/s) whose GC pauses showed up as periodic hitches
@@ -3288,7 +3671,9 @@ function opsTick(dt) {
       t: ops.t, cov,
       dumps: ops.trucks.reduce((s,t)=>s+t.dumps,0),
       km: ops.trucks.reduce((s,t)=>s+t.km,0),
-      perTruck: ops.trucks.map(t => ({ id: t.id, dumps: t.dumps, km: +t.km.toFixed(3), idle: +t.idleMin.toFixed(2) })),
+      fuel: ops.trucks.reduce((s,t)=>s+(t.fuelL||0),0),
+      ci: ops.congestionIndex || 0,
+      perTruck: ops.trucks.map(t => ({ id: t.id, dumps: t.dumps, km: +t.km.toFixed(3), fuel: +(t.fuelL||0).toFixed(2), idle: +t.idleMin.toFixed(2) })),
     });
     if (ops.telemetry.length > 720) ops.telemetry.shift();
   }
@@ -3298,6 +3683,8 @@ function opsTick(dt) {
   setText("kpi-active", active);
   setText("kpi-cov", (cov*100).toFixed(1)+"%");
   setText("kpi-dumps", placed);
+  setText("kpi-congestion", ((ops.congestionIndex || 0)*100).toFixed(0)+"%");
+  setText("kpi-fuel", ops.trucks.reduce((s,t)=>s+(t.fuelL||0),0).toFixed(0)+" L");
   setText("ops-canvas-sub", `sim t=${fmtTime(ops.t)} · ${placed}/${totalPlanned} dumps · ${(cov*100).toFixed(1)}% coverage`);
   // progress bar tracks actual dump completion, synced to the same tick as the log
   const pct = totalPlanned > 0 ? Math.min(100, placed / totalPlanned * 100) : 0;
@@ -3327,6 +3714,140 @@ function isOnShift(t, minOfDay) {
 function fmtTime(min) {
   const h = Math.floor(min/60), m = Math.floor(min%60);
   return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+// ── Live traffic: occupancy census, congestion speed, dynamic re-routing ────
+// Throttled census of which road edge each active truck is on. Feeds the
+// congestion speed factor, the re-router, the overlay and the CI KPI.
+function roadOccupancyTick(ops) {
+  const plan = STATE.plan;
+  if (!plan || !plan.roadGraph || !plan.roadGraph.edges.length) return;
+  const tick = typeof OCC_TICK_MIN !== "undefined" ? OCC_TICK_MIN : 0.5;
+  if (ops._lastOccT != null && ops.t - ops._lastOccT < tick) return;
+  ops._lastOccT = ops.t;
+  const g = plan.roadGraph;
+  const occ = new Uint16Array(g.edges.length);
+  ops.trucks.forEach(tr => {
+    tr._occEdge = -1;
+    if (tr.finished || tr.stopped) return;
+    let be = -1, bd = Infinity;
+    for (const e of g.edges) {
+      const q = _projSeg([tr.x, tr.y], g.nodes[e.a], g.nodes[e.b]);
+      const d = Math.hypot(tr.x - q[0], tr.y - q[1]);
+      if (d < bd) { bd = d; be = e.id; }
+    }
+    if (be >= 0 && bd <= 1.0) { occ[be]++; tr._occEdge = be; }
+  });
+  ops.roadOcc = occ;
+  // congestion index = occupancy-weighted mean utilization across the network
+  let wSum = 0, oSum = 0, worst = 0;
+  for (const e of g.edges) {
+    const u = occ[e.id] / e.cap;
+    wSum += occ[e.id] * Math.min(u, 2);
+    oSum += occ[e.id];
+    if (u > worst) worst = u;
+  }
+  ops.congestionIndex = oSum > 0 ? Math.min(wSum / oSum, 2) / 2 : 0;
+  // one-shot hysteresis warning when any edge crosses 80% utilization
+  if (worst >= 0.8 && !ops._congWarned) {
+    ops._congWarned = true;
+    opsLog(`TRAFFIC: road segment at ${(worst*100).toFixed(0)}% capacity — dynamic re-routing active`, "amber");
+  } else if (worst < 0.5 && ops._congWarned) ops._congWarned = false;
+}
+
+// Nonlinear BPR speed response: v = v0 / (1 + a*u^b), clamped to [0.45, 1].
+// Utilization counts only OTHER trucks on this truck's current edge.
+function congestionSpeedFactor(tr, ops) {
+  if (!ops || !ops.roadOcc || tr._occEdge == null || tr._occEdge < 0) return 1;
+  const plan = STATE.plan;
+  if (!plan || !plan.roadGraph) return 1;
+  const e = plan.roadGraph.edges[tr._occEdge];
+  if (!e) return 1;
+  const a = typeof BPR_ALPHA !== "undefined" ? BPR_ALPHA : 0.6;
+  const b = typeof BPR_BETA !== "undefined" ? BPR_BETA : 4;
+  const u = Math.min(Math.max(0, ops.roadOcc[e.id] - 1) / e.cap, 2);
+  return Math.max(0.45, Math.min(1, 1 / (1 + a * Math.pow(u, b))));
+}
+
+// Dynamic path planning: after a reload, re-route the truck's next haul-in
+// leg (the consecutive transit run before its next dump) around live
+// congestion. Only transit waypoints are replaced — the dump, the access
+// point (last transit before the dump) and all later waypoints are untouched,
+// so every shuttle invariant survives. No-op on legacy serpentine routes.
+function rerouteNextLeg(tr, ops) {
+  const plan = STATE.plan;
+  if (!plan || !plan.roadGraph || !ops.roadOcc) return false;
+  if (typeof routeOnGraph !== "function") return false;
+  const wp = tr.waypoints;
+  if (!wp || tr.wpIdx >= wp.length || wp[tr.wpIdx][2] !== "transit") return false;
+  let end = tr.wpIdx;
+  while (end < wp.length && wp[end][2] === "transit") end++;
+  if (end >= wp.length || wp[end][2] !== "dump") return false;   // haul-in legs only
+  const runLen = end - tr.wpIdx;
+  if (runLen < 2) return false;
+  const g = plan.roadGraph;
+  const snap = p => {
+    let be = -1, bd = Infinity;
+    for (const e of g.edges) {
+      const q = _projSeg(p, g.nodes[e.a], g.nodes[e.b]);
+      const d = Math.hypot(p[0] - q[0], p[1] - q[1]);
+      if (d < bd) { bd = d; be = e.id; }
+    }
+    return bd <= 1.0 ? be : -1;
+  };
+  let maxU = 0;
+  for (let i = tr.wpIdx; i < end; i++) {
+    const ei = snap(wp[i]);
+    if (ei >= 0) maxU = Math.max(maxU, ops.roadOcc[ei] / g.edges[ei].cap);
+  }
+  const thr = typeof REROUTE_UTIL !== "undefined" ? REROUTE_UTIL : 0.5;
+  if (maxU < thr) return false;                  // planned leg is clear — keep it
+  const legEnd = wp[end - 1];                    // zone access (last transit before dump)
+  const r = routeOnGraph(g, [tr.x, tr.y], [legEnd[0], legEnd[1]], {
+    eps: typeof ASTAR_EPS !== "undefined" ? ASTAR_EPS : 1.2,
+    flows: ops.roadOcc,
+    loaded: true,
+    fuelLpkm: (TRUCK_MODELS[tr.model] || {}).fuelLoaded || 0,
+  });
+  if (!r || r.path.length < 2) return false;
+  let leg = r.path.map(p => [+p[0].toFixed(2), +p[1].toFixed(2), "transit"]);
+  if (typeof smoothPathBezier === "function")
+    leg = smoothPathBezier(leg, metresToLogical(CAT793_TURN_M));
+  wp.splice(tr.wpIdx, runLen, ...leg);
+  ops.reroutes = (ops.reroutes || 0) + 1;
+  opsLog(`${tr.id} re-routed around congestion (leg util ${(maxU*100).toFixed(0)}%)`, "blue");
+  return true;
+}
+
+// Batched live-utilization overlay on the occupied road edges
+// (green < 40%, amber < 80%, red >= 80% of edge capacity).
+function drawCongestionOverlay(ctx, P) {
+  const plan = STATE.plan, ops = STATE.ops;
+  if (!plan || !plan.roadGraph || !ops || !ops.roadOcc) return;
+  const g = plan.roadGraph;
+  const buckets = [[], [], []];
+  for (const e of g.edges) {
+    const occ = ops.roadOcc[e.id];
+    if (!occ) continue;
+    const u = occ / e.cap;
+    buckets[u < 0.4 ? 0 : (u < 0.8 ? 1 : 2)].push(e);
+  }
+  const colors = ["rgba(0,210,106,0.5)", "rgba(255,170,0,0.7)", "rgba(255,70,50,0.85)"];
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.setLineDash([]);
+  buckets.forEach((list, bi) => {
+    if (!list.length) return;
+    ctx.strokeStyle = colors[bi];
+    ctx.lineWidth = 3 + bi;
+    ctx.beginPath();
+    for (const e of list) {
+      ctx.moveTo(P.px(g.nodes[e.a][0]), P.py(g.nodes[e.a][1]));
+      ctx.lineTo(P.px(g.nodes[e.b][0]), P.py(g.nodes[e.b][1]));
+    }
+    ctx.stroke();
+  });
+  ctx.restore();
 }
 
 function applyDump(x, y, dumpRadius) {
@@ -3454,9 +3975,10 @@ function drawOps() {
     ctx.strokeStyle = `rgba(255,199,12,${a.alpha})`; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(P.px(a.x), P.py(a.y), a.r * P.s, 0, 2*Math.PI); ctx.stroke();
   });
-  // haul roads + no-go zones + gates
+  // haul roads + live congestion overlay + no-go zones + gates
   if (STATE.plan) {
     drawHaulRoads(ctx, P, STATE.plan.haulPolylines);
+    if (typeof drawCongestionOverlay === "function") drawCongestionOverlay(ctx, P);
     drawNogo(ctx, P, STATE.site.nogo);
     drawGates(ctx, P, STATE.plan.gates || (STATE.plan.mainGate ? [STATE.plan.mainGate] : []));
   }
@@ -3509,6 +4031,7 @@ function renderReportPage() {
   document.getElementById("rp-trucks").innerHTML = r.perTruck.map(t => `<tr>
     <td class="v">${t.id}</td><td>${(t.model||"").replace("Cat ","")}</td><td>${t.dumps}</td>
     <td>${(t.tonnes||0).toLocaleString()}</td><td>${t.cycles ?? t.dumps}</td><td>${t.km.toFixed(2)} km</td>
+    <td>${(t.fuelL||0).toFixed(0)} L</td>
     <td>${t.idleMin.toFixed(1)} min</td><td>${((t.utilization ?? 0)*100).toFixed(0)}%</td></tr>`).join("");
   // session overview
   const s = r.session || {};
@@ -3520,6 +4043,8 @@ function renderReportPage() {
     ["Fleet", (s.fleet||[]).join(" · ") || "—"],
     ["Planned dumps", `${s.totalPlannedDumps||0} (${s.gapDumps||0} gap-fill)`],
     ["Projected coverage", `${s.projectedCovPct||0}%`],
+    ["Fleet fuel burned", `${(r.fuelL||0).toFixed(0)} L`],
+    ["Traffic", `mean congestion ${((r.meanCi||0)*100).toFixed(1)}% · ${r.reroutes||0} dynamic re-route${(r.reroutes||0)===1?"":"s"}`],
     ["Completed", new Date(r.timestamp).toLocaleString()],
   ];
   const sessEl = document.getElementById("rp-session");
@@ -3539,6 +4064,8 @@ function renderReportPage() {
       ["Haul cycle", "gate → dump → nearest gate → reload", rm.haulCycleNote],
       ["Turning radius", `${sp.turnRadiusM ?? CAT793_TURN_M} m (all models)`, `${rm.turnRadiusM} m (Cat 793 reference)`],
       ["Zone lock TTL", `${sp.tokenTtlMin ?? TOKEN_TTL_MIN} sim-min heartbeat`, "dispatcher supervision / FMS heartbeat"],
+      ["Congestion cost (BPR)", `len × (1 + ${sp.bprAlpha ?? BPR_ALPHA}·(flow/cap)^${sp.bprBeta ?? BPR_BETA})`, "Bureau of Public Roads (1964) volume-delay function"],
+      ["Router", `weighted A*, ε = ${sp.astarEps ?? ASTAR_EPS}`, "Pohl (1970) — bounded-suboptimal, real-time dispatch"],
     ];
     Object.entries(rm.models).forEach(([m, v]) => {
       const spec = TRUCK_MODELS[m] || {};
@@ -3557,7 +4084,7 @@ function finalizeReport() {
     const payload = (TRUCK_MODELS[t.model] || {}).payload || 0;
     return {
       id: t.id, model: t.model,
-      dumps: t.dumps, cycles: t.cycles || t.dumps, km: t.km, idleMin: t.idleMin,
+      dumps: t.dumps, cycles: t.cycles || t.dumps, km: t.km, fuelL: t.fuelL || 0, idleMin: t.idleMin,
       tonnes: t.dumps * payload,
       utilization: ops.t > 0 ? Math.max(0, Math.min(1, 1 - t.idleMin / ops.t)) : 0,
       efficiency: (t.dumps + t.km) > 0 ? t.dumps / (t.dumps + t.idleMin/60 + t.km) : 0,
@@ -3587,6 +4114,10 @@ function finalizeReport() {
     tonnes,
     cycles: perTruck.reduce((s,t)=>s+t.cycles,0),
     fleetKm: +perTruck.reduce((s,t)=>s+t.km,0).toFixed(2),
+    fuelL: +perTruck.reduce((s,t)=>s+t.fuelL,0).toFixed(1),
+    meanCi: (ops.telemetry && ops.telemetry.length)
+      ? ops.telemetry.reduce((s,m)=>s+(m.ci||0),0) / ops.telemetry.length : 0,
+    reroutes: ops.reroutes || 0,
     throughputTPerH: ops.t > 0 ? +(tonnes / (ops.t/60)).toFixed(0) : 0,
     duration: ops.t,
     perTruck,
@@ -3603,7 +4134,8 @@ function finalizeReport() {
       gapDumps: zones.reduce((s,z)=>s+z.gapDumps,0),
     },
     realParams: REAL_MINING,
-    simParams: { dumpMin: DUMP_MIN, loadMin: LOAD_MIN, tokenTtlMin: TOKEN_TTL_MIN, turnRadiusM: CAT793_TURN_M },
+    simParams: { dumpMin: DUMP_MIN, loadMin: LOAD_MIN, tokenTtlMin: TOKEN_TTL_MIN, turnRadiusM: CAT793_TURN_M,
+                 bprAlpha: BPR_ALPHA, bprBeta: BPR_BETA, astarEps: ASTAR_EPS },
     coverageHistory: ops.coverageHistory.slice(),
     timestamp: new Date().toISOString(),
   };
@@ -3680,6 +4212,9 @@ function exportSummaryJSON() {
       material_moved_t: STATE.report.tonnes,
       haul_cycles: STATE.report.cycles,
       fleet_km: STATE.report.fleetKm,
+      fleet_fuel_l: STATE.report.fuelL,
+      mean_congestion_index: +((STATE.report.meanCi||0)).toFixed(4),
+      dynamic_reroutes: STATE.report.reroutes,
       throughput_t_per_sim_h: STATE.report.throughputTPerH,
       per_truck: STATE.report.perTruck.map(t => ({
         ...t, km: +t.km.toFixed(2), idle_min: +t.idleMin.toFixed(1),
@@ -4210,6 +4745,7 @@ function _tmTruckRows(){
       <td id="tm-d-${t.id}">${t.dumps||0}</td>
       <td id="tm-t-${t.id}">${tonnes.toLocaleString()}</td>
       <td id="tm-k-${t.id}">${(t.km||0).toFixed(2)}</td>
+      <td id="tm-f-${t.id}">${(t.fuelL||0).toFixed(0)}</td>
       <td id="tm-s-${t.id}">${speed.toFixed(1)}</td>
       <td id="tm-i-${t.id}">${(t.idleMin||0).toFixed(1)}</td>
       <td style="min-width:90px"><div class="progress-bar" style="margin-top:0"><div class="progress-fill ${util>60?'green':util>30?'yellow':'red'}" id="tm-u-${t.id}" style="width:${util}%"></div></div></td></tr>`;
@@ -4235,7 +4771,7 @@ function renderTelemetry(){
     </div>
   </div>
   <div class="card"><div class="card-header"><div class="card-title"><i class="fas fa-truck"></i> Per-truck performance</div></div>
-    <table class="data-table"><thead><tr><th>Truck</th><th>Model</th><th>Dumps</th><th>Tonnes</th><th>km</th><th>Avg km/h</th><th>Idle min</th><th>Utilization</th></tr></thead>
+    <table class="data-table"><thead><tr><th>Truck</th><th>Model</th><th>Dumps</th><th>Tonnes</th><th>km</th><th>Fuel L</th><th>Avg km/h</th><th>Idle min</th><th>Utilization</th></tr></thead>
     <tbody id="tm-trucks">${_tmTruckRows()}</tbody></table>
   </div>`;
 }
@@ -4263,6 +4799,7 @@ function updateTelemetry(){
     _T('tm-d-'+t.id,t.dumps||0);
     _T('tm-t-'+t.id,((t.dumps||0)*(spec.payload||0)).toLocaleString());
     _T('tm-k-'+t.id,(t.km||0).toFixed(2));
+    _T('tm-f-'+t.id,(t.fuelL||0).toFixed(0));
     _T('tm-s-'+t.id,(activeH>0?(t.km||0)/activeH:0).toFixed(1));
     _T('tm-i-'+t.id,(t.idleMin||0).toFixed(1));
     const u=document.getElementById('tm-u-'+t.id);

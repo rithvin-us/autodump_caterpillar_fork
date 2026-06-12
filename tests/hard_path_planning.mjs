@@ -53,10 +53,14 @@ const FNS = ["pip","polyArea","cleanPoly","clipPolyHalfplane","polyCentroid",
   "zoneAt","grantToken","resetActiveSpots","releaseToken","releaseTokensHeldBy",
   "brokerTick","deferLockedZone","stuckWatchdog","stealableZoneBlocks",
   "rebalanceIdleTruck","moveTruckWithAvoidance","moveTruckWithTurning",
-  "applyDump","opsTick"];
+  "applyDump","opsTick",
+  // congestion-aware routing (2026-06-12)
+  "buildRoadGraph","routeOnGraph","smoothPathBezier",
+  "roadOccupancyTick","congestionSpeedFactor","rerouteNextLeg"];
 const CONSTS = ["FIELD_W","GRID_RES","HW","HH",
   "TRUCK_RAD_LOGICAL","CAT793_TURN_M","TOKEN_TTL_MIN","STUCK_RECOVER_MIN","REBALANCE_MIN_DUMPS",
-  "LOAD_MIN","DUMP_MIN"];
+  "LOAD_MIN","DUMP_MIN",
+  "BPR_ALPHA","BPR_BETA","ASTAR_EPS","HEADWAY_L","OCC_TICK_MIN","REROUTE_UTIL","FLOW_DECAY"];
 const modelsMatch = /const TRUCK_MODELS = \{[\s\S]*?\};/.exec(html);
 if (!modelsMatch) throw new Error("TRUCK_MODELS not found");
 
@@ -69,7 +73,8 @@ function makeSandbox() {
     setAttribute() {}, getAttribute() { return null; },
   });
   const sb = { console, Math, Map, Set, Infinity, NaN,
-    Uint8Array, Float32Array, Array, Object, String, Number, parseFloat, parseInt, isNaN,
+    Uint8Array, Float32Array, Uint16Array, Float64Array, Int32Array,
+    Array, Object, String, Number, parseFloat, parseInt, isNaN,
     document: {
       getElementById: () => fakeEl(), createElement: () => fakeEl(),
       querySelector: () => fakeEl(), querySelectorAll: () => [],

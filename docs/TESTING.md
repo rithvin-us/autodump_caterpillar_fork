@@ -210,6 +210,19 @@
   - Re-runs: `multigate_path_check` `=== 16 passed, 0 failed ===`; `live_sim_completion` `=== 14 passed, 0 failed ===` (T5: 7 rebalance events, completes in 3,541 ticks on the new rebuild path); `zone_decomp_validation` `=== 18 passed, 0 failed ===`; `haulroad_zone_check` OK; script blocks `block0 OK`, `block1 OK`, `block2 OK`.
 - Status: PASS
 
+### T-024
+- Scope: Congestion-aware fleet routing — `buildRoadGraph` (cached road graph), `routeOnGraph` (weighted A*: BPR congestion + intersection utilization + route diversity + fuel/turn terms), `buildHaulRoads` alternative links (gate–gate / access ring / gate–access, polygon+no-go containment-sampled), `smoothPathBezier` (quadratic corner cuts), `roadOccupancyTick`/`congestionSpeedFactor`/`rerouteNextLeg` (live traffic census, nonlinear speed response, dynamic re-routing), plan-time round-robin flow assignment in `runPlan` Step 4, pre-smoothing ETA counts, `opsReset` waypoint deep-copy, fuel model (`fuelLoaded`/`fuelEmpty` in `TRUCK_MODELS`) (`site/indexV4.html`) (2026-06-12)
+- Command: `node tests/congestion_routing_check.mjs` (new suite; functions extracted live from the page into a `vm` sandbox; a second sandbox WITHOUT the new functions verifies the legacy `laneRoute` fallback), plus re-runs of `node tests/hard_path_planning.mjs`, `node tests/multigate_path_check.mjs`, `node tests/live_sim_completion.mjs` (all three extended with the 6 new FNS and 7 new CONSTS), `node tests/zone_decomp_validation.mjs`, `node tests/haulroad_zone_check.mjs` (deliberately untouched), and a `new vm.Script` syntax check on all 3 inline `<script>` blocks
+- Expected: C1 every gate/access point is a graph node and the set is BFS-connected, with ≥ 2 alternative links on the demo network; C2 BPR cost = (1+α)·len at capacity and convex beyond it; C3 ≥ 2 distinct routes over 4 repeated trips on one OD pair under flow accumulation; C4 not every fleet route passes the centroid hub; C5 smoothing preserves both route ends and every dump/load waypoint exactly, inserting only transit points; C6 pre-smoothing counts reproduce the legacy ETA formula; C7 end-to-end shuttle sim with live occupancy completes with tokens released, fuel accrued, and a forced congested haul-in leg re-routed without touching dumps; C8 graph-backed `laneRoute` keeps exact endpoints, matches the legacy Dijkstra length within 1 % (ε = 1.0) and produces no pathological detours; all existing suites unaffected
+- Result: `congestion_routing_check` `=== 23 passed, 0 failed ===`
+  - Demo network: 13 polylines (7 alternative links), 8 nodes / 14 edges, all gate/access nodes BFS-connected.
+  - C2: c(0)=10.0, c(κ)=16.0 (= (1+0.6)·10), c(2κ)=106.0 — convex.
+  - C3: 4 distinct edge sets over 4 trips. C4: 2/24 routes via the centroid hub (spine-only baseline: all).
+  - C6: 13 → 35 transit points after smoothing; ETA parity exact.
+  - C7: 24/24 dumps in 1,726 ticks, tokens released, fuel T1 74.6 L / T2 14.4 L / T3 101.5 L; forced reroute spliced the haul-in leg (10 reroutes) with dump count unchanged.
+  - Re-runs after all edits: `hard_path_planning` `=== 24 passed, 0 failed ===`, `multigate_path_check` `=== 16 passed, 0 failed ===` (A7 1,854/1,854 dumps in 5,370 ticks), `live_sim_completion` `=== 14 passed, 0 failed ===`, `zone_decomp_validation` `=== 18 passed, 0 failed ===`, `haulroad_zone_check` OK (3 zones, all routes resolve via the legacy fallback); script blocks `block0 OK`, `block1 OK`, `block2 OK`.
+- Status: PASS
+
 ## Notes
 
 - No application runtime tests were executed in this pass.

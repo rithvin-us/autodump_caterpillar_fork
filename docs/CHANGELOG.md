@@ -14,6 +14,101 @@
 
 ## Summary (latest changes)
 
+### 2026-06-12 — Congestion-aware fleet routing: weighted A* + BPR cost, road-network diversification, live dynamic re-routing, fuel model, Bézier path smoothing (`site/indexV4.html`)
+
+Addresses two reported problems: (1) the planner had no fleet-level traffic
+model — every truck took the same shortest route; (2) **all trucks converged
+on the centre of the field**, because `buildHaulRoads` built every spine
+gate → polygon-centroid, so every haul route was forced through one hub.
+
+**Road network diversification (`buildHaulRoads`, the de-centering fix).**
+The spine/branch backbone is unchanged (back-compat, connectivity guarantee),
+but the network now also gets ALTERNATIVE links, each containment-sampled
+against the polygon and the no-go circles (9-point `pip` sampling — a
+U-shape can no longer get a chord across its void): gate↔gate links between
+angularly adjacent gates, ring links between adjacent zone access points, and
+a direct gate↔access shortcut per zone. Links carry `kind="link"` and render
+thinner/dimmer. Measured de-centering: on the demo site only 2/24 fleet routes
+still pass the centroid hub (previously all spine routes did).
+
+**Road graph + congestion-aware weighted A\* (new section after `laneRoute`).**
+- `buildRoadGraph(pathways)` — built ONCE per network and cached on the
+  function object: nodes = endpoints + pairwise intersections, edges between
+  collinear neighbours with `len` and capacity `cap = max(1, ⌊len/HEADWAY_L⌋)`.
+  Side win: `laneRoute` callers (incl. `rebalanceIdleTruck`) stop paying the
+  old O(S²) per-call graph rebuild.
+- `routeOnGraph(graph, from, to, opts)` — weighted A* (`f = g + ε·h`,
+  Euclidean h, ε = 1.2; binary heap, typed arrays). Edge cost =
+  `len·(1 + 0.6·min(flow/cap, 2)⁴)` (BPR — congestion cost grows NONLINEARLY
+  toward capacity; utilization clamped at 2 so κ=1 edges can't produce absurd
+  detours) + intersection penalty `0.8·(deg−2)·u_v²` at degree≥3 nodes (the
+  centroid hub repels traffic naturally) + route-diversity penalty `0.25·len`
+  on edges of the same truck's previous trip on that OD pair + fuel term
+  `0.15·len·q/q_ref` with a `0.3·(1−cos θ)` turn cost. Virtual endpoints are
+  projected onto the nearest segment without mutating the cached graph;
+  returned paths keep `from`/`to` exact.
+- `laneRoute` delegates to the graph at ε = 1.0 (exact shortest path — C8
+  verifies length parity with the legacy Dijkstra within 1 %) and keeps the
+  entire legacy body as the fallback for older test sandboxes.
+
+**Plan-time fleet flow assignment (`runPlan` Step 4).** Trips are assembled
+as skeletons (entry gate / access / dump / nearest exit gate — trip structure
+and gate choices unchanged), then routed ROUND-ROBIN across the fleet so the
+per-edge predicted flow approximates real concurrency: each leg is routed with
+the live flow map (loaded legs use the loaded fuel burn), its edges' flows
+increment, and flows decay ×0.7 per round (rolling traffic window). The old
+`laneCache` memoisation is gone on the graph path (it would freeze the first
+chosen route forever); the cache+`pushLane` fallback remains for graph-less
+runs. ETA now computes from per-truck dump/load/transit counts captured
+BEFORE smoothing (the 0.5 min/transit calibration predates the inserted
+Bézier points). `STATE.plan` gains `roadGraph` + `plannedFlows` (runtime only
+— excluded from plan/summary JSON exports).
+
+**Bézier path smoothing (`smoothPathBezier`).** Quadratic corner cuts on
+consecutive transit corners: cut depth `d = min(0.45·min leg, 2·R_turn)`,
+samples at t = ¼, ½, ¾, only where deflection > 20° and both legs clear
+2× the transit arrival radius. Dump/load waypoints and both route ends are
+never moved (C5 verifies exact preservation), so every shuttle invariant
+(one load per trip, nearest-exit gate, gate bookends) survives smoothing.
+
+**Live traffic in the sim (`opsTick` + helpers).**
+- `roadOccupancyTick` — throttled (0.5 sim-min) census snapping active trucks
+  to their nearest road edge → `ops.roadOcc`, congestion index
+  `CI = Σocc·u/Σocc`, one-shot TRAFFIC log warning at 80 % edge utilization.
+- `congestionSpeedFactor` — trucks slow nonlinearly on busy edges:
+  `v = v₀/(1+0.6·u⁴)` clamped [0.45, 1] (u counts OTHER trucks on the edge).
+- `rerouteNextLeg` — dynamic path planning: after each reload, the next
+  haul-in leg is re-routed via live-occupancy weighted A* when its planned
+  utilization ≥ 50 %; only the transit run is spliced (dump/access untouched),
+  the replacement is Bézier-smoothed, and the event is logged. No-op on legacy
+  serpentine routes (guarded by waypoint kind), so older suites are unaffected.
+- `opsReset` now DEEP-COPIES each truck's waypoints — fixes a latent aliasing
+  bug where `deferLockedZone` (and now reroutes) spliced `STATE.plan.waypoints`
+  itself, corrupting re-runs and exports.
+- Fuel model: `TRUCK_MODELS` gains `fuelLoaded`/`fuelEmpty` (L/km — 785:
+  7.2/4.2, 793: 9.6/5.6, 797: 13.4/7.8); `tr.fuelL` accrues per km at the
+  loaded/empty rate.
+
+**UI.** Live Ops gains congestion-index + fuel KPIs and a batched road-edge
+utilization overlay (green/amber/red); report gains per-truck fuel column,
+fleet fuel, mean CI and dynamic-reroute count (also in the summary JSON);
+Telemetry gains a fuel column; About gains a "Congestion-aware routing —
+formulations" card with the full math (BPR 1964, Pohl 1970 weighted A*,
+Bézier corner cut, CI definition). New consts: `BPR_ALPHA 0.6`, `BPR_BETA 4`,
+`ASTAR_EPS 1.2`, `HEADWAY_L 3.75`, `OCC_TICK_MIN 0.5`, `REROUTE_UTIL 0.5`,
+`FLOW_DECAY 0.7`.
+
+**Validation:** new `tests/congestion_routing_check.mjs` — 23/23 (graph
+integrity/connectivity, BPR convexity, route diversity 4 distinct edge sets
+over 4 trips, de-centering 2/24 routes via hub, smoothing invariants, ETA
+parity, end-to-end shuttle sim with occupancy + reroute live incl. a forced
+congested-leg reroute, laneRoute parity/endpoint/no-blow-up checks). Existing
+suites extended with the new FNS/CONSTS and re-run: `hard_path_planning`
+24/24, `multigate_path_check` 16/16, `live_sim_completion` 14/14,
+`zone_decomp_validation` 18/18, `haulroad_zone_check` OK (untouched — its
+sandbox exercises the legacy `laneRoute` fallback), all 3 inline script
+blocks parse. See `docs/TESTING.md` T-024.
+
 ### 2026-06-12 — Live Operations de-stagnation: shift time-warp, coverage/KPI sync, render batching, rebalance O(n) (`site/indexV4.html`)
 
 Fixes the reported Live Simulation problems: frozen "stuck after a particular
