@@ -109,6 +109,43 @@ suites extended with the new FNS/CONSTS and re-run: `hard_path_planning`
 sandbox exercises the legacy `laneRoute` fallback), all 3 inline script
 blocks parse. See `docs/TESTING.md` T-024.
 
+### 2026-06-12 — Enterprise UI redesign: Caterpillar design system, typography, accessibility, de-gamed visuals (`site/indexV4.html`)
+
+Full UI/UX pass to make the console look like a production Caterpillar mine-operations
+product (MineStar-style) instead of a hackathon dashboard.
+
+- **Design tokens.** `:root` rewritten as a structured token system: Caterpillar
+  Yellow `#FFCD11` primitives (incl. `--cat-yellow-text #7A6200`, ≥5:1 on white),
+  charcoal scale (`--charcoal-950/900/800`), gray scale, status colors
+  (ok/warn/err/info, "status only — never decorative"), 4px spacing scale, radius
+  scale, elevation shadows, and motion tokens (`--t-fast/base/slow` 150/200/250ms,
+  standard easing). All legacy var names kept as aliases so existing CSS/JS works.
+- **Typography.** Barlow/Barlow Condensed/Share Tech Mono/JetBrains Mono replaced
+  with **Inter** (UI) + **IBM Plex Mono** (data/numerics, tabular-nums). Oversized
+  condensed-uppercase page titles reduced to 22px/700 sentence case; all sub-10px
+  labels bumped to ≥10px.
+- **Header.** Brand block gains "Mine Operations Planning" subtitle; new right-side
+  status group: live simulation-status chip (READY / RUNNING / E-STOP, mirrored from
+  `setStatus`) and a 24h control-room clock.
+- **Accessibility.** Skip-to-content link; keyboard activation (Enter/Space) for all
+  `role="button"` elements; `aria-current="page"` on active nav; `role="img"` +
+  descriptive `aria-label` on all four canvases; event log is `role="log"`; footer
+  status is `role="status" aria-live="polite"`; ops progress bar is a real
+  `role="progressbar"` with live `aria-valuenow`; fixed mismatched
+  `</section>`/`</main>` closing tags; text-token contrast raised
+  (`--txt3 #667085→#5D6878`, yellow text `#9E7C00→#7A6200`).
+- **De-gamed visuals.** Removed scan-line animation, spinning dashed E-stop ring,
+  danger pulse, comm-node pulse and glow shadows. Kill switch restyled as a real
+  industrial E-stop (red mushroom on Cat-yellow safety plate, no animation). Tilt
+  simulator's sci-fi cyan/neon palette remapped to the enterprise status palette.
+  All emoji buttons (📋⚙🖨▶↻↶✕↓) replaced with Font Awesome icons.
+- **Layout.** Live Operations becomes a control-room layout: field view + right KPI
+  panel + full-width bottom event-log panel. Site/ops grids moved from inline styles
+  to `.layout-canvas-right` / `.layout-ops` classes with responsive breakpoints
+  (1280/980/840px; sidebar collapses to a horizontal strip on narrow widths; type
+  scales up on ≥1800px ops displays). Field canvases/grids neutralized from blue-navy
+  to charcoal (`#070C18→#15181C`, grid `#162035→#262B31`).
+
 ### 2026-06-12 — Live Operations de-stagnation: shift time-warp, coverage/KPI sync, render batching, rebalance O(n) (`site/indexV4.html`)
 
 Fixes the reported Live Simulation problems: frozen "stuck after a particular
