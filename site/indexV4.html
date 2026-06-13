@@ -167,11 +167,17 @@ body{font-size:14px;line-height:1.45}
 .btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .btn-sm{font-size:11.5px;padding:5px 10px;border-radius:7px}
 
-/* MODE BUTTONS (drawing mode) */
-.mode-btn{flex:1;padding:9px 10px;border-radius:8px;background:var(--bg0);border:1px solid var(--border2);color:var(--txt2);font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer;text-transform:uppercase;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px;box-shadow:var(--shadow-xs)}
-.mode-btn:hover{background:var(--bg1);border-color:#AEB6C2}
-.mode-btn.active{background:#1B1F26;color:var(--cat-bright);border-color:#1B1F26;box-shadow:var(--shadow-sm)}
-.mode-btn .mb-i{font-size:14px;line-height:1}
+/* MODE BUTTONS (drawing mode) — CAD/GIS toolbar style, Caterpillar yellow theme */
+.mode-btn{flex:1;padding:9px 10px;border-radius:8px;background:var(--bg0);border:1.5px solid var(--cat-yellow-deep);color:var(--txt);font-size:11px;font-weight:700;letter-spacing:.5px;cursor:pointer;text-transform:uppercase;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px;box-shadow:var(--shadow-xs);transition:background-color 180ms ease,border-color 180ms ease,transform 120ms ease,box-shadow 180ms ease}
+/* HOVER — soft yellow fill, subtle lift */
+.mode-btn:hover:not(.active):not(:disabled){background:var(--cat-bg);border-color:var(--cat-yellow);box-shadow:var(--shadow-md);transform:translateY(-1px)}
+/* ACTIVE / SELECTED — brand-yellow fill, pressed-in (never black) */
+.mode-btn.active{background:var(--cat-yellow);color:#101828;border-color:var(--cat-yellow-deep);box-shadow:inset 0 2px 5px rgba(122,98,0,.40),inset 0 0 0 1.5px var(--cat-yellow-deep),0 1px 1px rgba(16,24,40,.04);transform:scale(.985) translateY(1px)}
+.mode-btn.active .mb-i{color:#101828}
+/* DISABLED — gray, low contrast */
+.mode-btn:disabled,.mode-btn[aria-disabled="true"]{background:var(--bg2);border-color:var(--border);color:var(--txt3);box-shadow:none;cursor:not-allowed;transform:none}
+.mode-btn:disabled .mb-i,.mode-btn[aria-disabled="true"] .mb-i{color:var(--txt3)}
+.mode-btn .mb-i{font-size:14px;line-height:1;color:var(--cat-yellow-deep);transition:color 180ms ease}
 .mode-btn .mb-l{font-size:9px;letter-spacing:1px}
 
 /* TABLES */
@@ -341,11 +347,14 @@ pre code{background:none;color:inherit;padding:0;border-radius:0}
 .dash .toggle input:checked + .toggle-slider::before{transform:translateX(20px);background:var(--cat-yellow)}
 .dash .kill-switch-container{display:flex;flex-direction:column;align-items:center;gap:24px;padding:34px}
 /* Industrial E-stop: red mushroom head on a yellow safety plate — no animation */
-.dash .kill-btn{width:168px;height:168px;border-radius:50%;border:4px solid #8E1B12;background:var(--danger);color:#fff;font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:2px;cursor:pointer;transition:background-color var(--t-base) var(--ease),box-shadow var(--t-base) var(--ease);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative;font-family:inherit;box-shadow:0 0 0 10px var(--cat-yellow),0 0 0 11px #C49D00,0 4px 10px 10px rgba(16,24,40,.12)}
+.dash .kill-btn{width:168px;height:168px;border-radius:50%;border:4px solid var(--danger);background:#fff;color:var(--danger);font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:2px;cursor:pointer;transition:background-color var(--t-base) var(--ease),color var(--t-base) var(--ease),box-shadow var(--t-base) var(--ease);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative;font-family:inherit;box-shadow:var(--shadow-sm)}
 .dash .kill-btn i{font-size:36px}
-.dash .kill-btn:hover{background:#B91C1C}
-.dash .kill-btn:focus-visible{outline:3px solid var(--charcoal-950);outline-offset:14px}
-.dash .kill-btn.active{background:#7F1D1D;box-shadow:0 0 0 10px var(--cat-yellow),0 0 0 11px #C49D00,inset 0 3px 8px rgba(0,0,0,.4)}
+/* idle = outlined; hover gives a faint red wash */
+.dash .kill-btn:hover{background:var(--red-bg)}
+.dash .kill-btn:focus-visible{outline:3px solid var(--charcoal-950);outline-offset:6px}
+/* engaged = filled solid red, pressed-in */
+.dash .kill-btn.active{background:var(--danger);color:#fff;box-shadow:inset 0 3px 8px rgba(0,0,0,.30),var(--shadow-md)}
+.dash .kill-btn.active:hover{background:#B91C1C}
 .dash .progress-bar{height:6px;background:var(--bg-glass);border-radius:10px;overflow:hidden;margin-top:8px}
 .dash .progress-fill{height:100%;border-radius:10px;transition:width 1s ease}
 .dash .progress-fill.yellow{background:linear-gradient(90deg,var(--cat-yellow-dark),var(--cat-yellow))}
