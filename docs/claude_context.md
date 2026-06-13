@@ -1,9 +1,11 @@
 # claude_context.md — AutoDump complete working context
 
 > Single reference file for AI assistants and contributors. Read this before
-> touching `site/indexV4.html`. Last full update: **2026-06-12** (load-haul-dump
-> shuttle cycle / coverage gap fill / working no-go zones / session report /
-> V2V + Telemetry redesigns; previous: 2026-06-11 multi-gate redesign).
+> touching `site/indexV4.html`. Last full update: **2026-06-12** (congestion-
+> aware fleet routing: weighted A* + BPR cost, road-network diversification,
+> live dynamic re-routing, fuel model, Bézier smoothing; same day: load-haul-
+> dump shuttle cycle / coverage gap fill / no-go zones / session report;
+> previous: 2026-06-11 multi-gate redesign).
 > Companion docs:
 > `CLAUDE.md` (workflow rules), `docs/CHANGELOG.md` (history),
 > `docs/TESTING.md` (validation log), `graphify-out/GRAPH_REPORT.md` +
@@ -124,11 +126,25 @@ Inputs only: polygon, gates (0..n), no-go circles, fleet, zone-size target. Step
      coverage ≈ 100 % of workable cells. `zoneEntryPoint` candidates = the zone
      polygon's OWN edge midpoints (concave-safe; bbox midpoints legacy only).
    - **Truck route = LOAD-HAUL-DUMP shuttle, one load per trip**: enter via a
-     gate → `laneRoute` to zone access → ONE dump → access → `laneRoute` to the
-     gate **nearest that dump** (shortest way out) → `"load"` waypoint (reload)
-     → next trip. Final gate arrival is a plain transit (end of shift).
-     `laneRoute` legs are memoised per gate↔access pair. No cross-zone
-     gap-fill by other trucks — strict zone ownership.
+     gate → zone access → ONE dump → access → the gate **nearest that dump**
+     (shortest way out) → `"load"` waypoint (reload) → next trip. Final gate
+     arrival is a plain transit (end of shift). No cross-zone gap-fill by
+     other trucks — strict zone ownership.
+   - **Congestion-aware fleet routing (2026-06-12)**: `buildHaulRoads` also
+     adds containment-sampled ALTERNATIVE links (gate↔gate, access ring,
+     direct gate↔access, `kind="link"`) so multiple feasible paths exist;
+     `buildRoadGraph(pathways)` builds the road graph ONCE (cached on the
+     function object — NOT module state, vm-extracted copies couldn't see it);
+     trips are routed ROUND-ROBIN across the fleet by `routeOnGraph` =
+     weighted A* (ε 1.2) with BPR cost `len·(1+0.6·min(f/κ,2)⁴)` + intersection
+     penalty + per-truck route-diversity penalty + fuel/turn terms, per-edge
+     flows accumulating and decaying ×`FLOW_DECAY` per round. `laneRoute`
+     delegates to the graph at ε 1.0 (exact; legacy Dijkstra body kept as the
+     fallback for sandboxes without the new fns). Routes are then
+     `smoothPathBezier`-smoothed (transit corners only; dump/load points and
+     route ends never move). ETA uses dump/load/transit counts captured
+     BEFORE smoothing. `plan.roadGraph`/`plan.plannedFlows` are runtime-only
+     (excluded from JSON exports).
 5. Distances (`truckKm`), projected coverage (`filled/insideCells`), ETA
    (dumps×2.5 + loads×`LOAD_MIN` + transits×0.5 sim-min, max over fleet).
 
@@ -157,6 +173,25 @@ Legacy-but-still-defined (reference/tests only, NOT in the live pipeline):
   `rebalanceIdleTruck` (steals farthest pending zone block from the busiest
   truck, exits via nearest gate).
 - Arrival radii: transit/load ≥ 1.05× turning circle, dump tight (0.7×).
+- **Live traffic (2026-06-12, always-on per-truck since 2026-06-13)**:
+  `roadOccupancyTick` (throttled `OCC_TICK_MIN` 0.5 sim-min) snaps active
+  trucks to road edges → `ops.roadOcc` + `ops.congestionIndex`;
+  `congestionSpeedFactor` slows trucks nonlinearly on busy edges
+  (`1/(1+0.6·u⁴)`, clamp [0.45,1]); `rerouteNextLeg` re-plans EVERY haul-in
+  leg (at reload) and EVERY haul-out leg (after dump) from the truck's live
+  position with live occupancy, per-truck corridor bias (`truckSeed`) and
+  diversity vs its own previous leg (`tr._lastLegEdges`) — `REROUTE_UTIL`
+  only gates logging/counting now (splices ONLY the transit run; no-op on
+  legacy serpentine routes). Traffic-mode cost terms in `routeOnGraph`
+  (flows-gated, so ε=1.0 laneRoute parity holds): linear early-spread
+  `0.5·u`, static hub toll `0.35·(deg−2)`, ±12 % per-truck jitter.
+  `moveTruckWithAvoidance`: nearest-AHEAD blocker only, LOADED trucks have
+  right of way (then lower index — total order, deadlock-free), head-on
+  pairs both keep right (transit only). `opsReset` DEEP-COPIES waypoints
+  (defers/reroutes splice them — aliasing the plan arrays corrupted re-runs).
+  Fuel: `tr.fuelL` accrues per km at `fuelLoaded`/`fuelEmpty` (TRUCK_MODELS).
+  Congestion overlay (`drawCongestionOverlay`) + congestion/fuel KPIs +
+  report/telemetry fuel columns + About formulas card.
 - **Off-shift time-warp**: when every truck with pending work is merely off
   shift (not stopped/e-stopped), `opsTick` advances the clock to the next shift
   start and logs it — without this a 06:00–18:00 fleet froze silently at sim
@@ -201,6 +236,7 @@ sandbox, so the exact shipped code is tested. Run from repo root:
 
 | Suite | Command | Covers | Status |
 |---|---|---|---|
+| Congestion routing | `node tests/congestion_routing_check.mjs` | road-graph integrity/connectivity, BPR convexity, route diversity, de-centering, Bézier smoothing invariants, ETA parity, end-to-end sim with live occupancy + forced reroute, laneRoute parity | 23/23 (T-024) |
 | Hard path planning | `node tests/hard_path_planning.mjs` | shuttle-cycle invariants (one load/trip, nearest-exit gate), coverage gap fill, no-go exclusion, concave U-shape, dumbbell corridor, end-to-end shuttle sims, H5 shift time-warp + coverage/KPI sync regression | 24/24 (T-021/23) |
 | Multi-gate / per-zone paths | `node tests/multigate_path_check.mjs` | road net per gate, gate→zone connectivity, in-polygon dumps, serpentine, equal allocation, ownership, end-to-end sim | 16/16 (T-020/22) |
 | Live-sim completion | `node tests/live_sim_completion.mjs` | assignment spread, priority, token deadlock, defer, rebalance, completion | 14/14 (T-017/18/22) |
@@ -226,6 +262,17 @@ Syntax gate: extract all `<script>` blocks, `new vm.Script(block)` each.
   multi-line object and must NOT be added to a CONSTS list).
 - `opsTick` must keep completing legacy serpentine routes (no `"load"`
   waypoints) — the older suites build those.
+- `laneRoute` must KEEP its full legacy Dijkstra body after the typeof-guarded
+  graph delegation — `haulroad_zone_check.mjs` extracts `laneRoute` without
+  `buildRoadGraph`/`routeOnGraph` and relies on the fallback.
+- New congestion fns/consts live in the modern suites' FNS/CONSTS lists:
+  `buildRoadGraph, routeOnGraph, smoothPathBezier, roadOccupancyTick,
+  congestionSpeedFactor, rerouteNextLeg` / `BPR_ALPHA, BPR_BETA, ASTAR_EPS,
+  HEADWAY_L, OCC_TICK_MIN, REROUTE_UTIL, FLOW_DECAY` (all single-statement;
+  `HEADWAY_L` is a literal 3.75 on purpose — referencing TRUCK_RAD_LOGICAL
+  would break sandboxes whose CONSTS order differs).
+- Everything called from `opsTick`/`laneRoute`/`runPlan` that is NOT in every
+  suite's FNS list must stay `typeof`-guarded.
 
 ## 8. Conventions & pitfalls
 

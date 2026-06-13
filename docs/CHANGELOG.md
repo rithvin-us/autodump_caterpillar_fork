@@ -14,33 +14,6 @@
 
 ## Summary (latest changes)
 
-### 2026-06-13 — Kill switch: outlined-idle → filled-engaged, removed yellow safety ring (`site/indexV4.html`)
-
-Reworked `.dash .kill-btn` so the E-stop reads as a clean outlined→filled control on white.
-
-- Removed the Caterpillar-yellow safety-plate ring (`box-shadow:0 0 0 10px var(--cat-yellow)…`)
-  from both the resting and engaged states.
-- **Idle (E-STOP, not engaged):** white fill, 4px red (`--danger`) outline, red icon/text — an outlined button.
-- **Hover (idle):** faint red wash (`--red-bg`).
-- **Engaged (`.active`):** solid red fill, white icon/text, inset pressed shadow — a filled button.
-- Reduced focus outline offset (14px → 6px) now that there's no ring to clear.
-
-### 2026-06-13 — Drawing-mode buttons: yellow-themed pressed state (no black on select) (`site/indexV4.html`)
-
-Redesigned `.mode-btn` states so the selected drawing tool stays on-brand instead of
-turning near-black (`#1B1F26`), which read as disabled/broken.
-
-- **Default:** white fill, 1.5px Caterpillar-yellow (`--cat-yellow-deep`) outline, gold icon.
-- **Hover:** soft yellow fill (`--cat-bg`), darker yellow border, `--shadow-md`, `translateY(-1px)` lift.
-- **Active/selected:** full brand-yellow fill (`--cat-yellow`) with dark `#101828` text/icon
-  (~13:1 contrast), inset warm-gold shadow + stronger border, `scale(.985) translateY(1px)`
-  to look physically pressed — no black background.
-- **Disabled:** gray fill, low-contrast text, no shadow, `not-allowed` cursor.
-- Added the requested micro-transition (`background-color/border-color 180ms`, `transform 120ms`,
-  `box-shadow 180ms`); hover scoped with `:not(.active):not(:disabled)`.
-
-
-
 ### 2026-06-12 — Enterprise UI redesign: Caterpillar design system, typography, accessibility, de-gamed visuals (`site/indexV4.html`)
 
 Full UI/UX pass to make the console look like a production Caterpillar mine-operations
