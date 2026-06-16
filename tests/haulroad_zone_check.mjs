@@ -21,6 +21,7 @@ function extractFn(name) {
 }
 
 const fns = ["pip","polyArea","cleanPoly","clipPolyHalfplane","polyCentroid",
+  "scanlineSpans","stripSpans",
   "autoDecomposeZones","zoneEntryPoint","buildHaulRoads","haulRoadsToSegments",
   "laneRoute","_ld","_lkey","_projSeg","_segInt"];
 const sb = { console, Math, Map, Set, Infinity };

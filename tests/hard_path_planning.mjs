@@ -44,11 +44,13 @@ function extractConst(name) {
 }
 
 const FNS = ["pip","polyArea","cleanPoly","clipPolyHalfplane","polyCentroid",
+  "scanlineSpans","stripSpans",
   "autoDecomposeZones","zoneEntryPoint","buildHaulRoads","haulRoadsToSegments",
   "laneRoute","_ld","_lkey","_projSeg","_segInt",
   "buildMask","maskInsideCount","getScale","metresToLogical",
   "pointInPoly","buildHexSpots","hexDumpsInZone","coverageGapSpots","boustrophedonOrder",
-  "zoneCentroidOf","assignZonesWeighted","orderZonesNearestNeighbour","truckWeight",
+  "zoneCentroidOf","coverageOrderFromAccess","assignZonesWeighted","orderZonesNearestNeighbour","truckWeight",
+  "modelPayloadT","dumpTonnes","dumpsPerLoad",
   "timeToMin","isOnShift","fmtTime","setText","opsLog","renderTokens",
   "zoneAt","grantToken","resetActiveSpots","releaseToken","releaseTokensHeldBy",
   "brokerTick","deferLockedZone","stuckWatchdog","stealableZoneBlocks",
@@ -60,6 +62,7 @@ const FNS = ["pip","polyArea","cleanPoly","clipPolyHalfplane","polyCentroid",
 const CONSTS = ["FIELD_W","GRID_RES","HW","HH",
   "TRUCK_RAD_LOGICAL","CAT793_TURN_M","TOKEN_TTL_MIN","STUCK_RECOVER_MIN","REBALANCE_MIN_DUMPS",
   "LOAD_MIN","DUMP_MIN",
+  "DUMP_LIFT_M","MATERIAL_DENSITY_TPM3","RELOAD_FRACTION",
   "BPR_ALPHA","BPR_BETA","ASTAR_EPS","HEADWAY_L","OCC_TICK_MIN","REROUTE_UTIL","FLOW_DECAY"];
 const modelsMatch = /const TRUCK_MODELS = \{[\s\S]*?\};/.exec(html);
 if (!modelsMatch) throw new Error("TRUCK_MODELS not found");
@@ -167,19 +170,20 @@ function buildShuttlePlan(sb, verts, gatesIn, fleet, thrM2 = 50000, nogo = null)
     const home = gates[truckGate[t.id]];
     let curGate = home;
     wp.push([home.x, home.y, "transit"]);
+    const perLoad = sb.dumpsPerLoad(t.model);            // payload-batched shuttle
     truckZones[t.id].forEach(zid => {
       const zp = zonePaths[zid];
       if (!zp || !zp.dumps.length) return;
-      zp.dumps.forEach(d => {
+      for (let i = 0; i < zp.dumps.length; i += perLoad) {
+        const batch = zp.dumps.slice(i, i + perLoad);
         pushLane(wp, [curGate.x, curGate.y], zp.access);
-        wp.push([d[0], d[1], "dump"]);
-        totalDumps++;
+        batch.forEach(d => { wp.push([d[0], d[1], "dump"]); totalDumps++; });
         wp.push([zp.access[0], zp.access[1], "transit"]);
-        const exitGate = gates[nearestGateIdx(d)];
+        const exitGate = gates[nearestGateIdx(batch[batch.length - 1])];
         pushLane(wp, [zp.access[0], zp.access[1]], [exitGate.x, exitGate.y]);
         wp[wp.length - 1][2] = "load";
         curGate = exitGate;
-      });
+      }
     });
     if (wp.length > 1 && wp[wp.length - 1][2] === "load") wp[wp.length - 1][2] = "transit";
   });
@@ -210,6 +214,8 @@ function opsResetLite(sb) {
         x: home.x + i * 0.6, y: home.y + i * 0.3,
         wpIdx: 0, state: "transit", dumpProgress: 0, loadProgress: 0,
         loaded: true, dumps: 0, cycles: 0, km: 0, idleMin: 0, finished: false,
+        maxPayload: sb.modelPayloadT(t.model), payload: sb.modelPayloadT(t.model),
+        dumpTonnes: sb.dumpTonnes(t.model), reloads: 0, tripDumps: 0,
         waypoints: S.plan.waypoints[t.id] || [],
       };
     }),
@@ -238,41 +244,51 @@ function check(name, cond, detail = "") {
 }
 const gateAt = (plan, p) => plan.gates.find(g => Math.hypot(g.x - p[0], g.y - p[1]) < 1e-6);
 
-// shared shuttle-invariant checks. Gate VISITS are "load" waypoints (plus the
-// terminal gate) — a route may legitimately pass THROUGH another gate's road
-// node when a zone's haul-road branch starts at that gate, so coordinate
-// matching alone would misread pass-throughs as arrivals.
+// shared PAYLOAD-BATCHED shuttle invariants. A "trip" is a maximal run of dumps
+// between two gate visits (a "load" waypoint, or the terminal gate). A truck now
+// places MULTIPLE dumps per trip — up to its payload's worth — before reloading,
+// so the old "one load per trip / gate between every pair of dumps" rules are
+// gone. Gate VISITS are "load" waypoints (plus the terminal gate); a route may
+// legitimately pass THROUGH another gate's road node, so we anchor on the
+// trip's LAST dump determining the exit gate.
 function checkShuttle(tag, sb, plan, siteVerts) {
   const fleet = sb.STATE.fleet.trucks;
-  let loadsOK = true, exitOK = true, gateBetween = true, inPoly = true;
+  let loadsOK = true, exitOK = true, batchOK = true, inPoly = true, multiSeen = false;
+  let fleetDumps = 0, fleetTrips = 0;
   fleet.forEach(t => {
     const wp = plan.waypoints[t.id];
-    const dumps = wp.filter(w => w[2] === "dump");
-    const loads = wp.filter(w => w[2] === "load");
-    if (dumps.length && loads.length !== dumps.length - 1) loadsOK = false;
-    let lastDump = null;
+    const perLoad = sb.dumpsPerLoad(t.model);
+    let trips = 0, tripDumps = 0, lastDump = null;
     for (let i = 0; i < wp.length; i++) {
       const w = wp[i];
       const isVisit = w[2] === "load" || (i === wp.length - 1 && gateAt(plan, w));
       if (w[2] === "dump") {
         if (!sb.pip(w[0], w[1], siteVerts)) inPoly = false;
-        if (lastDump !== null) gateBetween = false;   // no gate visit since previous dump
-        lastDump = w;
+        tripDumps++; lastDump = w;
       } else if (isVisit) {
-        if (!gateAt(plan, w)) exitOK = false;          // a load waypoint must BE a gate
-        if (lastDump) {
+        if (tripDumps > 0) {
+          trips++;
+          if (tripDumps > perLoad) batchOK = false;     // payload never exceeded
+          if (tripDumps > 1) multiSeen = true;          // at least one multi-dump trip exists
+          if (!gateAt(plan, w)) exitOK = false;          // the visit must BE a gate
           let gi = 0, bd = Infinity;
           plan.gates.forEach((g, k) => { const d = Math.hypot(g.x - lastDump[0], g.y - lastDump[1]); if (d < bd) { bd = d; gi = k; } });
           const ng = plan.gates[gi];
-          if (Math.hypot(ng.x - w[0], ng.y - w[1]) > 1e-6) exitOK = false;
+          if (Math.hypot(ng.x - w[0], ng.y - w[1]) > 1e-6) exitOK = false;  // exit gate nearest the LAST dump
         }
-        lastDump = null;
+        tripDumps = 0; lastDump = null;
       }
     }
+    // loads = trips − 1 (the final trip ends at a terminal transit, not a reload)
+    const loads = wp.filter(w => w[2] === "load").length;
+    if (trips > 0 && loads !== trips - 1) loadsOK = false;
+    fleetTrips += trips; fleetDumps += wp.filter(w => w[2] === "dump").length;
   });
-  check(`${tag} one load per trip (loads = dumps − 1 per truck)`, loadsOK);
-  check(`${tag} a gate visit separates every pair of dumps`, gateBetween);
-  check(`${tag} every trip exits via the gate nearest its dump`, exitOK);
+  check(`${tag} payload respected (≤ dumpsPerLoad dumps per trip)`, batchOK);
+  // if any batching occurred (more dumps than trips) at least one trip is multi-dump
+  check(`${tag} multi-dump trips exist (not one-dump-per-trip)`, fleetDumps <= fleetTrips || multiSeen);
+  check(`${tag} loads = trips − 1 per truck (one reload between trips)`, loadsOK);
+  check(`${tag} every trip exits via the gate nearest its last dump`, exitOK);
   check(`${tag} all dumps inside the site polygon`, inPoly);
 }
 

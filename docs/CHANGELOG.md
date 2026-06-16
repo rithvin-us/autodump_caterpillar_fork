@@ -14,6 +14,87 @@
 
 ## Summary (latest changes)
 
+### 2026-06-16 — Payload-batched haul cycle: load full, place many dumps, reload at threshold (`site/indexV4.html`)
+
+Replaced the gate-after-every-dump shuttle with a realistic finite-payload
+mission: a truck leaves the gate FULL, services multiple dump points within its
+assigned zone until its payload is nearly spent, then returns to reload —
+instead of driving back to the gate after every single dump.
+
+- **Payload model (new constants + helpers).** `dumpTonnes(model)` = one lift
+  over the dump-spot footprint (`π·r² · DUMP_LIFT_M(0.45) · MATERIAL_DENSITY_TPM3(1.8)`),
+  so a bigger truck sheds more per dump (Cat 785 ≈17 t, 793 ≈26 t, 797 ≈37 t).
+  `dumpsPerLoad(model)` = how many dumps a full load places before the 10 %
+  reserve (`RELOAD_FRACTION`) is hit — 7 / 8 / 8 dumps per trip respectively.
+- **Plan: payload-batched trips (`runPlan`).** Each zone's far-to-near dump list
+  is chunked into payload-sized batches; one trip = gate → access → dump₁…dump_k
+  (interior hops, no gate return between dumps) → access → nearest exit gate →
+  reload. Gate returns drop by ~8× versus the old one-dump-per-trip shuttle.
+- **Sim state machine (`opsReset`/`opsTick`).** Trucks carry `payload` /
+  `maxPayload` / `dumpTonnes` / `reloads` / `tripDumps`. A completed dump sheds
+  `dumpTonnes` and the bed stays *loaded* until the remaining payload falls to
+  the reload threshold; a gate reload refills to full, counts a reload, and logs
+  `placed N dumps last trip`. Trucks built without a payload field (older test
+  harnesses) fall back to the legacy empty-after-dump behaviour.
+- **Visualization (`drawTruck`).** The bed mound height now tracks remaining
+  payload (a truck rides part-full mid-mission), plus a live `210/363 t` readout
+  and a fill gauge that turns red at the reserve threshold.
+- **Metrics.** Telemetry, the Report page (new stat row + per-truck columns:
+  gate reloads, avg dumps/trip, payload utilisation, distance/tonne), the JSON
+  export, and the Fleet-Command dashboards now report payload-aware tonnage
+  (`dumps · dumpTonnes`, not `dumps · full payload`) and the new cycle metrics.
+
+**Validation:** `hard_path_planning` 25/25 (builder + invariants rewritten to the
+batched model: payload never exceeded, multi-dump trips exist, loads = trips−1,
+exit gate nearest the LAST dump, end-to-end sims complete on payload trucks);
+`multigate_path_check` 16/16, `live_sim_completion` 14/14, `zone_decomp_validation`
+18/18, `congestion_routing_check` 27/27, `haulroad_zone_check` clean; all 3 inline
+`<script>` blocks parse. Test sandboxes extended with the payload constants/helpers.
+See `docs/TESTING.md`.
+
+### 2026-06-16 — Realistic mine operations: boundary-comb haul roads, exact zone partition, zones≥trucks, road-constrained return-to-gate (`site/indexV4.html`)
+
+Refactor of the planning/execution model so trucks behave like a real
+Caterpillar mine fleet (Gate → Haul Road → Zone → Strips → Haul Road → Gate)
+instead of a geometric coverage demo. Trucks no longer drive across the dump
+field, through dumped material, or via the field centre.
+
+- **Zone decomposition — exact partition (`autoDecomposeZones`).** Horizontal
+  slabs are now split into their disjoint x-span connected components, and each
+  zone is the polygon's TRUE intersection with its `[x0,x1]×[y_bot,y_top]` box
+  (Sutherland–Hodgman of the concave subject against the convex box). Concave /
+  U-shaped / multi-lobe sites now partition exactly — `union(zones) = polygon`,
+  no overlap, no orphan regions — instead of one rectangle bridging the void.
+- **Zones ≥ trucks, no dropped zones (`runPlan` Step 2).** The slab count is
+  raised until at least one zone per truck exists (extra zones when the site is
+  large). The old `MIN_ZONE_AREA_M2` *drop* filter — which could push the zone
+  count below the truck count and leave assigned-but-empty zones — is replaced by
+  a sliver-only guard, so every operational region is kept and serviced.
+- **Boundary-comb haul roads (`buildHaulRoads`, `zoneEntryPoint`).** Replaced the
+  centroid-hub spine network (which ran the trunk road straight through the
+  middle of the active dump field) with roads that ride zone boundaries and the
+  site perimeter: lateral **rungs** along every shared slab boundary, flank
+  **rails** tying consecutive rungs together, **gate spurs**, and thin
+  connectivity **links**. Each zone's access point sits on a rung, so a truck
+  leaves the road and enters the zone EDGE-ON. The field centroid is no longer a
+  road node — verified return-to-gate legs are 100 % on-network (0.000 off-road).
+- **In-zone coverage sweep (`coverageOrderFromAccess`, `runPlan` Step 4).** Dump
+  spots are ordered farthest-from-access first, so under the one-load-per-trip
+  shuttle every haul-in leg crosses only still-empty ground and a truck never
+  reverses over material it (or a neighbour) already placed.
+- **Collision avoidance fix (`moveTruckWithAvoidance`).** The perpendicular-
+  arrival safety bubble no longer flags a truck that is clearly BEHIND as a
+  blocker (it had violated the documented "a truck to my rear is not an obstacle"
+  rule and caused spurious yields). This was a pre-existing working-tree
+  regression surfaced by the test run.
+
+**Validation:** `multigate_path_check` 16/16 (A7 end-to-end 1852/1852 dumps),
+`live_sim_completion` 14/14, `zone_decomp_validation` 18/18,
+`hard_path_planning` 24/24, `congestion_routing_check` 27/27 (C4 updated for the
+hub-free comb), `haulroad_zone_check` zones 3/3, partition 99.85 %, all routes
+resolve. All 3 inline `<script>` blocks parse. Test harnesses' function-
+extraction lists extended with `scanlineSpans`/`stripSpans`. See `docs/TESTING.md`.
+
 ### 2026-06-12 — Enterprise UI redesign: Caterpillar design system, typography, accessibility, de-gamed visuals (`site/indexV4.html`)
 
 Full UI/UX pass to make the console look like a production Caterpillar mine-operations

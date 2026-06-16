@@ -46,6 +46,7 @@ function extractConst(name) {
 }
 
 const FNS = ["pip","polyArea","cleanPoly","clipPolyHalfplane","polyCentroid",
+  "scanlineSpans","stripSpans",
   "autoDecomposeZones","zoneEntryPoint","buildHaulRoads","haulRoadsToSegments",
   "laneRoute","_ld","_lkey","_projSeg","_segInt",
   "buildMask","maskInsideCount","getScale","metresToLogical",

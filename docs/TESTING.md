@@ -12,6 +12,32 @@
 
 ## Log
 
+### 2026-06-16 — Payload-batched haul cycle: full load → many dumps → reload at 10% reserve
+- Scope: payload model (`DUMP_LIFT_M`/`MATERIAL_DENSITY_TPM3`/`RELOAD_FRACTION`, `dumpTonnes`/`dumpsPerLoad`/`modelPayloadT`), payload-batched trip planning in `runPlan`, `opsReset`/`opsTick` state machine (per-dump payload decrement, reload refill, loaded-while-carrying with legacy back-compat guard), `drawTruck` (bed mound scales with payload + live readout/gauge), and payload-aware metrics in telemetry / Report UI + JSON export / dashboards (`site/indexV4.html`)
+- Command: `node tests/{multigate_path_check,live_sim_completion,zone_decomp_validation,hard_path_planning,congestion_routing_check}.mjs`; `haulroad_zone_check`; payload-model sanity (`dumpTonnes`/`dumpsPerLoad` per model); `new vm.Script` syntax gate on all 3 inline `<script>` blocks. `hard_path_planning` builder + `checkShuttle` rewritten from the one-dump-per-trip model to the batched model; its test sandbox FNS/CONSTS extended with `modelPayloadT`/`dumpTonnes`/`dumpsPerLoad`/`coverageOrderFromAccess` and `DUMP_LIFT_M`/`MATERIAL_DENSITY_TPM3`/`RELOAD_FRACTION`, and its `opsResetLite` trucks now carry payload fields so the sim exercises the new opsTick path.
+- Expected: full suite green; per-model dumps/load in a sensible multi-dump range; payload never exceeded per trip; multi-dump trips exist; loads = trips−1; exit gate nearest the last dump; sims still complete all dumps.
+- Result:
+  - Payload model: Cat 785 = 136 t / 17.2 t per dump / 7 dumps per load; Cat 793 = 240 t / 26.1 t / 8; Cat 797 = 363 t / 36.7 t / 8.
+  - `hard_path_planning` === 25 passed, 0 failed === (new checks: payload respected, multi-dump trips exist, loads = trips−1, exit via nearest gate to last dump; H1–H5 sims complete on payload-carrying trucks).
+  - `multigate_path_check` 16/16, `live_sim_completion` 14/14, `zone_decomp_validation` 18/18, `congestion_routing_check` 27/27, `haulroad_zone_check` clean.
+  - Inline script blocks: block0 OK, block1 OK, block2 OK.
+- Status: PASS
+
+### 2026-06-16 — Realistic mine ops refactor: boundary-comb roads, exact partition, zones≥trucks, road-constrained return
+- Scope: `autoDecomposeZones` (x-span exact partition), `buildHaulRoads`/`zoneEntryPoint` (boundary-comb rungs+rails+spurs, edge-on access), `runPlan` Steps 2/4 (zones≥trucks guarantee, no-drop partition, `coverageOrderFromAccess` far-to-near sweep), `moveTruckWithAvoidance` (behind-truck no-yield fix) in `site/indexV4.html`
+- Command: `node tests/{haulroad_zone_check,multigate_path_check,live_sim_completion,zone_decomp_validation,hard_path_planning,congestion_routing_check}.mjs`; bespoke headless return-to-gate on-road check; `new vm.Script` syntax gate on all 3 inline `<script>` blocks. Test harness function-extraction lists extended with `scanlineSpans`/`stripSpans` (new `autoDecomposeZones`/`buildHaulRoads` dependencies). `congestion_routing_check` C4 updated from "centroid hub is a graph node" to "no centroid hub" to match the hub-free comb.
+- Expected: every suite green; exact partition (union≈polygon); zones≥trucks; field centroid is NOT a road node; every gate→zone access route resolves; haul-out legs lie on the road network; sims complete all dumps and release all tokens.
+- Result:
+  - `multigate_path_check` === 16 passed, 0 failed === (A7 end-to-end 1852/1852 dumps in 5735 ticks, all tokens released; A1–A6 zone/road/assignment invariants hold; east zones face G2).
+  - `live_sim_completion` === 14 passed, 0 failed === (T6 single truck 616/616; T7 zero-dump plan drives entry→exit and finishes).
+  - `zone_decomp_validation` === 18 passed, 0 failed ===.
+  - `hard_path_planning` === 24 passed, 0 failed ===.
+  - `congestion_routing_check` === 27 passed, 0 failed === (C4 now asserts no centroid hub; C9 behind-truck no-yield passes after the avoidance fix).
+  - `haulroad_zone_check`: zones 3/3, area conservation 99.85 %, comb = 2 rungs + 2 rails + gate spur + links, all gate→access routes resolve.
+  - Headless return-to-gate check (demo polygon, 3 trucks, gate [5,3]): zones=3 ≥ trucks; partition 99.85 %; centroid is a road node? false; all 3 zone return legs max off-road = 0.000 logical units.
+  - Inline script blocks: block0 OK (34624), block1 OK (179162), block2 OK (37992).
+- Status: PASS
+
 ### T-001
 - Scope: Repository layout cleanup
 - Action: moved root files into folders

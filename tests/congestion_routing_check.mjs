@@ -14,8 +14,9 @@
 //   C2 BPR convexity: edge cost grows nonlinearly toward capacity
 //   C3 route diversity: repeated trips on one OD pair with flow accumulation
 //      use >= 2 distinct edge sets
-//   C4 de-centering: under fleet flow assignment not every route passes the
-//      centroid hub (the old spine-only network forced all of them through it)
+//   C4 de-centering: the boundary-comb network has NO centroid hub (roads ride
+//      zone boundaries + the perimeter), and routes never converge on the
+//      polygon centre the way the old spine-only network forced them to
 //   C5 smoothing invariants: ends + every dump/load waypoint preserved exactly,
 //      only transit points inserted
 //   C6 ETA model: pre-smoothing counts reproduce the legacy formula; smoothing
@@ -52,6 +53,7 @@ function extractConst(name) {
 }
 
 const FNS = ["pip","polyArea","cleanPoly","clipPolyHalfplane","polyCentroid",
+  "scanlineSpans","stripSpans",
   "autoDecomposeZones","zoneEntryPoint","buildHaulRoads","haulRoadsToSegments",
   "laneRoute","_ld","_lkey","_projSeg","_segInt",
   "buildMask","maskInsideCount","getScale","metresToLogical",
@@ -182,7 +184,9 @@ check("C1 every gate and zone access point is a graph node",
 {
   const cent = sb.polyCentroid(verts);
   const centIdx = graph.keyIdx.has(keyOf(cent)) ? graph.keyIdx.get(keyOf(cent)) : -1;
-  check("C4 centroid hub is a graph node (spines still meet there)", centIdx >= 0);
+  // boundary-comb design: the field centroid is NOT a road node — haul roads
+  // ride the slab boundaries and the perimeter, never a central hub
+  check("C4 no centroid hub (roads ride zone boundaries, not the field centre)", centIdx < 0);
   const flows = new Float32Array(graph.edges.length);
   let total = 0, viaHub = 0;
   for (let round = 0; round < 3; round++) {
