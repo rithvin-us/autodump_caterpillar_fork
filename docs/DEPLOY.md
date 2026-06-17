@@ -7,7 +7,7 @@ You have everything you need. Pick **one** of the two paths below.
 | **A. Web upload (drag-and-drop)** | ~3 min | You want it live ASAP, no terminal |
 | **B. Git command line** | ~5 min | You'll iterate on the site later |
 
-The final URL will look like `https://preethikakumaravel.github.io/autodump_caterpillar/`.
+The final URL will look like `https://preethikakumaravel.github.io/autodump_caterpillar/site/indexV4.html`.
 
 ---
 
@@ -32,7 +32,7 @@ The final URL will look like `https://preethikakumaravel.github.io/autodump_cate
    - **Save**
 
 4. **Wait 30-60 seconds**, then refresh the Pages settings.
-      You'll see: **"Your site is live at https://preethikakumaravel.github.io/autodump_caterpillar/"**.
+      You'll see: **"Your site is live at https://preethikakumaravel.github.io/autodump_caterpillar/site/indexV4.html"**.
 
 5. **Open it.** Click that URL. Done.
 
@@ -64,7 +64,7 @@ git push -u origin main
 #    Repo → Settings → Pages → Source = "GitHub Actions"
 #    (Or "Deploy from branch" → main → /, both work.)
 #
-# 5. Wait ~30s. Visit https://preethikakumaravel.github.io/autodump_caterpillar/
+# 5. Wait ~30s. Visit https://preethikakumaravel.github.io/autodump_caterpillar/site/indexV4.html
 ```
 
 ---

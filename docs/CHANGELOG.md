@@ -14,13 +14,12 @@
 
 ## Summary (latest changes)
 
-### 2026-06-17 — GitHub Pages deployment: add `index.html` redirect (`site/index.html`)
+### 2026-06-17 — GitHub Pages deployment: set deploy URL to `site/indexV4.html`
 
 Added `site/index.html` as a zero-delay meta-refresh redirect to `indexV4.html`.
-GitHub Pages requires an `index.html` as the default entry point; the main
-application lives in `indexV4.html`. The redirect is instant (0-second
-`http-equiv="refresh"`) and includes a visible fallback link. No changes to the
-application code, workflow, or any other files.
+Updated all canonical URLs, `og:url` meta tags, and deploy links across
+`site/indexV4.html`, `site/index.html`, `docs/README.md`, and `docs/DEPLOY.md`
+to point to `https://preethikakumaravel.github.io/autodump_caterpillar/site/indexV4.html`.
 
 ### 2026-06-16 — Payload-batched haul cycle: load full, place many dumps, reload at threshold (`site/indexV4.html`)
 
