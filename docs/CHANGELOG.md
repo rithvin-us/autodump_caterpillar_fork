@@ -14,6 +14,14 @@
 
 ## Summary (latest changes)
 
+### 2026-06-19 — Dynamic temperature monitoring in Fleet Monitor (`site/indexV4.html`)
+
+Added live temperature monitoring for each truck in the Fleet Command dashboard.
+- Added a "Temp" column to the truck detail grid in the Fleet Monitor.
+- Generated dynamic temperature data during the simulation loop (varying between 80°C and 105°C).
+- Added a critical threshold warning: when a truck's engine temperature exceeds the company standard of 95°C, its temperature reading and live map indicator turn bright red.
+
+
 ### 2026-06-19 — No-go zone path avoidance: trucks route around hazards (`site/indexV4.html`)
 
 No-go zones (water bodies, hazards) now fully block **path planning** in addition

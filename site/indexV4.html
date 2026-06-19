@@ -4987,6 +4987,7 @@ function renderFleetMon(){
         <div><span style="color:var(--text-muted)">Distance:</span> <span id="fm-km-${t.id}">${(t.km||0).toFixed(2)}</span> km</div>
         <div><span style="color:var(--text-muted)">Idle:</span> <span id="fm-id-${t.id}">${(t.idleMin||0).toFixed(1)}</span> min</div>
         <div><span style="color:var(--text-muted)">Token:</span> <span id="fm-tk-${t.id}">${_dToken(t.id)}</span></div>
+        <div><span style="color:var(--text-muted)">Temp:</span> <span id="fm-tmp-${t.id}" style="font-weight:bold;font-family:var(--font-mono)">${t.temp?t.temp.toFixed(1):"85.0"} °C</span></div>
         <div><span style="color:var(--text-muted)">Dump R:</span> ${t.dumpRadius} m</div>
         <div><span style="color:var(--text-muted)">Width:</span> ${t.width} m</div>
       </div>
@@ -5005,6 +5006,14 @@ function updateFleetMon(){
   _T('fm-k-active',active); _T('fm-k-fleet',ts.length); _T('fm-k-dumps',dumps); _T('fm-k-km',km.toFixed(2)); _T('fm-k-cov',cov.toFixed(1)+'%');
   _T('fm-badge', haveSim?('LIVE · t='+fmtTime(simt)):'AWAITING SIM');
   ts.forEach(t=>{const prog=_dProg(t),util=_dUtil(t,simt);
+    t.temp = (t.temp || 85) + (Math.random() - 0.5) * 2;
+    if (t.temp < 80) t.temp = 80;
+    if (t.temp > 105) t.temp = 105;
+    const tempEl = document.getElementById('fm-tmp-' + t.id);
+    if (tempEl) {
+      tempEl.textContent = t.temp.toFixed(1) + " °C";
+      tempEl.style.color = t.temp > 95 ? "#FF0000" : "inherit";
+    }
     _C('fm-st-'+t.id,'status-pill '+_dSCls(t)); _T('fm-st-'+t.id,_dSTxt(t));
     _T('fm-co-'+t.id,_dCoord(t)); _T('fm-du-'+t.id,t.dumps||0); _T('fm-km-'+t.id,(t.km||0).toFixed(2));
     _T('fm-id-'+t.id,(t.idleMin||0).toFixed(1)); _T('fm-tk-'+t.id,_dToken(t.id));
@@ -5022,7 +5031,8 @@ function drawFleetMap(){
   if(STATE.plan){drawGates(ctx,P,STATE.plan.gates||(STATE.plan.mainGate?[STATE.plan.mainGate]:[]));}
   const ts=(STATE.ops&&STATE.ops.trucks)||[];
   ts.forEach(t=>{ if(t.x==null)return; const x=P.px(t.x),y=P.py(t.y);
-    ctx.fillStyle=(t.stopped||_dEstop())?'#ef4444':(t.color||'#FFC107');
+    const isOverTemp = t.temp > 95;
+    ctx.fillStyle=(t.stopped||_dEstop())?'#ef4444':(isOverTemp?'#FF0000':(t.color||'#FFC107'));
     ctx.beginPath();ctx.arc(x,y,6,0,2*Math.PI);ctx.fill();ctx.strokeStyle="#000";ctx.lineWidth=1;ctx.stroke();
     if(t.heading!=null){ctx.strokeStyle=ctx.fillStyle;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(-t.heading)*13,y+Math.sin(-t.heading)*13);ctx.stroke();}
     ctx.fillStyle="#fff";ctx.font="bold 9px monospace";ctx.textAlign="center";ctx.fillText(t.id,x,y-9);});
