@@ -135,7 +135,7 @@ body{font-size:14px;line-height:1.45}
 .page-title span{color:var(--cat)}
 .page-sub{font-size:13px;color:var(--txt3);margin-top:7px;max-width:720px;line-height:1.55}
 .tag{display:inline-flex;align-items:center;gap:6px;background:var(--bg0);border:1px solid var(--border2);color:var(--txt3);font-size:10px;font-weight:600;font-family:var(--font-mono);padding:3px 9px;border-radius:4px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:9px}
-.tag::before{content:'';width:6px;height:6px;background:var(--cat-bright);border-radius:1px}
+.tag::before{c6ontent:'';width:6px;height:6px;background:var(--cat-bright);border-radius:1px}
 
 /* CARDS */
 .card{background:var(--bg0);border:1px solid var(--border);border-radius:10px;padding:18px;box-shadow:var(--shadow-xs)}
@@ -1169,6 +1169,63 @@ function maskInsideCount(m) {
   return n;
 }
 
+// Module-level no-go zones (logical-space circles) set by runPlan so that
+// laneRoute and buildRoadGraph can access them without parameter changes to
+// every intermediate caller.
+let _activeNogos = [];
+
+// Returns FALSE if the segment A→B passes through any no-go circle.
+// Samples N evenly-spaced interior points; conservative for hazard exclusion.
+function segmentClearsNogo(A, B, nogos) {
+  if (!nogos || !nogos.length) return true;
+  const N = 12;
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    const x = A[0] + (B[0] - A[0]) * t;
+    const y = A[1] + (B[1] - A[1]) * t;
+    for (const c of nogos) {
+      if (Math.hypot(x - c.x, y - c.y) < c.r) return false;
+    }
+  }
+  return true;
+}
+
+// Clip a horizontal segment [x0,x1] at y-level `y` to exclude every no-go
+// circle, returning an array of surviving sub-segments [[lx0,lx1], ...].
+// The segment is split wherever it intersects a no-go zone.
+function clipSegmentAroundNogo(x0, x1, y, nogos) {
+  if (!nogos || !nogos.length) return [[x0, x1]];
+  // collect exclusion intervals on this horizontal line inside each no-go circle
+  const cuts = [];
+  for (const c of nogos) {
+    const dy = y - c.y;
+    const d2 = c.r * c.r - dy * dy;
+    if (d2 <= 0) continue;               // horizontal line misses this circle
+    const dx = Math.sqrt(d2);
+    const lo = c.x - dx, hi = c.x + dx;
+    if (hi <= x0 || lo >= x1) continue;   // circle is outside segment bounds
+    cuts.push([Math.max(lo, x0), Math.min(hi, x1)]);
+  }
+  if (!cuts.length) return [[x0, x1]];
+  cuts.sort((a, b) => a[0] - b[0]);
+  // merge overlapping cuts
+  const merged = [cuts[0].slice()];
+  for (let i = 1; i < cuts.length; i++) {
+    const last = merged[merged.length - 1];
+    if (cuts[i][0] <= last[1]) last[1] = Math.max(last[1], cuts[i][1]);
+    else merged.push(cuts[i].slice());
+  }
+  // invert: surviving sub-segments = gaps between cuts
+  const out = [];
+  let cursor = x0;
+  for (const [clo, chi] of merged) {
+    if (clo > cursor + 0.01) out.push([cursor, clo]);
+    cursor = chi;
+  }
+  if (cursor < x1 - 0.01) out.push([cursor, x1]);
+  return out;
+}
+
 // ============================================================================
 //  ZONE DECOMPOSITION (sweep-line, sliver-merge, multi-truck-width-aware)
 // ============================================================================
@@ -1393,15 +1450,24 @@ function buildHaulRoads(gatesXY, polygon, zones, nogos) {
   const MIN_W = 0.4;
 
   // ---- Rungs: lateral roads along every shared slab boundary y-level
+  // Each rung is clipped to exclude any no-go circle it crosses, so no
+  // road segment passes through a hazard zone.
   const yset = new Set();
   zones.forEach(z => { yset.add(+z.y_bot.toFixed(4)); yset.add(+z.y_top.toFixed(4)); });
   const ys = [...yset].sort((a, b) => a - b);
   const rungs = [];                              // { y, segs:[[x0,x1],...] }
   ys.forEach(y => {
-    const segs = scanlineSpans(P, y).filter(s => s[1] - s[0] > MIN_W);
-    if (!segs.length) return;
-    rungs.push({ y, segs });
-    segs.forEach(s => addRoad([s[0], y], [s[1], y]));
+    const rawSegs = scanlineSpans(P, y).filter(s => s[1] - s[0] > MIN_W);
+    if (!rawSegs.length) return;
+    // clip each span to remove any portion inside a no-go circle
+    const clipped = [];
+    rawSegs.forEach(s => {
+      const parts = clipSegmentAroundNogo(s[0], s[1], y, nogoC);
+      parts.forEach(p => { if (p[1] - p[0] > MIN_W) clipped.push(p); });
+    });
+    if (!clipped.length) return;
+    rungs.push({ y, segs: clipped });
+    clipped.forEach(s => addRoad([s[0], y], [s[1], y]));
   });
 
   // ---- Rails: connect consecutive rungs' left ends and right ends (perimeter)
@@ -1412,6 +1478,44 @@ function buildHaulRoads(gatesXY, polygon, zones, nogos) {
     if (insideSeg(aL, bL)) addRoad(aL, bL);
     if (insideSeg(aR, bR)) addRoad(aR, bR);
   }
+
+  // ---- Bypass arcs: for each no-go zone, generate detour road segments
+  // around the perimeter so trucks can navigate around the obstruction.
+  // An 8-point octagon at 1.25× the exclusion radius provides the detour
+  // path; arcs are connected to the nearest surviving rung endpoints on
+  // each side. Only points inside the polygon are kept.
+  const BYPASS_FACTOR = 1.25;
+  const ARC_PTS = 8;
+  nogoC.forEach(c => {
+    const br = c.r * BYPASS_FACTOR;
+    const arcPts = [];
+    for (let k = 0; k < ARC_PTS; k++) {
+      const angle = (2 * Math.PI * k) / ARC_PTS;
+      const px = c.x + br * Math.cos(angle);
+      const py = c.y + br * Math.sin(angle);
+      if (pip(px, py, polygon)) arcPts.push([+px.toFixed(3), +py.toFixed(3)]);
+    }
+    // connect consecutive arc points that don't cross any no-go zone
+    for (let k = 0; k < arcPts.length; k++) {
+      const next = arcPts[(k + 1) % arcPts.length];
+      if (segmentClearsNogo(arcPts[k], next, nogoC) && insideSeg(arcPts[k], next))
+        addRoad(arcPts[k], next);
+    }
+    // connect arc points to nearby rung endpoints for network connectivity
+    arcPts.forEach(ap => {
+      let bestD = Infinity, bestPt = null;
+      rungs.forEach(r => r.segs.forEach(s => {
+        for (const rx of [s[0], s[1]]) {
+          const pt = [rx, r.y];
+          const d = Math.hypot(ap[0] - pt[0], ap[1] - pt[1]);
+          if (d < bestD && segmentClearsNogo(ap, pt, nogoC) && insideSeg(ap, pt)) {
+            bestD = d; bestPt = pt;
+          }
+        }
+      }));
+      if (bestPt && bestD < br * 3) addRoad(ap, bestPt);
+    });
+  });
 
   // ---- Per-zone access point (on a rung) + nearest gate
   zones.forEach(z => {
@@ -1434,12 +1538,13 @@ function buildHaulRoads(gatesXY, polygon, zones, nogos) {
   });
 
   // ---- Gate spurs: each gate to its nearest point on the nearest rung
+  // Only add the spur if it doesn't cross any no-go zone.
   gatesXY.forEach(g => {
     let best = null, bd = Infinity;
     rungs.forEach(r => r.segs.forEach(s => {
       const q = _projSeg([g[0], g[1]], [s[0], r.y], [s[1], r.y]);
       const d = Math.hypot(q[0]-g[0], q[1]-g[1]);
-      if (d < bd) { bd = d; best = q; }
+      if (d < bd && segmentClearsNogo([g[0], g[1]], q, nogoC)) { bd = d; best = q; }
     }));
     if (best) addRoad([g[0], g[1]], best);
   });
@@ -1453,7 +1558,7 @@ function buildHaulRoads(gatesXY, polygon, zones, nogos) {
   if (!rungs.length) {
     // no shared boundaries (one zone per gate column) — link each gate to its
     // zones' access points directly so the network is still navigable
-    zones.forEach(z => { if (z.accessPt) addRoad(gatesXY[z.gateIdx], z.accessPt); });
+    zones.forEach(z => { if (z.accessPt && segmentClearsNogo(gatesXY[z.gateIdx], z.accessPt, nogoC)) addRoad(gatesXY[z.gateIdx], z.accessPt); });
   } else {
     zones.forEach(z => {
       if (z.accessPt && insideSeg(gatesXY[z.gateIdx], z.accessPt))
@@ -1601,6 +1706,8 @@ function laneRoute(pathways, from, to){
   const aFrom=access(from), aTo=access(to);
   const adj=new Map();
   const edge=(k1,k2)=>{ const w=_ld(nodes.get(k1),nodes.get(k2)); if(w<1e-9)return;
+    // reject edges crossing no-go zones in the Dijkstra fallback
+    if (!segmentClearsNogo(nodes.get(k1), nodes.get(k2), _activeNogos)) return;
     (adj.get(k1)||adj.set(k1,[]).get(k1)).push({k:k2,w});
     (adj.get(k2)||adj.set(k2,[]).get(k2)).push({k:k1,w}); };
   seg.forEach(s=>{
@@ -1634,10 +1741,13 @@ function laneRoute(pathways, from, to){
 //         + GAMMA * (deg - 2) * u_node^2 at intersections (deg >= 3)
 //    A*:    f = g + eps * h,  h = Euclidean distance to goal
 // ============================================================================
-function buildRoadGraph(pathways) {
+function buildRoadGraph(pathways, nogos) {
   if (!pathways || !pathways.length) return null;
+  const nogoArr = nogos || _activeNogos || [];
   let sig = pathways.length + ":";
   for (const s of pathways) sig += (s[0][0] + s[0][1] * 7 + s[1][0] * 13 + s[1][1] * 31).toFixed(2) + ";";
+  // include no-go zones in cache key so graph rebuilds when they change
+  nogoArr.forEach(c => { sig += "N" + c.x.toFixed(1) + "," + c.y.toFixed(1) + "," + c.r.toFixed(1) + ";"; });
   if (buildRoadGraph._cache && buildRoadGraph._cache.key === sig) return buildRoadGraph._cache.graph;
   const headway = typeof HEADWAY_L !== "undefined" ? HEADWAY_L : 3.75;
   const nodes = [], keyIdx = new Map();
@@ -1657,6 +1767,8 @@ function buildRoadGraph(pathways) {
   const addE = (a, b) => {
     const len = _ld(nodes[a], nodes[b]);
     if (len < 1e-9) return;
+    // reject edges whose segment passes through a no-go zone
+    if (!segmentClearsNogo(nodes[a], nodes[b], nogoArr)) return;
     const e = { id: edges.length, a, b, len, cap: Math.max(1, Math.floor(len / headway)) };
     edges.push(e); adj[a].push(e); adj[b].push(e);
   };
@@ -1793,8 +1905,10 @@ function routeOnGraph(graph, from, to, opts) {
   let bestN = -1, bestC = Infinity;
   goal.forEach((exitC, n) => { if (g[n] + exitC < bestC) { bestC = g[n] + exitC; bestN = n; } });
   // same-segment direct hop (both endpoints project between the same nodes)
+  // Block direct hop if the segment crosses a no-go zone.
   let direct = Infinity;
-  if (S.virt && T.virt && S.virt.segIdx === T.virt.segIdx)
+  if (S.virt && T.virt && S.virt.segIdx === T.virt.segIdx
+      && segmentClearsNogo(from, to, _activeNogos))
     direct = S.virt.off + _ld(S.virt.q, T.virt.q) + T.virt.off;
   if (bestN < 0 && direct === Infinity) return null;
   const pts = [], eids = [];
@@ -2747,8 +2861,11 @@ async function runPlan() {
   // links, a diversity penalty nudges each truck off its own previous path,
   // and the per-round decay models the rolling traffic window. Falls back to
   // the memoised plain laneRoute when the graph helpers are unavailable.
+  // Set module-level no-go zones so laneRoute and live re-routing can access
+  // them without threading the parameter through every intermediate caller.
+  _activeNogos = nogoLogical;
   const roadGraph = (typeof buildRoadGraph === "function" && typeof routeOnGraph === "function")
-    ? buildRoadGraph(pathways) : null;
+    ? buildRoadGraph(pathways, nogoLogical) : null;
   const flows = (roadGraph && roadGraph.edges.length) ? new Float32Array(roadGraph.edges.length) : null;
   // PAYLOAD-BATCHED SHUTTLE: a truck leaves the gate with a full load and places
   // as many dumps as that load allows (dumpsPerLoad, derived from its payload and
@@ -3270,10 +3387,29 @@ function moveTruckWithAvoidance(tr, ops, target, step) {
              aim[1] + ry * TRUCK_RAD_LOGICAL * 1.2];
     }
   }
+  // No-go zone avoidance: if the computed aim point would place the truck
+  // inside a no-go zone, push it radially OUT of the zone so collision
+  // avoidance deflections can never drive a truck into a hazard.
+  if (_activeNogos && _activeNogos.length) {
+    for (const c of _activeNogos) {
+      const dx = aim[0] - c.x, dy = aim[1] - c.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < c.r * 1.15) {  // 15% safety buffer
+        const pushR = c.r * 1.2;
+        if (dist > 1e-6) {
+          aim = [c.x + dx / dist * pushR, c.y + dy / dist * pushR];
+        } else {
+          // exactly on center — push in the direction of the target
+          aim = [c.x + pushR, c.y];
+        }
+      }
+    }
+  }
   return { wait, aim };
 }
 
 // Turning radius: clamp heading change to step / turnRadiusLogical, move along heading.
+// After moving, check if the truck entered a no-go zone and push it out.
 function moveTruckWithTurning(tr, aim, step) {
   const desired = Math.atan2(aim[1]-tr.y, aim[0]-tr.x);   // logical-space heading
   if (tr.heading === undefined) tr.heading = desired;
@@ -3285,6 +3421,27 @@ function moveTruckWithTurning(tr, aim, step) {
   tr.heading += Math.max(-maxTurnRate, Math.min(maxTurnRate, dH));
   tr.x += Math.cos(tr.heading) * step;
   tr.y += Math.sin(tr.heading) * step;
+  // Runtime no-go zone hard boundary: if the truck's new position is inside
+  // a no-go zone, push it radially to the perimeter with a safety margin.
+  // This is the absolute last-resort barrier — even if all path planning and
+  // collision avoidance missed it, the truck NEVER enters a no-go zone.
+  if (_activeNogos && _activeNogos.length) {
+    for (const c of _activeNogos) {
+      const dx = tr.x - c.x, dy = tr.y - c.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < c.r * 1.05) {  // 5% safety buffer on the hard boundary
+        const pushR = c.r * 1.10;
+        if (dist > 1e-6) {
+          tr.x = c.x + dx / dist * pushR;
+          tr.y = c.y + dy / dist * pushR;
+        } else {
+          tr.x = c.x + pushR;
+          tr.y = c.y;
+        }
+        tr.heading = Math.atan2(tr.y - c.y, tr.x - c.x);  // face outward
+      }
+    }
+  }
   if (!tr.trail) tr.trail = [];
   tr.trail.push([tr.x, tr.y]);
   if (tr.trail.length > 20) tr.trail.shift();

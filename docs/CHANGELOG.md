@@ -14,7 +14,35 @@
 
 ## Summary (latest changes)
 
+### 2026-06-19 — No-go zone path avoidance: trucks route around hazards (`site/indexV4.html`)
+
+No-go zones (water bodies, hazards) now fully block **path planning** in addition
+to dump placement. Previously, no-go zones only prevented dump spots from being
+placed inside them and excluded those cells from coverage — haul roads and truck
+paths could still cross straight through. Now:
+
+- **New helpers.** `segmentClearsNogo(A, B, nogos)` — reusable multi-sample test
+  that rejects any segment passing through a no-go circle.
+  `clipSegmentAroundNogo(x0, x1, y, nogos)` — clips a horizontal rung segment to
+  exclude portions inside no-go circles, splitting it into surviving sub-segments.
+- **Rungs clipped (`buildHaulRoads`).** Lateral roads along slab boundaries are
+  now split wherever they cross a no-go zone; segments inside the circle are
+  removed so no road traverses the hazard.
+- **Bypass arcs (`buildHaulRoads`).** For each no-go zone, an 8-point octagonal
+  detour path is generated at 1.25× the exclusion radius around the perimeter.
+  Arc points inside the polygon are connected to each other and to the nearest
+  surviving rung endpoints, giving the A\* router a way around the obstruction.
+- **Road graph filtering (`buildRoadGraph`).** Every edge in the A\* graph is
+  tested against no-go zones; edges whose segment passes through a no-go circle
+  are rejected at build time. The cache key includes no-go data so the graph
+  rebuilds when zones change.
+- **Module-level `_activeNogos`** set at plan time so `laneRoute` and live
+  re-routing (`rerouteNextLeg`) inherit no-go awareness without parameter
+  changes to every intermediate caller.
+- No-go zones were already drawn on the ops canvas (`drawNogo` at line ~4292).
+
 ### 2026-06-17 — GitHub Pages deployment: set deploy URL to `site/indexV4.html`
+
 
 Added `site/index.html` as a zero-delay meta-refresh redirect to `indexV4.html`.
 Updated all canonical URLs, `og:url` meta tags, and deploy links across
